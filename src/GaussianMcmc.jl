@@ -6,6 +6,11 @@ using Random
 
 include("fast_mvnormal.jl")
 
+function time_matrix(n::Integer, delta_t::Real)
+    t_range = range(0.0, length = n, step = delta_t)
+    transpose(t_range) .- t_range
+end
+
 # A collection of common parameters
 struct System
     λ::Float64
@@ -66,6 +71,8 @@ end
 function joint(system::System, t)
     MvNormal(corr_z(system, t))
 end
+
+System() = System(0.005, 0.25, 0.01, 0.01)
 
 function log_likelihood(system::System, t, signal::AbstractArray{T}, response::AbstractArray{T}) where {T <: Real}
     c_ss = corr_ss(system).(t)
@@ -128,7 +135,7 @@ function Base.iterate(iter::Mcmc, state = iter.initial)
             accepted += 1
             current_pot = new_pot
             acceptance_rate = accepted / rejected
-            if (accepted % iter.skip) == 0
+            if accepted == iter.skip + 1
                 return (new_conf, acceptance_rate), new_conf
             end
         else

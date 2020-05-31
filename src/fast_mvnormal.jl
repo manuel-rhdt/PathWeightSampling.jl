@@ -14,7 +14,7 @@ function FastMvNormal(cov::Matrix{Float64})
     FastMvNormal(vals, prec_U, logdetcov)
 end
 
-function logpdf(acc::FastMvNormal, vec::AbstractVector{Float64})
+function logpdf(acc::FastMvNormal, vec::DenseVector{Float64})
     if length(vec) != size(acc.prec_U, 1)
         throw(DimensionMismatch("array wrong dimensions"))
     end
@@ -32,6 +32,6 @@ function logpdf(acc::FastMvNormal, vec::AbstractVector{Float64})
     - 0.5 * (acc.logdetcov + maha)
 end
 
-function logpdf(acc::FastMvNormal, mat::AbstractMatrix{Float64})
+function logpdf(acc::FastMvNormal, mat::DenseMatrix{Float64})
     map(x->logpdf(acc, x), eachcol(mat))
 end
