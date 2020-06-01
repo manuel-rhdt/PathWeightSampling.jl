@@ -6,6 +6,8 @@ using Random
 
 include("fast_mvnormal.jl")
 
+import Base.similar
+
 function time_matrix(n::Integer, delta_t::Real)
     t_range = range(0.0, length = n, step = delta_t)
     transpose(t_range) .- t_range
@@ -105,13 +107,13 @@ abstract type SystemConfiguration end
 
 potential(conf::SystemConfiguration, prior, joint, θ::Float64) = potential(conf.state, prior, joint, θ)
 
-struct Mcmc{Prior,Joint}
+struct Mcmc{Conf <: SystemConfiguration,Prior,Joint}
     scale::Float64
     skip::Int64
     prior::Prior
     joint::Joint
     theta::Float64
-    initial::SystemConfiguration
+    initial::Conf
 end
 
 function Base.iterate(iter::Mcmc, state = iter.initial)
