@@ -101,13 +101,9 @@ function potential(conf::Array{Float64,1}, prior, joint, θ::Float64)
     -result
 end
 
-function propose_conf!(new_conf::T, previous_conf::T, scale::Float64) where {T <: AbstractArray{Float64,1}}
-    rand!(new_conf)
-    new_conf .-= 0.5
-    new_conf .*= scale
-    new_conf .+= previous_conf
-    nothing
-end
+abstract type SystemConfiguration end
+
+potential(conf::SystemConfiguration, prior, joint, θ::Float64) = potential(conf.state, prior, joint, θ)
 
 struct Mcmc{Prior,Joint}
     scale::Float64
@@ -115,7 +111,7 @@ struct Mcmc{Prior,Joint}
     prior::Prior
     joint::Joint
     theta::Float64
-    initial::Array{Float64,1}
+    initial::SystemConfiguration
 end
 
 function Base.iterate(iter::Mcmc, state = iter.initial)
@@ -150,23 +146,51 @@ function Base.iterate(iter::Mcmc, state = iter.initial)
 end
 
 
-function estimate_marginal_density(initial::AbstractArray{<:Real,1}, num_samples::Integer, system::System, t::Matrix; scale::Real, skip::Integer, θ::Real = 1.0)
-    samples = zeros((length(initial), num_samples))
+struct UniformProposal{T} <: SystemConfiguration
+    state::T
+end
+
+similar(conf::UniformProposal) = UniformProposal(similar(conf.state))
+
+function propose_conf!(new_conf::UniformProposal{T}, previous_conf::UniformProposal{T}, scale::Float64) where {T <: AbstractArray{Float64,1}}
+    rand!(new_conf.state)
+    new_conf.state .-= 0.5
+    new_conf.state .*= scale * 2.0
+    new_conf.state .+= previous_conf.state
+    nothing
+end
+
+struct GaussianProposal{T} <: SystemConfiguration
+    state::T
+end
+
+similar(conf::GaussianProposal) = GaussianProposal(similar(conf.state))
+
+function propose_conf!(new_conf::GaussianProposal{T}, previous_conf::GaussianProposal{T}, scale::Float64) where {T <: AbstractArray{Float64,1}}
+    rand!(MvNormal(length(previous_conf.state), scale), new_conf.state)
+    new_conf.state .+= previous_conf.state
+    nothing
+end
+
+
+
+function estimate_marginal_density(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, skip::Integer, θ::Real = 1.0)
+    samples = zeros((size(t, 1) * 2, num_samples))
     acceptance = zeros(num_samples)
     
     prior_distr = FastMvNormal(corr_ss(system).(t))
     joint_distr = FastMvNormal(corr_z(system, t))
     
-    mcmc = Mcmc(scale, skip, prior_distr, joint_distr, θ, copy(initial))
+    mcmc = Mcmc(scale, skip, prior_distr, joint_distr, θ, initial)
     
     for (index, (sample, rate)) in Iterators.enumerate(Iterators.take(mcmc, num_samples))
-        samples[:, index] = sample
+        samples[:, index] = sample.state
         acceptance[index] = rate
     end
     
-    n_dim = Int(length(initial) // 2)
+    n_dim = Int(size(t, 1))
     signal = @view samples[1:n_dim,:]
-    response = @view initial[n_dim + 1:end]
+    response = @view initial.state[n_dim + 1:end]
     log_likelihood(system, t, signal, response), acceptance
 end
 
@@ -174,6 +198,8 @@ end
 export System,
     corr_ss, corr_sx, corr_xs, corr_xx, corr_z,
     prior, marginal, joint, log_likelihood,
-    estimate_marginal_density
+    estimate_marginal_density,
+    time_matrix,
+    GaussianProposal, UniformProposal
 
 end # module
