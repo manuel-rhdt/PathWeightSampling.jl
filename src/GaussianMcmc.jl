@@ -170,7 +170,7 @@ function Base.iterate(iter::Mcmc, state = iter.initial)
         
         if rand() < exp(current_energy - new_energy)
             accepted += 1
-            current_pot = new_energy
+            current_energy = new_energy
             copy!(current_conf, new_conf)
         else
             rejected += 1
