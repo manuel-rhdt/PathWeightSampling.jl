@@ -3,6 +3,8 @@ module GaussianMcmc
 using LinearAlgebra
 using Distributions
 using Random
+import Base.copy
+import Base.copy!
 
 include("fast_mvnormal.jl")
 
@@ -74,9 +76,33 @@ function joint(system::System, t)
     MvNormal(corr_z(system, t))
 end
 
+function likelihood(system::System, t; signal::AbstractVector)
+    c_ss = corr_ss(system).(t)
+    c_sx = corr_sx(system).(t)
+    c_xs = corr_xs(system).(t)
+    c_xx = corr_xx(system).(t)
+        
+    regression_coef = c_sx * inv(c_ss)    
+    p_x_given_s_cov = LinearAlgebra.Symmetric(c_xx - regression_coef * c_xs)
+    
+    MvNormal(regression_coef * signal, p_x_given_s_cov)
+end
+
+function posterior(system::System, t; response::AbstractVector)
+    c_ss = corr_ss(system).(t)
+    c_sx = corr_sx(system).(t)
+    c_xs = corr_xs(system).(t)
+    c_xx = corr_xx(system).(t)
+        
+    regression_coef = c_xs * inv(c_xx)    
+    p_s_given_x_cov = LinearAlgebra.Symmetric(c_ss - regression_coef * c_sx)
+    
+    MvNormal(regression_coef * response, p_s_given_x_cov)
+end
+
 System() = System(0.005, 0.25, 0.01, 0.01)
 
-function log_likelihood(system::System, t, signal::AbstractArray{T}, response::AbstractArray{T}) where {T <: Real}
+function log_likelihood(system::System, t; signal::AbstractArray, response::AbstractArray)
     c_ss = corr_ss(system).(t)
     c_sx = corr_sx(system).(t)
     c_xs = corr_xs(system).(t)
@@ -90,8 +116,20 @@ function log_likelihood(system::System, t, signal::AbstractArray{T}, response::A
     logpdf(scaled_normal, response .- regression_coef * signal)
 end
 
+function log_joint(system::System, t; signal::AbstractArray, response::AbstractArray)
+    c_z = corr_z(system, t)
+    distr = MvNormal(c_z)
+    logpdf(distr, vcat(signal, response))
+end
 
-function potential(conf::Array{Float64,1}, prior, joint, θ::Float64)    
+function log_prior(system::System, t; signal::AbstractArray)
+    c_ss = corr_ss(system).(t)
+    distr = MvNormal(c_ss)
+    logpdf(distr, signal)
+end
+
+
+function energy(conf::Array{Float64,1}, prior, joint, θ::Float64)    
     result = 0.0
     n_dim = length(conf) ÷ 2
     if θ > 0.0
@@ -105,7 +143,7 @@ end
 
 abstract type SystemConfiguration end
 
-potential(conf::SystemConfiguration, prior, joint, θ::Float64) = potential(conf.state, prior, joint, θ)
+energy(conf::SystemConfiguration, prior, joint, θ::Float64) = energy(conf.state, prior, joint, θ)
 
 struct Mcmc{Conf <: SystemConfiguration,Prior,Joint}
     scale::Float64
@@ -117,42 +155,40 @@ struct Mcmc{Conf <: SystemConfiguration,Prior,Joint}
 end
 
 function Base.iterate(iter::Mcmc, state = iter.initial)
-    current_pot = potential(state, iter.prior, iter.joint, iter.theta)
+    current_energy = energy(state, iter.prior, iter.joint, iter.theta)
     
     accepted = 0
     rejected = 0
     
+    current_conf = copy(state)
     new_conf = similar(state)
     
     while true
-        propose_conf!(new_conf, state, iter.scale)
+        propose_conf!(new_conf, current_conf, iter.scale)
         
-        new_pot = potential(new_conf, iter.prior, iter.joint, iter.theta)
+        new_energy = energy(new_conf, iter.prior, iter.joint, iter.theta)
         
-        if rand() < exp(current_pot - new_pot)
+        if rand() < exp(current_energy - new_energy)
             accepted += 1
-            current_pot = new_pot
-            acceptance_rate = accepted / rejected
-            if accepted == iter.skip + 1
-                return (new_conf, acceptance_rate), new_conf
-            end
+            current_pot = new_energy
+            copy!(current_conf, new_conf)
         else
             rejected += 1
         end
         
-        if ((accepted + rejected) % (iter.skip * 100)) == 0
-            acceptance_rate = accepted / rejected
-            println("Slow convergence: acceptance rate $acceptance_rate = $accepted/$rejected")
+        if (accepted + rejected) == iter.skip + 1
+            acceptance_rate = accepted / (rejected + accepted)
+            return (current_conf, acceptance_rate), current_conf
         end
     end
 end
 
-
+copy(conf::T) where {T <: SystemConfiguration} = T(copy(conf.state))
+copy!(dest::T, src::T) where {T <: SystemConfiguration} = copy!(dest.state, src.state)
+similar(conf::T) where {T <: SystemConfiguration} = T(similar(conf.state))
 struct UniformProposal{T} <: SystemConfiguration
     state::T
 end
-
-similar(conf::UniformProposal) = UniformProposal(similar(conf.state))
 
 function propose_conf!(new_conf::UniformProposal{T}, previous_conf::UniformProposal{T}, scale::Float64) where {T <: AbstractArray{Float64,1}}
     rand!(new_conf.state)
@@ -166,41 +202,46 @@ struct GaussianProposal{T} <: SystemConfiguration
     state::T
 end
 
-similar(conf::GaussianProposal) = GaussianProposal(similar(conf.state))
-
 function propose_conf!(new_conf::GaussianProposal{T}, previous_conf::GaussianProposal{T}, scale::Float64) where {T <: AbstractArray{Float64,1}}
-    rand!(MvNormal(length(previous_conf.state), scale), new_conf.state)
-    new_conf.state .+= previous_conf.state
+    n_dim = length(previous_conf.state) ÷ 2
+    new_conf.state .= previous_conf.state
+    normal_distr = Normal(0, scale)
+    for i in 1:n_dim
+        new_conf.state[i] += rand(normal_distr)
+    end
     nothing
 end
 
 
-
-function estimate_marginal_density(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, skip::Integer, θ::Real = 1.0)
-    samples = zeros((size(t, 1) * 2, num_samples))
-    acceptance = zeros(num_samples)
-    
+function generate_mcmc_samples(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, skip::Integer, θ::Real = 1.0)
     prior_distr = FastMvNormal(corr_ss(system).(t))
     joint_distr = FastMvNormal(corr_z(system, t))
     
     mcmc = Mcmc(scale, skip, prior_distr, joint_distr, θ, initial)
-    
+
+    samples = zeros((size(t, 1) * 2, num_samples))
+    acceptance = zeros(num_samples)
     for (index, (sample, rate)) in Iterators.enumerate(Iterators.take(mcmc, num_samples))
         samples[:, index] = sample.state
         acceptance[index] = rate
     end
-    
+
+    samples, acceptance
+end
+
+function estimate_marginal_density(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, skip::Integer, θ::Real = 1.0)
+    samples, acceptance = generate_mcmc_samples(initial, num_samples, system, t, scale = scale, skip = skip, θ = θ)
     n_dim = Int(size(t, 1))
     signal = @view samples[1:n_dim,:]
     response = @view initial.state[n_dim + 1:end]
-    log_likelihood(system, t, signal, response), acceptance
+    log_likelihood(system, t, signal = signal, response = response), acceptance
 end
 
 
 export System,
     corr_ss, corr_sx, corr_xs, corr_xx, corr_z,
-    prior, marginal, joint, log_likelihood,
-    estimate_marginal_density,
+    prior, marginal, joint, likelihood, posterior, log_likelihood, log_joint, log_prior,
+    estimate_marginal_density, generate_mcmc_samples,
     time_matrix,
     GaussianProposal, UniformProposal
 
