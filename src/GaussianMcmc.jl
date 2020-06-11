@@ -229,6 +229,53 @@ function generate_mcmc_samples(initial::SystemConfiguration, num_samples::Intege
     samples, acceptance
 end
 
+
+mutable struct ThermodynamicIntegral
+    system::System
+    t::Matrix
+    initial::SystemConfiguration
+    scale::Real
+    skip::Integer
+    samples::Array{Float64,3}
+    acceptance_rates::Array{Float64,2}
+    θ::Vector{Float64}
+end
+
+function ThermodynamicIntegral(system::System, t::Matrix, initial::SystemConfiguration, scale::Real, skip::Integer)
+    ThermodynamicIntegral(system, t, initial, scale, skip, Array{Float64}(undef, (0, 0, 0)), Array{Float64}(undef, (0, 0)), Vector{Float64}(undef, 0))
+end
+
+function perform(integral::ThermodynamicIntegral, num_samples::Integer, θ::Real)
+    perform(integral, num_samples, [θ])
+end
+
+function perform(integral::ThermodynamicIntegral, num_samples::Integer, θ::AbstractVector{<:Real})
+    samples = []
+    acceptance = []
+    for θ in θ
+        s, a = generate_mcmc_samples(integral.initial, num_samples, integral.system, integral.t, scale = integral.scale, skip = integral.skip, θ = θ)
+        push!(samples, s)
+        push!(acceptance, a)
+    end
+    integral.samples = cat(samples..., dims = 3)
+    integral.acceptance_rates = cat(acceptance..., dims = 2)
+    integral.θ = collect(θ)
+    nothing
+end
+
+function potential(integral::ThermodynamicIntegral)
+    n_dim = size(integral.t, 1)
+    signal = @view integral.samples[1:n_dim,:,:]
+    response = @view integral.samples[n_dim + 1:end, 1,:]
+
+    ll = map(integral.θ, eachslice(signal, dims = 3), eachcol(response)) do θ, sig, res
+        log_likelihood(integral.system, integral.t, signal = sig, response = res)
+    end
+
+    hcat(ll...)
+end
+
+
 function estimate_marginal_density(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, skip::Integer, θ::Real = 1.0)
     samples, acceptance = generate_mcmc_samples(initial, num_samples, system, t, scale = scale, skip = skip, θ = θ)
     n_dim = Int(size(t, 1))
@@ -243,6 +290,7 @@ export System,
     prior, marginal, joint, likelihood, posterior, log_likelihood, log_joint, log_prior,
     estimate_marginal_density, generate_mcmc_samples,
     time_matrix,
-    GaussianProposal, UniformProposal
+    GaussianProposal, UniformProposal,
+    ThermodynamicIntegral, perform, potential
 
 end # module
