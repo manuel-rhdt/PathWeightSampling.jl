@@ -128,6 +128,9 @@ function log_prior(system::System, t; signal::AbstractArray)
     logpdf(distr, signal)
 end
 
+function energy(conf::Array{Float64,1}, joint)
+    -logpdf(joint, conf)
+end
 
 function energy(conf::Array{Float64,1}, prior, joint, θ::Float64)    
     result = 0.0
@@ -143,6 +146,7 @@ end
 
 abstract type SystemConfiguration end
 
+energy(conf::SystemConfiguration, joint) = energy(conf.state, joint)
 energy(conf::SystemConfiguration, prior, joint, θ::Float64) = energy(conf.state, prior, joint, θ)
 
 struct Mcmc{Conf <: SystemConfiguration,Prior,Joint}
@@ -291,6 +295,9 @@ export System,
     estimate_marginal_density, generate_mcmc_samples,
     time_matrix,
     GaussianProposal, UniformProposal,
-    ThermodynamicIntegral, perform, potential
+    ThermodynamicIntegral, perform, potential,
+    WangLandau
+
+include("wang_landau.jl")
 
 end # module
