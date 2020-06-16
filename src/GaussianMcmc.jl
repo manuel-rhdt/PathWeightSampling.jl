@@ -23,6 +23,8 @@ struct System
     μ::Float64
 end
 
+Base.broadcastable(system::System) = Ref(system)
+
 function corr_ss(system::System)
     (t)->system.κ / system.λ * exp(-abs(t) * system.λ)
 end
