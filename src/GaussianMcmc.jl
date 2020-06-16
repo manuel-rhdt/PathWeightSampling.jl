@@ -298,7 +298,7 @@ export System,
     time_matrix,
     GaussianProposal, UniformProposal,
     ThermodynamicIntegral, perform, potential,
-    WangLandau
+    WangLandau, flatness
 
 include("wang_landau.jl")
 

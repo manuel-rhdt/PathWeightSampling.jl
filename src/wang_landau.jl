@@ -1,6 +1,5 @@
-using Printf
-
-is_flat(histogram::Vector, flatness::Float64) = minimum(histogram) >= flatness * mean(histogram)
+flatness(histogram::Vector{<:Real}) = minimum(histogram) / mean(histogram)
+is_flat(histogram::Vector{<:Real}, threshhold::Real) = flatness(histogram) >= threshhold
 
 mutable struct WangLandau{Conf <: SystemConfiguration}
     system::System
