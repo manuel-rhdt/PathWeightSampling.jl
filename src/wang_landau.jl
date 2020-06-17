@@ -19,9 +19,9 @@ function WangLandau(system::System,
         f_param::Real, 
         scale::Real,
         initial::SystemConfiguration, 
-        energy_bins::Vector{<:Real}, 
+        energy_bins::Vector{<:Real}; 
         ϵ::Real = 1e-4, 
-        skip::Integer = 100_000
+        skip::Integer = 1_000_000
     )
     num_bins = length(energy_bins) - 1
     WangLandau(system, t, f_param, zeros(num_bins), zeros(UInt64, num_bins), scale, initial, energy_bins, skip, ϵ)

@@ -301,5 +301,6 @@ export System,
     WangLandau, flatness
 
 include("wang_landau.jl")
+include("comparison.jl")
 
 end # module
