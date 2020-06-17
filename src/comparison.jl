@@ -10,11 +10,13 @@ function estimate_marginal_entropy(system::System, t::Matrix{<:Real}, num_respon
         new_data = (
             estimate=estimate,
             state=initial,
+            system=system,
+            t_matrix=t,
             extra_data=additional_data,
             elapsed_time=elapsed,
             bytes=bytes,
             gctime=gctime,
-            memallocs=memallocs
+            memallocs=memallocs,
         )
         push!(data, new_data)
     end
@@ -65,15 +67,35 @@ function estimate_marginal_density(::Val{:WangLandau}, system::System, t::Matrix
 
     result = (
         acceptance=acceptance,
-        histograms=hcat(hist_list..., wl.histogram),
-        entropies=hcat(entr_list..., wl.entropy),
-        configurations=vcat(conf_list..., wl.current_conf),
-        energy_bins=energy_bins,
-        wl=wl,
+        histograms=hcat(hist_list...),
+        entropies=hcat(entr_list...),
+        configurations=vcat(conf_list...),
+        wang_landau=wl,
     )
 
     log_dos = wl.entropy .- logsumexp(wl.entropy .+ log.(diff(energy_bins)))
     estimate = logsumexp(-energies .+ log_dos .+ log.(diff(energy_bins)))
 
     (estimate, result)
+end
+
+function estimate_marginal_density(::Val{:ThermodynamicIntegration}, system::System, t::Matrix{<:Real}, initial::Vector{<:Real}; scale::Real, num_samples::Integer, skip::Integer)
+    θ = rand()
+    initial = GaussianProposal(initial)
+    samples, acceptance = generate_mcmc_samples(initial, num_samples, system, t; scale = scale, skip = skip, θ = θ)
+
+    n_dim = size(t, 1)
+
+    signal = @view samples[1:n_dim,:]
+    response = @view samples[n_dim + 1:end, 1]
+
+    ll = log_likelihood(system, t, signal=signal, response=response)
+
+    extra_info = (
+        θ=θ,
+        samples=samples,
+        acceptance=acceptance
+    )
+
+    (mean(ll), extra_info)
 end
