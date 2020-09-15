@@ -1,22 +1,32 @@
 using StatsFuns
 
 
+struct DensityEstimationResult{T}
+    estimate::Float64
+    initial_state::Vector{Float64}
+    system::System
+    t_matrix::Matrix{Float64}
+    extra_data::T
+    elapsed_time::Float64
+    allocated_bytes::Integer
+end
+
+
 function estimate_marginal_entropy(system::System, t::Matrix{<:Real}, num_responses::Integer, ::Val{Strategy}; kwargs...) where Strategy
     joint_dist = joint(system, t)
     data = []
     for i in 1:num_responses
         initial = rand(joint_dist)
-        (estimate, additional_data), elapsed, bytes, gctime, memallocs = @timed estimate_marginal_density(Val(Strategy), system, t, initial; kwargs...)
-        new_data = (
-            estimate=estimate,
-            state=initial,
-            system=system,
-            t_matrix=t,
-            extra_data=additional_data,
-            elapsed_time=elapsed,
-            bytes=bytes,
-            gctime=gctime,
-            memallocs=memallocs,
+        (estimate_res, additional_data), elapsed, bytes, gctime, memallocs = @timed estimate_marginal_density(Val(Strategy), system, t, initial; kwargs...)
+        
+        new_data = DensityEstimationResult(
+            estimate_res,
+            initial,
+            system,
+            t,
+            additional_data,
+            elapsed,
+            bytes
         )
         push!(data, new_data)
     end
@@ -24,9 +34,9 @@ function estimate_marginal_entropy(system::System, t::Matrix{<:Real}, num_respon
 end
 
 signal_part(conf::GaussianMcmc.SystemConfiguration) = conf.state[begin:length(conf.state) ÷ 2]
-response_part(conf::GaussianMcmc.SystemConfiguration) = conf.state[length(conf.state) ÷ 2 + 1 : end]
+response_part(conf::GaussianMcmc.SystemConfiguration) = conf.state[length(conf.state) ÷ 2 + 1:end]
 
-function dos_distributions(system::System, t::Matrix{<:Real}, initial=nothing)
+function dos_distributions(system::System, t::Matrix{<:Real}, initial = nothing)
     if initial === nothing
         initial = GaussianProposal(rand(joint(system, t)))
     else 
@@ -37,7 +47,7 @@ function dos_distributions(system::System, t::Matrix{<:Real}, initial=nothing)
     signals = rand(prior(system, t), 100_000);
 
     samples = hcat(vcat.(eachcol(signals), Ref(response))...)
-    sample_energies = -log_likelihood(system, t, signal=signals, response=response)
+    sample_energies = -log_likelihood(system, t, signal = signals, response = response)
 
     sort(sample_energies)
 end
@@ -46,11 +56,11 @@ end
 function estimate_marginal_density(::Val{:WangLandau}, system::System, t::Matrix{<:Real}, initial::Vector{<:Real}; scale::Real, num_bins::Integer, ϵ::Real)
     dos_range = dos_distributions(system, t, initial)
 
-    energy_bins = collect(range(dos_range[begin] * 1.0, dos_range[end], length=num_bins+1));
-    energies = (energy_bins[begin+1:end] + energy_bins[begin:end-1]) ./ 2
+    energy_bins = collect(range(dos_range[begin] * 1.0, dos_range[end], length = num_bins + 1));
+    energies = (energy_bins[begin + 1:end] + energy_bins[begin:end - 1]) ./ 2
     
     initial = GaussianProposal(initial)
-    wl = WangLandau(system, t, 1.0, scale, initial, energy_bins, ϵ=ϵ)
+    wl = WangLandau(system, t, 1.0, scale, initial, energy_bins, ϵ = ϵ)
 
     acceptance = []
     hist_list = []
@@ -65,13 +75,11 @@ function estimate_marginal_density(::Val{:WangLandau}, system::System, t::Matrix
         println("ratio=$ratio, f=$(wl.f_param), flatness=$(flatness(wl.histogram))")
     end
 
-    result = (
-        acceptance=acceptance,
-        histograms=hcat(hist_list...),
-        entropies=hcat(entr_list...),
-        configurations=vcat(conf_list...),
-        wang_landau=wl,
-    )
+    result = (acceptance = acceptance,
+        histograms = hcat(hist_list...),
+        entropies = hcat(entr_list...),
+        configurations = vcat(conf_list...),
+        wang_landau = wl,)
 
     log_dos = wl.entropy .- logsumexp(wl.entropy .+ log.(diff(energy_bins)))
     estimate = logsumexp(-energies .+ log_dos .+ log.(diff(energy_bins)))
@@ -89,13 +97,11 @@ function estimate_marginal_density(::Val{:ThermodynamicIntegration}, system::Sys
     signal = @view samples[1:n_dim,:]
     response = @view samples[n_dim + 1:end, 1]
 
-    ll = log_likelihood(system, t, signal=signal, response=response)
+    ll = log_likelihood(system, t, signal = signal, response = response)
 
-    extra_info = (
-        θ=θ,
-        samples=samples,
-        acceptance=acceptance
-    )
+    extra_info = (θ = θ,
+        samples = samples,
+        acceptance = acceptance)
 
     (mean(ll), extra_info)
 end
