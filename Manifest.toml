@@ -344,6 +344,12 @@ git-tree-sha1 = "acebe244d53ee1b461970f8910c235b259e772ef"
 uuid = "9aa1b823-49e4-5ca5-8b0f-3971ec8bab6a"
 version = "0.3.2"
 
+[[FastGaussQuadrature]]
+deps = ["LinearAlgebra", "SpecialFunctions"]
+git-tree-sha1 = "3c73b2165822a0e1c4cc576d925c47d50be55c3d"
+uuid = "442a2c76-b920-505d-bb47-c5924d526838"
+version = "0.4.3"
+
 [[FileIO]]
 deps = ["Pkg"]
 git-tree-sha1 = "992b4aeb62f99b69fcf0cb2085094494cc05dfb3"

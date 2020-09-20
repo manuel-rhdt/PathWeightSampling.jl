@@ -43,15 +43,38 @@ function generate_mcmc_samples(initial::State, skip::Int, num_samples::Int) wher
     samples, acceptance
 end
 
-
 test_conf = StochasticConfiguration(sn, dist, response, signal, 1.0)
 sampler = MetropolisSampler(0, 10000, energy(test_conf), test_conf)
 
 samples, acceptance = generate_mcmc_samples(test_conf, 100, 1000)
-p = histogram([energy(s, θ=1.0) for s in samples])
+p = plot([energy(s, θ=1.0) for s in samples])
 
+using Statistics
+using FastGaussQuadrature
+using LinearAlgebra
 
-energy(test_conf, θ=1.0)
+num_samples = 500
+nodes, weights = gausslegendre(16)
+θrange = 0.5 .* nodes .+ 0.5
+initial = generate_initial_configuration(sn, rn)
+
+energies = Array{Float64}(undef, num_samples, length(θrange))
+accept = Array{Float64}(undef, num_samples, length(θrange))
+Threads.@threads for i in eachindex(θrange)
+    init = with_interaction(initial, θrange[i])
+    local samples, acceptance = generate_mcmc_samples(init, 100, num_samples)
+    for j in eachindex(samples)
+        energies[j, i] = energy(samples[j], θ=1.0)
+    end
+    accept[:, i] = acceptance
+end
+
+histogram(energies)
+plot(accept)
+
+plot(θrange, mean(energies, dims=1)', yerr=std(energies, dims=1)' ./ sqrt(size(energies, 1)))
+
+dot(weights, 0.5 .* vec(mean(energies, dims=1)))
 
 function iterate_plot()
     (new_state, rate), _ = iterate(sampler)
