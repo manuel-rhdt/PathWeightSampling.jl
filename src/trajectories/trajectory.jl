@@ -33,14 +33,19 @@ end
 
 Base.eltype(::Type{Trajectory{uType,tType}}) where {uType,tType} = Tuple{tType, Vector{uType}}
 
-struct LockstepIter{uType,tType}
+struct MergeTrajectory{uType,tType}
+    syms::Vector{Symbol}
     first::Trajectory{uType,tType}
     second::Trajectory{uType,tType}
 end
 
-Base.iterate(iter::LockstepIter{uType}) where uType = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin]), uType[]))
+merge(traj1::Trajectory{uType,tType}, traj2::Trajectory{uType,tType}) where {uType,tType} = MergeTrajectory(vcat(traj1.syms, traj2.syms), traj1, traj2)
 
-function Base.iterate(iter::LockstepIter{uType}, (i, j, t, u)::Tuple{Int64, Int64, Float64, Vector{uType}}) where uType
+Base.eltype(::Type{MergeTrajectory{uType, tType}}) where {uType,tType} = Tuple{tType, Vector{uType}}
+
+Base.iterate(iter::MergeTrajectory{uType}) where uType = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin]), uType[]))
+
+function Base.iterate(iter::MergeTrajectory{uType}, (i, j, t, u)::Tuple{Int64, Int64, Float64, Vector{uType}}) where uType
     if i > size(iter.first.t, 1) && j > size(iter.second.t, 1)
         return nothing
     end

@@ -35,7 +35,7 @@ function propose!(new_conf::StochasticConfiguration, old_conf::StochasticConfigu
 end
 
 function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_system::ReactionSystem)
-    num_steps = size(old_traj, 2)
+    num_steps = length(old_traj)
     branch_point = rand(2:num_steps - 1)
 
     branch_time = old_traj.t[branch_point]
@@ -54,7 +54,7 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_system:
 end
 
 function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_system::ReactionSystem)
-    num_steps = size(old_traj, 2)
+    num_steps = length(old_traj)
     branch_point = rand(2:num_steps - 1)
 
     branch_time = old_traj.t[branch_point]
@@ -76,23 +76,31 @@ function energy(conf::StochasticConfiguration; θ=conf.θ)
     signal = conf.signal
     response = conf.response
 
-    joint = LockstepIter(signal, response)
+    joint = merge(signal, response)
 
     -θ * logpdf(conf.distribution, joint)
 end
 
-function generate_initial_configuration(sn::ReactionSystem, rn::ReactionSystem, θ=1.0)
-    joint_network = merge(sn, rn)
+struct ConfigurationGenerator
+    signal_network::ReactionSystem
+    response_network::ReactionSystem
+    joint_network::ReactionSystem
+    distribution::TrajectoryDistribution
+end
 
+function configuration_generator(sn::ReactionSystem, rn::ReactionSystem)
+    @time ConfigurationGenerator(sn, rn, merge(sn, rn), distribution(rn))
+end
+
+function generate_configuration(gen::ConfigurationGenerator, θ=1.0)
     u0 = [50, 50]
     tspan = (0., 500.)
-    discrete_prob = DiscreteProblem(joint_network, u0, tspan)
-    jump_prob = JumpProblem(joint_network, discrete_prob, Direct())
+    discrete_prob = DiscreteProblem(gen.joint_network, u0, tspan)
+    jump_prob = JumpProblem(gen.joint_network, discrete_prob, Direct())
     sol = solve(jump_prob, SSAStepper())
 
-    dist = distribution(rn)
     response = trajectory(sol, [:X])
     signal = trajectory(sol, [:S])
 
-    StochasticConfiguration(sn, dist, response, signal, θ)
+    StochasticConfiguration(gen.signal_network, gen.distribution, response, signal, θ)
 end

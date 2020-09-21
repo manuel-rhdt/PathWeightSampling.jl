@@ -49,6 +49,8 @@ end
 
 # parallel Monte-Carlo computation of the marginal probability for the given configuration
 function log_marginal(initial::StochasticConfiguration, num_samples::Int, integration_nodes::Int)
+    # Generate the array of θ values for which we want to simulate the system.
+    # We use Gauss-Legendre quadrature which predetermines the choice of θ.
     nodes, weights = gausslegendre(integration_nodes)
     θrange = 0.5 .* nodes .+ 0.5
 
@@ -62,5 +64,31 @@ function log_marginal(initial::StochasticConfiguration, num_samples::Int, integr
         end
     end
 
+    # Perform the quadrature integral. The factor 0.5 comes from rescaling the integration limits
+    # from [-1,1] to [0,1].
     dot(weights, 0.5 .* vec(mean(energies, dims=1)))
+end
+
+function marginal_entropy(sn::ReactionSystem, rn::ReactionSystem, num_configurations::Int, num_samples::Int, integration_nodes::Int)
+    generator = configuration_generator(sn, rn)
+    result = zeros(Float64, num_configurations)
+    for i in 1:num_configurations
+        conf = generate_configuration(generator)
+        result[i] = log_marginal(conf, num_samples, integration_nodes)
+    end
+
+    result
+end
+
+
+function conditional_entropy(sn::ReactionSystem, rn::ReactionSystem, num_configurations::Int)
+    generator = configuration_generator(sn, rn)
+    result = zeros(Float64, num_configurations)
+    # Threads.@threads 
+    for i in 1:num_configurations
+        conf = generate_configuration(generator)
+        result[i] = -energy(conf, θ=1.0)
+    end
+
+    result
 end
