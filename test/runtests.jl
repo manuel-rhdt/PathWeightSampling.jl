@@ -33,3 +33,5 @@ test_marginal_dens()
 test_distributions()
 
 end
+
+include("trajectories.jl")

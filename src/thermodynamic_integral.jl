@@ -1,3 +1,7 @@
+using Statistics
+using FastGaussQuadrature
+using LinearAlgebra
+
 mutable struct MetropolisSampler{S}
     burn_in::Int
     skip::Int
@@ -5,7 +9,7 @@ mutable struct MetropolisSampler{S}
     state::S
 end
 
-function Base.iterate(iter::MetropolisSampler, state = nothing)    
+function Base.iterate(iter::MetropolisSampler, state=nothing)    
     accepted = 0
     rejected = 0
     
@@ -43,45 +47,20 @@ function generate_mcmc_samples(initial::State, skip::Int, num_samples::Int) wher
     samples, acceptance
 end
 
-test_conf = StochasticConfiguration(sn, dist, response, signal, 1.0)
-sampler = MetropolisSampler(0, 10000, energy(test_conf), test_conf)
+# parallel Monte-Carlo computation of the marginal probability for the given configuration
+function log_marginal(initial::StochasticConfiguration, num_samples::Int, integration_nodes::Int)
+    nodes, weights = gausslegendre(integration_nodes)
+    θrange = 0.5 .* nodes .+ 0.5
 
-samples, acceptance = generate_mcmc_samples(test_conf, 100, 1000)
-p = plot([energy(s, θ=1.0) for s in samples])
-
-using Statistics
-using FastGaussQuadrature
-using LinearAlgebra
-
-num_samples = 500
-nodes, weights = gausslegendre(16)
-θrange = 0.5 .* nodes .+ 0.5
-initial = generate_initial_configuration(sn, rn)
-
-energies = Array{Float64}(undef, num_samples, length(θrange))
-accept = Array{Float64}(undef, num_samples, length(θrange))
-Threads.@threads for i in eachindex(θrange)
-    init = with_interaction(initial, θrange[i])
-    local samples, acceptance = generate_mcmc_samples(init, 100, num_samples)
-    for j in eachindex(samples)
-        energies[j, i] = energy(samples[j], θ=1.0)
+    energies = Array{Float64}(undef, num_samples, length(θrange))
+    accept = Array{Float64}(undef, num_samples, length(θrange))
+    Threads.@threads for i in eachindex(θrange)
+        init = with_interaction(initial, θrange[i])
+        samples, acceptance = generate_mcmc_samples(init, 50, num_samples)
+        for j in eachindex(samples)
+            energies[j, i] = energy(samples[j], θ=1.0)
+        end
     end
-    accept[:, i] = acceptance
+
+    dot(weights, 0.5 .* vec(mean(energies, dims=1)))
 end
-
-histogram(energies)
-plot(accept)
-
-plot(θrange, mean(energies, dims=1)', yerr=std(energies, dims=1)' ./ sqrt(size(energies, 1)))
-
-dot(weights, 0.5 .* vec(mean(energies, dims=1)))
-
-function iterate_plot()
-    (new_state, rate), _ = iterate(sampler)
-    @show rate, energy(new_state, θ=1.0)
-    p = plot(new_state.signal)
-    plot!(p, test_conf.signal)
-    plot!(p, new_state.response)
-end
-
-iterate_plot()

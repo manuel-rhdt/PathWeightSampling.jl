@@ -303,4 +303,13 @@ export System,
 include("wang_landau.jl")
 include("comparison.jl")
 
+module Trajectories
+
+include("trajectory_moves.jl")
+include("thermodynamic_integral.jl")
+
+export Trajectory
+
+end
+
 end # module

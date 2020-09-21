@@ -1,6 +1,6 @@
 using DifferentialEquations
 
-mutable struct Trajectory{uType,tType} <: AbstractArray{uType, 2}
+mutable struct Trajectory{uType,tType}
     syms::Vector{Symbol}
     t::Vector{tType}
     u::Array{uType,2}
@@ -21,11 +21,19 @@ function trajectory(sol::ODESolution, syms::Vector{Symbol})
     Trajectory(syms, sol.t, sol[idxs, :])
 end
 
-Base.size(traj::Trajectory) = size(traj.u)
-
-Base.IndexStyle(::Trajectory) = IndexLinear()
-
 Base.getindex(traj::Trajectory, i::Int) = getindex(traj.u, i)
+
+Base.length(traj::Trajectory) = size(traj.u, 2)
+
+function Base.iterate(traj::Trajectory, index=1)
+    if index > length(traj)
+        return nothing
+    end
+
+    traj.t[index], traj.u[:, index]
+end
+
+Base.eltype(::Type{Trajectory{uType,tType}}) where {uType,tType} = Tuple{tType, Vector{uType}}
 
 struct LockstepIter{uType,tType}
     first::Trajectory{uType,tType}

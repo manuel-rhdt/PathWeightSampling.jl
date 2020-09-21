@@ -106,7 +106,3 @@ function generate_initial_configuration(sn::ReactionSystem, rn::ReactionSystem, 
 
     StochasticConfiguration(sn, dist, response, signal, θ)
 end
-
-conf = generate_initial_configuration(sn, rn, 0.0)
-
-with_interaction(conf, 1.0)
