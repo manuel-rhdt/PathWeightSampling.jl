@@ -21,8 +21,6 @@ function trajectory(sol::ODESolution, syms::Vector{Symbol})
     Trajectory(syms, sol.t, sol[idxs, :])
 end
 
-Base.getindex(traj::Trajectory, i::Int) = getindex(traj.u, i)
-
 Base.length(traj::Trajectory) = size(traj.u, 2)
 
 function Base.iterate(traj::Trajectory, index=1)
@@ -30,7 +28,7 @@ function Base.iterate(traj::Trajectory, index=1)
         return nothing
     end
 
-    traj.t[index], traj.u[:, index]
+    (traj.t[index], traj.u[:, index]), index + 1
 end
 
 Base.eltype(::Type{Trajectory{uType,tType}}) where {uType,tType} = Tuple{tType, Vector{uType}}

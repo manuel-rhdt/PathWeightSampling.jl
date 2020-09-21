@@ -7,16 +7,6 @@ using Statistics
 include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
 
-sn = @reaction_network begin
-    0.005, S --> ∅
-    0.25, ∅ --> S
-end
-
-rn = @reaction_network begin
-    0.01, S --> X + S
-    0.01, X --> ∅ 
-end
-
 struct StochasticConfiguration{uType,tType}
     jump_system::ReactionSystem
     distribution::TrajectoryDistribution
