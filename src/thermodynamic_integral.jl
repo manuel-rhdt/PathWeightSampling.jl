@@ -84,8 +84,7 @@ end
 function conditional_entropy(sn::ReactionSystem, rn::ReactionSystem, num_configurations::Int)
     generator = configuration_generator(sn, rn)
     result = zeros(Float64, num_configurations)
-    # Threads.@threads 
-    for i in 1:num_configurations
+    Threads.@threads for i in 1:num_configurations
         conf = generate_configuration(generator)
         result[i] = -energy(conf, θ=1.0)
     end

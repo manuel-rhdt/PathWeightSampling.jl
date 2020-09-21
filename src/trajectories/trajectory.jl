@@ -39,7 +39,7 @@ struct MergeTrajectory{uType,tType}
     second::Trajectory{uType,tType}
 end
 
-merge(traj1::Trajectory{uType,tType}, traj2::Trajectory{uType,tType}) where {uType,tType} = MergeTrajectory(vcat(traj1.syms, traj2.syms), traj1, traj2)
+Base.merge(traj1::Trajectory{uType,tType}, traj2::Trajectory{uType,tType}) where {uType,tType} = MergeTrajectory(vcat(traj1.syms, traj2.syms), traj1, traj2)
 
 Base.eltype(::Type{MergeTrajectory{uType, tType}}) where {uType,tType} = Tuple{tType, Vector{uType}}
 

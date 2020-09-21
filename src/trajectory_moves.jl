@@ -7,9 +7,9 @@ using Statistics
 include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
 
-struct StochasticConfiguration{uType,tType}
+struct StochasticConfiguration{uType,tType,TRate, Rates}
     jump_system::ReactionSystem
-    distribution::TrajectoryDistribution
+    distribution::TrajectoryDistribution{TRate,Rates}
     response::Trajectory{uType,tType}
     signal::Trajectory{uType,tType}
     # interaction parameter
@@ -81,15 +81,15 @@ function energy(conf::StochasticConfiguration; θ=conf.θ)
     -θ * logpdf(conf.distribution, joint)
 end
 
-struct ConfigurationGenerator
+struct ConfigurationGenerator{TRate, Rates}
     signal_network::ReactionSystem
     response_network::ReactionSystem
     joint_network::ReactionSystem
-    distribution::TrajectoryDistribution
+    distribution::TrajectoryDistribution{TRate, Rates}
 end
 
 function configuration_generator(sn::ReactionSystem, rn::ReactionSystem)
-    @time ConfigurationGenerator(sn, rn, merge(sn, rn), distribution(rn))
+    ConfigurationGenerator(sn, rn, Base.merge(sn, rn), distribution(rn))
 end
 
 function generate_configuration(gen::ConfigurationGenerator, θ=1.0)
