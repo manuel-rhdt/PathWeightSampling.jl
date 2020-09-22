@@ -1,51 +1,75 @@
 using DifferentialEquations
 
-mutable struct Trajectory{uType,tType}
-    syms::Vector{Symbol}
+abstract type AbstractTrajectory{uType,tType,N} end
+
+mutable struct Trajectory{uType,tType,N} <: AbstractTrajectory{uType,tType,N}
+    syms::SVector{N, Symbol}
     t::Vector{tType}
-    u::Array{uType,2}
+    u::Vector{SVector{N, uType}}
 end
 
 Base.copy(traj::Trajectory) = Trajectory(copy(traj.syms), copy(traj.t), copy(traj.u))
 
-function trajectory(sol::ODESolution)
-    Trajectory(sol.prob.f.syms, sol.t, sol[:, :])
+function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}) where {T, N, M}
+    variables = species(sol.prob.f.f)
+    symbols = SVector{M}([v.name for v in variables]::Vector{Symbol})
+    Trajectory(symbols, sol.t, sol.u)
 end
 
-function trajectory(sol::ODESolution, syms::Vector{Symbol})
-    idxs = UInt64[]
-    for sym in syms
-        i = findfirst(isequal(sym), sol.prob.f.syms)
+mutable struct PartialTrajectory{uType,tType,N,NPart} <: AbstractTrajectory{uType,tType,NPart}
+    syms::SVector{NPart, Symbol}
+    idxs::SVector{NPart, Int}
+    t::Vector{tType}
+    u::Vector{SVector{N, uType}}
+end
+
+Base.copy(traj::PartialTrajectory) = PartialTrajectory(traj.syms,traj.idxs, copy(traj.t), copy(traj.u))
+
+function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}, syms::SVector{NPart, Symbol}) where {T, N, M, NPart}
+    idxs = Int[]
+
+    variables = species(sol.prob.f.f)
+    symbols = SVector{M}([v.name for v in variables]::Vector{Symbol})
+    for (j, sym) in enumerate(syms)
+        i = findfirst(isequal(sym), symbols)
         push!(idxs, i)
     end
-    Trajectory(syms, sol.t, sol[idxs, :])
+
+    idxs = SVector{NPart, Int}(idxs)
+    PartialTrajectory(syms, idxs, sol.t, sol.u)
 end
 
-Base.length(traj::Trajectory) = size(traj.u, 2)
+Base.length(traj::AbstractTrajectory) = length(traj.u)
 
 function Base.iterate(traj::Trajectory, index=1)
     if index > length(traj)
         return nothing
     end
 
-    (traj.t[index], traj.u[:, index]), index + 1
+    (traj.u[index], traj.t[index]), index + 1
 end
 
-Base.eltype(::Type{Trajectory{uType,tType}}) where {uType,tType} = Tuple{tType, Vector{uType}}
+function Base.iterate(traj::PartialTrajectory, index=1)
+    if index > length(traj)
+        return nothing
+    end
 
-struct MergeTrajectory{uType,tType}
-    syms::Vector{Symbol}
-    first::Trajectory{uType,tType}
-    second::Trajectory{uType,tType}
+    (traj.u[index][traj.idxs], traj.t[index]), index + 1
 end
 
-Base.merge(traj1::Trajectory{uType,tType}, traj2::Trajectory{uType,tType}) where {uType,tType} = MergeTrajectory(vcat(traj1.syms, traj2.syms), traj1, traj2)
+Base.eltype(::Type{T}) where {uType,tType,N,T<:AbstractTrajectory{uType,tType,N}} = Tuple{SVector{N,uType}, tType}
 
-Base.eltype(::Type{MergeTrajectory{uType, tType}}) where {uType,tType} = Tuple{tType, Vector{uType}}
+struct MergeTrajectory{uType,tType,N,N1,N2,T1<:AbstractTrajectory{uType,tType,N1},T2<:AbstractTrajectory{uType,tType,N2}} <: AbstractTrajectory{uType,tType,N}
+    syms::SVector{N, Symbol}
+    first::T1
+    second::T2
+end
 
-Base.iterate(iter::MergeTrajectory{uType}) where uType = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin]), uType[]))
+Base.merge(traj1::AbstractTrajectory, traj2::AbstractTrajectory) = MergeTrajectory(vcat(traj1.syms, traj2.syms), traj1, traj2)
+Base.IteratorSize(::Type{MergeTrajectory{uType,tType,N,N1,N2,T1,T2}}) where {uType,tType,N,N1,N2,T1,T2} = Base.SizeUnknown()
+Base.iterate(iter::MergeTrajectory{uType,tType,N}) where {uType, tType, N} = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin])))
 
-function Base.iterate(iter::MergeTrajectory{uType}, (i, j, t, u)::Tuple{Int64, Int64, Float64, Vector{uType}}) where uType
+function Base.iterate(iter::MergeTrajectory{uType,tType,N,N1,N2}, (i, j, t)::Tuple{Int, Int, tType}) where {uType, tType, N, N1, N2}
     if i > size(iter.first.t, 1) && j > size(iter.second.t, 1)
         return nothing
     end
@@ -55,20 +79,16 @@ function Base.iterate(iter::MergeTrajectory{uType}, (i, j, t, u)::Tuple{Int64, I
     if (i + 1) > size(iter.first.t, 1)
         t_i = Inf
     else 
-        t_i = iter.first.t[i + 1]
+        @inbounds t_i = iter.first.t[i + 1]
     end
 
     if (j + 1) > size(iter.second.t, 1)
         t_j = Inf
     else
-        t_j = iter.second.t[j + 1]
+        @inbounds t_j = iter.second.t[j + 1]
     end
 
-    n1 = size(iter.first.u, 1)
-    n2 = size(iter.second.u, 1)
-    resize!(u, n1 + n2)
-    u[begin:n1] = @view iter.first.u[:, i]
-    u[n1+1:end] = @view iter.second.u[:, j]
+    u = @inbounds vcat(iter.first.u[i], iter.second.u[j])
 
     if t_i < t_j
         t = t_i
@@ -82,7 +102,7 @@ function Base.iterate(iter::MergeTrajectory{uType}, (i, j, t, u)::Tuple{Int64, I
         j = j + 1
     end
 
-    (u, current_t), (i, j, t, u)
+    (u, current_t), (i, j, t)
 end
 
 @recipe function f(traj::Trajectory)

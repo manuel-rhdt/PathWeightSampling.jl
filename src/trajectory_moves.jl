@@ -7,11 +7,11 @@ using Statistics
 include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
 
-struct StochasticConfiguration{uType,tType,TRate, Rates}
+struct StochasticConfiguration{uType,tType,TRate,Rates,R <: AbstractTrajectory{uType,tType},S <: AbstractTrajectory{uType,tType}}
     jump_system::ReactionSystem
     distribution::TrajectoryDistribution{TRate,Rates}
-    response::Trajectory{uType,tType}
-    signal::Trajectory{uType,tType}
+    response::R
+    signal::S
     # interaction parameter
     θ::Float64
 end
@@ -34,40 +34,40 @@ function propose!(new_conf::StochasticConfiguration, old_conf::StochasticConfigu
     nothing
 end
 
-function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_system::ReactionSystem)
+function shoot_forward!(new_traj::AbstractTrajectory, old_traj::AbstractTrajectory, jump_system::ReactionSystem)
     num_steps = length(old_traj)
     branch_point = rand(2:num_steps - 1)
 
     branch_time = old_traj.t[branch_point]
-    branch_value = old_traj.u[:, branch_point]
+    branch_value = old_traj.u[branch_point]
 
     tspan = (branch_time, old_traj.t[end])
 
-    dprob = DiscreteProblem(jump_system, branch_value, tspan)
+    dprob = DiscreteProblem{SVector{1,Int64}}(jump_system, branch_value, tspan)
     jprob = JumpProblem(jump_system, dprob, Direct())
 
     new_branch = solve(jprob, SSAStepper())
 
-    new_traj.u = hcat(old_traj.u[:, begin:branch_point - 1], new_branch[:, :])
+    new_traj.u = vcat(old_traj.u[begin:branch_point - 1], new_branch.u)
     new_traj.t = vcat(old_traj.t[begin:branch_point - 1], new_branch.t)
     nothing
 end
 
-function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_system::ReactionSystem)
+function shoot_backward!(new_traj::AbstractTrajectory, old_traj::AbstractTrajectory, jump_system::ReactionSystem)
     num_steps = length(old_traj)
     branch_point = rand(2:num_steps - 1)
 
     branch_time = old_traj.t[branch_point]
-    branch_value = old_traj.u[:, branch_point]
+    branch_value = old_traj.u[branch_point]
 
     tspan = (old_traj.t[begin], branch_time)
 
-    dprob = DiscreteProblem(jump_system, branch_value, tspan)
+    dprob = DiscreteProblem{SVector{1,Int64}}(jump_system, branch_value, tspan)
     jprob = JumpProblem(jump_system, dprob, Direct())
 
     new_branch = solve(jprob, SSAStepper())
 
-    new_traj.u = hcat(new_branch[:, end:-1:begin], old_traj.u[:, branch_point + 1:end])
+    new_traj.u = vcat(new_branch.u[end:-1:begin], old_traj.u[branch_point + 1:end])
     new_traj.t = vcat(branch_time .- new_branch.t[end:-1:begin], old_traj.t[branch_point + 1:end])
     nothing
 end
@@ -93,14 +93,14 @@ function configuration_generator(sn::ReactionSystem, rn::ReactionSystem)
 end
 
 function generate_configuration(gen::ConfigurationGenerator, θ=1.0)
-    u0 = [50, 50]
+    u0 = SVector(50, 50)
     tspan = (0., 500.)
-    discrete_prob = DiscreteProblem(gen.joint_network, u0, tspan)
+    discrete_prob = DiscreteProblem{SVector{2,Int64}}(gen.joint_network, u0, tspan)
     jump_prob = JumpProblem(gen.joint_network, discrete_prob, Direct())
     sol = solve(jump_prob, SSAStepper())
 
-    response = trajectory(sol, [:X])
-    signal = trajectory(sol, [:S])
+    response = trajectory(sol, SA[:X])
+    signal = trajectory(sol, SA[:S])
 
     StochasticConfiguration(gen.signal_network, gen.distribution, response, signal, θ)
 end

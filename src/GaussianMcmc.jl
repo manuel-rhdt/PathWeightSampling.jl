@@ -2,6 +2,7 @@ module GaussianMcmc
 
 using LinearAlgebra
 using Distributions
+
 using Random
 import Base.copy
 import Base.copy!
@@ -304,6 +305,8 @@ include("wang_landau.jl")
 include("comparison.jl")
 
 module Trajectories
+
+using StaticArrays
 
 include("trajectory_moves.jl")
 include("thermodynamic_integral.jl")

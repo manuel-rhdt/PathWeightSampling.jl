@@ -111,33 +111,17 @@ distribution(rn::ReactionSystem) = TrajectoryDistribution(build_rate_functions(r
 
 function logpdf(dist::TrajectoryDistribution, trajectory; params=[])
     result = 0.0
-    tprev = nothing
-    uprev = nothing
-    du = nothing
+    ((uprev, tprev), state) = iterate(trajectory)
 
-    for (u, t) in trajectory
-        if tprev === nothing
-            tprev = t
-            uprev = copy(u)
-            du = u - uprev
-            continue
-        end
-
+    for (u, t) in Iterators.rest(trajectory, state)
         dt = t - tprev
-        du .= u .- uprev
+        du = u - uprev
 
         result += - dt * dist.totalrate(uprev, params)
-
-        result += evaluate_rate(0.0, du, uprev, dist.rates...)
-        # for rate in dist.rates
-        #     if rate.net_change == du
-        #         result += log(rate.rate(uprev, params))
-        #         break
-        #     end
-        # end
+        result += evaluate_rate(0.0, du, uprev, params, dist.rates...)
 
         tprev = t
-        uprev[:] .= u
+        uprev = u
     end
 
     result

@@ -74,7 +74,7 @@ function marginal_entropy(sn::ReactionSystem, rn::ReactionSystem, num_configurat
     result = zeros(Float64, num_configurations)
     for i in 1:num_configurations
         conf = generate_configuration(generator)
-        result[i] = log_marginal(conf, num_samples, integration_nodes)
+        result[i] = @time log_marginal(conf, num_samples, integration_nodes)
     end
 
     result
