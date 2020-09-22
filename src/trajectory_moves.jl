@@ -48,8 +48,14 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_system:
 
     new_branch = solve(jprob, SSAStepper())
 
-    new_traj.u = vcat(old_traj[begin:branch_point - 1], new_branch.u)
-    new_traj.t = vcat(old_traj.t[begin:branch_point - 1], new_branch.t)
+    resize!(new_traj.u, 0)
+    resize!(new_traj.t, 0)
+
+    append!(new_traj.u, old_traj[begin:branch_point - 1])
+    append!(new_traj.u, new_branch.u)
+
+    append!(new_traj.t, old_traj.t[begin:branch_point - 1])
+    append!(new_traj.t, new_branch.t)
     nothing
 end
 
@@ -67,8 +73,14 @@ function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_system
 
     new_branch = solve(jprob, SSAStepper())
 
-    new_traj.u = vcat(new_branch.u[end:-1:begin], old_traj[branch_point + 1:end])
-    new_traj.t = vcat(branch_time .- new_branch.t[end:-1:begin], old_traj.t[branch_point + 1:end])
+    resize!(new_traj.u, 0)
+    resize!(new_traj.t, 0)
+
+    append!(new_traj.u, new_branch.u[end:-1:begin])
+    append!(new_traj.u, old_traj[branch_point + 1:end])
+
+    append!(new_traj.t, branch_time .- new_branch.t[end:-1:begin])
+    append!(new_traj.t, old_traj.t[branch_point + 1:end])
     nothing
 end
 
