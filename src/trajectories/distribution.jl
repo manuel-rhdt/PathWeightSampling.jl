@@ -81,7 +81,6 @@ function build_reaction_rate(network::ReactionSystem, reaction::Reaction)
     end
     expr = jumpratelaw(reaction)
     rate = build_function(expr, species(network), params(network); expression=Val{false})
-
     ReactionRate(net_change, rate)
 end
 
@@ -92,6 +91,14 @@ build_reaction_rate(network::ReactionSystem, r1::Reaction, r2::Reaction, rother:
 function evaluate_rate(acc, du, uprev, params, rate::ReactionRate)
     if du == rate.net_change
         return acc + log(rate.rate(uprev, params))
+    else
+        return acc
+    end
+end
+
+function evaluate_rate(acc, du, uprev, params, rate::ReactionRate{<:Tuple})
+    if du == rate.net_change
+        return acc + log(rate.rate[1](uprev, params)[1])
     else
         return acc
     end
@@ -121,7 +128,7 @@ function logpdf(dist::TrajectoryDistribution, trajectory; params=[])
         result += evaluate_rate(0.0, du, uprev, params, dist.rates...)
 
         tprev = t
-        uprev = u
+        uprev = copy(u)
     end
 
     result

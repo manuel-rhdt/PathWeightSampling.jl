@@ -9,6 +9,8 @@ mutable struct Trajectory{uType,tType,N} <: AbstractTrajectory{uType,tType,N}
 end
 
 Base.copy(traj::Trajectory) = Trajectory(copy(traj.syms), copy(traj.t), copy(traj.u))
+Base.getindex(traj::Trajectory, i::Int) = traj.u[i]
+Base.getindex(traj::Trajectory, i::AbstractRange) = traj.u[i]
 
 function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}) where {T, N, M}
     variables = species(sol.prob.f.f)
@@ -24,6 +26,12 @@ mutable struct PartialTrajectory{uType,tType,N,NPart} <: AbstractTrajectory{uTyp
 end
 
 Base.copy(traj::PartialTrajectory) = PartialTrajectory(traj.syms,traj.idxs, copy(traj.t), copy(traj.u))
+Base.getindex(traj::PartialTrajectory, i::Int) = traj.u[i][traj.idxs]
+Base.getindex(traj::PartialTrajectory, i::AbstractRange) = [v[traj.idxs] for v in traj.u[i]]
+
+function Base.convert(::Type{Trajectory}, partial::PartialTrajectory{uType,tType,M,N}) where {uType,tType,M,N}
+    Trajectory(partial.syms, partial.t, partial[begin:end])
+end
 
 function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}, syms::SVector{NPart, Symbol}) where {T, N, M, NPart}
     idxs = Int[]
@@ -40,6 +48,8 @@ function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}, syms::SVector{N
 end
 
 Base.length(traj::AbstractTrajectory) = length(traj.u)
+Base.firstindex(traj::AbstractTrajectory) = 1
+Base.lastindex(traj::AbstractTrajectory) = length(traj)
 
 function Base.iterate(traj::Trajectory, index=1)
     if index > length(traj)
@@ -88,7 +98,7 @@ function Base.iterate(iter::MergeTrajectory{uType,tType,N,N1,N2}, (i, j, t)::Tup
         @inbounds t_j = iter.second.t[j + 1]
     end
 
-    u = @inbounds vcat(iter.first.u[i], iter.second.u[j])
+    u = @inbounds vcat(iter.first[i], iter.second[j])
 
     if t_i < t_j
         t = t_i

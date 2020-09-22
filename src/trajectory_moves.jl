@@ -34,12 +34,12 @@ function propose!(new_conf::StochasticConfiguration, old_conf::StochasticConfigu
     nothing
 end
 
-function shoot_forward!(new_traj::AbstractTrajectory, old_traj::AbstractTrajectory, jump_system::ReactionSystem)
+function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_system::ReactionSystem)
     num_steps = length(old_traj)
     branch_point = rand(2:num_steps - 1)
 
     branch_time = old_traj.t[branch_point]
-    branch_value = old_traj.u[branch_point]
+    branch_value = old_traj[branch_point]
 
     tspan = (branch_time, old_traj.t[end])
 
@@ -48,17 +48,17 @@ function shoot_forward!(new_traj::AbstractTrajectory, old_traj::AbstractTrajecto
 
     new_branch = solve(jprob, SSAStepper())
 
-    new_traj.u = vcat(old_traj.u[begin:branch_point - 1], new_branch.u)
+    new_traj.u = vcat(old_traj[begin:branch_point - 1], new_branch.u)
     new_traj.t = vcat(old_traj.t[begin:branch_point - 1], new_branch.t)
     nothing
 end
 
-function shoot_backward!(new_traj::AbstractTrajectory, old_traj::AbstractTrajectory, jump_system::ReactionSystem)
+function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_system::ReactionSystem)
     num_steps = length(old_traj)
     branch_point = rand(2:num_steps - 1)
 
     branch_time = old_traj.t[branch_point]
-    branch_value = old_traj.u[branch_point]
+    branch_value = old_traj[branch_point]
 
     tspan = (old_traj.t[begin], branch_time)
 
@@ -67,7 +67,7 @@ function shoot_backward!(new_traj::AbstractTrajectory, old_traj::AbstractTraject
 
     new_branch = solve(jprob, SSAStepper())
 
-    new_traj.u = vcat(new_branch.u[end:-1:begin], old_traj.u[branch_point + 1:end])
+    new_traj.u = vcat(new_branch.u[end:-1:begin], old_traj[branch_point + 1:end])
     new_traj.t = vcat(branch_time .- new_branch.t[end:-1:begin], old_traj.t[branch_point + 1:end])
     nothing
 end
@@ -99,8 +99,8 @@ function generate_configuration(gen::ConfigurationGenerator, θ=1.0)
     jump_prob = JumpProblem(gen.joint_network, discrete_prob, Direct())
     sol = solve(jump_prob, SSAStepper())
 
-    response = trajectory(sol, SA[:X])
-    signal = trajectory(sol, SA[:S])
+    response = convert(Trajectory, trajectory(sol, SA[:X]))
+    signal = convert(Trajectory, trajectory(sol, SA[:S]))
 
     StochasticConfiguration(gen.signal_network, gen.distribution, response, signal, θ)
 end
