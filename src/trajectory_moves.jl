@@ -7,8 +7,8 @@ using Statistics
 include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
 
-struct StochasticConfiguration{uType,tType,TRate,Rates,R <: AbstractTrajectory{uType,tType},S <: AbstractTrajectory{uType,tType}}
-    jump_system::ReactionSystem
+struct StochasticConfiguration{uType,tType,TRate,Rates,R <: AbstractTrajectory{uType,tType},S <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J}}
+    jump_problem::P
     distribution::TrajectoryDistribution{TRate,Rates}
     response::R
     signal::S
@@ -17,24 +17,38 @@ struct StochasticConfiguration{uType,tType,TRate,Rates,R <: AbstractTrajectory{u
 end
 
 function Base.copy(conf::StochasticConfiguration)
-    StochasticConfiguration(conf.jump_system, conf.distribution, copy(conf.response), copy(conf.signal), conf.θ)
+    StochasticConfiguration(conf.jump_problem, conf.distribution, copy(conf.response), copy(conf.signal), conf.θ)
+end
+
+function Base.copyto!(to::StochasticConfiguration, from::StochasticConfiguration)
+    copyto!(to.signal, from.signal)
+    to
 end
 
 function with_interaction(conf::StochasticConfiguration, θ)
-    StochasticConfiguration(conf.jump_system, conf.distribution, copy(conf.response), copy(conf.signal), θ)
+    StochasticConfiguration(conf.jump_problem, conf.distribution, copy(conf.response), copy(conf.signal), θ)
 end
 
 function propose!(new_conf::StochasticConfiguration, old_conf::StochasticConfiguration)
-    jump_system = old_conf.jump_system
+    jump_problem = old_conf.jump_problem
     if rand(Bool)
-        shoot_forward!(new_conf.signal, old_conf.signal, jump_system)
+        shoot_forward!(new_conf.signal, old_conf.signal, jump_problem)
     else
-        shoot_backward!(new_conf.signal, old_conf.signal, jump_system)
+        shoot_backward!(new_conf.signal, old_conf.signal, jump_problem)
     end
     nothing
 end
 
-function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_system::ReactionSystem)
+function myremake(jprob::JumpProblem; u0, tspan)
+    dprob = jprob.prob
+    new_dprob = remake(dprob, u0=u0, tspan=tspan)
+    JumpProblem(new_dprob, 
+        Direct(),
+        jprob.massaction_jump
+    )
+end
+
+function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem)
     num_steps = length(old_traj)
     branch_point = rand(2:num_steps - 1)
 
@@ -43,10 +57,8 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_system:
 
     tspan = (branch_time, old_traj.t[end])
 
-    dprob = DiscreteProblem{SVector{1,Int64}}(jump_system, branch_value, tspan)
-    jprob = JumpProblem(jump_system, dprob, Direct())
-
-    new_branch = solve(jprob, SSAStepper())
+    jump_problem = myremake(jump_problem; u0=branch_value, tspan=tspan)
+    new_branch = solve(jump_problem, SSAStepper())
 
     resize!(new_traj.u, 0)
     resize!(new_traj.t, 0)
@@ -59,7 +71,7 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_system:
     nothing
 end
 
-function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_system::ReactionSystem)
+function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem)
     num_steps = length(old_traj)
     branch_point = rand(2:num_steps - 1)
 
@@ -68,10 +80,8 @@ function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_system
 
     tspan = (old_traj.t[begin], branch_time)
 
-    dprob = DiscreteProblem{SVector{1,Int64}}(jump_system, branch_value, tspan)
-    jprob = JumpProblem(jump_system, dprob, Direct())
-
-    new_branch = solve(jprob, SSAStepper())
+    jump_problem = myremake(jump_problem; u0=branch_value, tspan=tspan)
+    new_branch = solve(jump_problem, SSAStepper())
 
     resize!(new_traj.u, 0)
     resize!(new_traj.t, 0)
@@ -93,11 +103,11 @@ function energy(conf::StochasticConfiguration; θ=conf.θ)
     -θ * logpdf(conf.distribution, joint)
 end
 
-struct ConfigurationGenerator{TRate, Rates}
+struct ConfigurationGenerator{TRate,Rates}
     signal_network::ReactionSystem
     response_network::ReactionSystem
     joint_network::ReactionSystem
-    distribution::TrajectoryDistribution{TRate, Rates}
+    distribution::TrajectoryDistribution{TRate,Rates}
 end
 
 function configuration_generator(sn::ReactionSystem, rn::ReactionSystem)
@@ -107,12 +117,16 @@ end
 function generate_configuration(gen::ConfigurationGenerator, θ=1.0)
     u0 = SVector(50, 50)
     tspan = (0., 500.)
-    discrete_prob = DiscreteProblem{SVector{2,Int64}}(gen.joint_network, u0, tspan)
+    discrete_prob = DiscreteProblem(u0, tspan)
     jump_prob = JumpProblem(gen.joint_network, discrete_prob, Direct())
     sol = solve(jump_prob, SSAStepper())
 
-    response = convert(Trajectory, trajectory(sol, SA[:X]))
-    signal = convert(Trajectory, trajectory(sol, SA[:S]))
+    response = convert(Trajectory, trajectory(sol, SA[:X], SA[2]))
+    signal = convert(Trajectory, trajectory(sol, SA[:S], SA[1]))
 
-    StochasticConfiguration(gen.signal_network, gen.distribution, response, signal, θ)
+    u0s = SVector(50)
+    dprob_s = DiscreteProblem(u0s, tspan)
+    jprob_s = JumpProblem(gen.signal_network, dprob_s, Direct())
+
+    StochasticConfiguration(jprob_s, gen.distribution, response, signal, θ)
 end

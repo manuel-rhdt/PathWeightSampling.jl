@@ -12,6 +12,14 @@ Base.copy(traj::Trajectory) = Trajectory(copy(traj.syms), copy(traj.t), copy(tra
 Base.getindex(traj::Trajectory, i::Int) = traj.u[i]
 Base.getindex(traj::Trajectory, i::AbstractRange) = traj.u[i]
 
+function Base.copyto!(to::Trajectory, from::Trajectory)
+    resize!(to.t, length(from.t))
+    resize!(to.u, length(from.u))
+    copyto!(to.t, from.t)
+    copyto!(to.u, from.u)
+    to
+end
+
 function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}) where {T, N, M}
     variables = species(sol.prob.f.f)
     symbols = SVector{M}([v.name for v in variables]::Vector{Symbol})
@@ -44,6 +52,10 @@ function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}, syms::SVector{N
     end
 
     idxs = SVector{NPart, Int}(idxs)
+    PartialTrajectory(syms, idxs, sol.t, sol.u)
+end
+
+function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}, syms::SVector{NPart, Symbol}, idxs::SVector{NPart, Int}) where {T, N, M, NPart}
     PartialTrajectory(syms, idxs, sol.t, sol.u)
 end
 
@@ -80,25 +92,25 @@ Base.IteratorSize(::Type{MergeTrajectory{uType,tType,N,N1,N2,T1,T2}}) where {uTy
 Base.iterate(iter::MergeTrajectory{uType,tType,N}) where {uType, tType, N} = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin])))
 
 function Base.iterate(iter::MergeTrajectory{uType,tType,N,N1,N2}, (i, j, t)::Tuple{Int, Int, tType}) where {uType, tType, N, N1, N2}
-    if i > size(iter.first.t, 1) && j > size(iter.second.t, 1)
+    if i > length(iter.first) && j > length(iter.second)
         return nothing
     end
 
     current_t = t
 
-    if (i + 1) > size(iter.first.t, 1)
+    if (i + 1) > length(iter.first)
         t_i = Inf
     else 
         @inbounds t_i = iter.first.t[i + 1]
     end
 
-    if (j + 1) > size(iter.second.t, 1)
+    if (j + 1) > length(iter.second)
         t_j = Inf
     else
         @inbounds t_j = iter.second.t[j + 1]
     end
 
-    u = @inbounds vcat(iter.first[i], iter.second[j])
+    u = @inbounds vcat(iter.first[min(i, length(iter.first))], iter.second[min(j, length(iter.second))])
 
     if t_i < t_j
         t = t_i
@@ -115,15 +127,16 @@ function Base.iterate(iter::MergeTrajectory{uType,tType,N,N1,N2}, (i, j, t)::Tup
     (u, current_t), (i, j, t)
 end
 
-@recipe function f(traj::Trajectory)
+@recipe function f(traj::AbstractTrajectory{uType,tType,N}) where {uType,tType,N}
     seriestype --> :steppost
     label --> hcat([String(sym) for sym in traj.syms]...)
 
-    plotvecs = []
-    for i in 1:size(traj.u, 1)
-        push!(plotvecs, traj.t)
-        push!(plotvecs, traj.u[i, :])
+    uvec = zeros(uType, length(traj), N)
+    tvec = zeros(tType, length(traj))
+    for (i, (u, t)) in enumerate(traj)
+        uvec[i, :] = u
+        tvec[i] = t
     end
 
-    traj.t, transpose(traj.u)
+    tvec, uvec
 end

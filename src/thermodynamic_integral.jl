@@ -22,7 +22,7 @@ function Base.iterate(iter::MetropolisSampler, state=nothing)
         if rand() < exp(iter.current_energy - new_energy)
             accepted += 1
             iter.current_energy = new_energy
-            iter.state = copy(new_conf)
+            copyto!(iter.state, new_conf)
         else
             rejected += 1
         end
