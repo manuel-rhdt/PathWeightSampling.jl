@@ -229,7 +229,7 @@ version = "2.4.0"
 
 [[DiffEqJump]]
 deps = ["ArrayInterface", "Compat", "DataStructures", "DiffEqBase", "FunctionWrappers", "LinearAlgebra", "PoissonRandom", "Random", "RandomNumbers", "RecursiveArrayTools", "StaticArrays", "TreeViews", "UnPack"]
-git-tree-sha1 = "68c389b108388d09f01065cf6d6df426f126d5a0"
+path = "C:\\Users\\mr\\.julia\\dev\\DiffEqJump"
 uuid = "c894b116-72e5-5b58-be3c-e6d8d4ac2b12"
 version = "6.10.1"
 
