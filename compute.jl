@@ -1,12 +1,23 @@
 
 filename = ARGS[1]
 
-if isfile(filename * "_me.txt") || isfile(filename * "_ce.txt")
+me_fname = filename * "-me.txt"
+ce_fname = filename * "-ce.txt"
+
+if isfile(me_fname) || isfile(ce_fname)
     error("File exists")
 end
 
+using Logging
+
+mefile = open(me_fname, "w")
+@info "Created File" me_fname
+cefile = open(ce_fname, "w")
+@info "Created File" ce_fname
+
 using GaussianMcmc.Trajectories
 using Catalyst
+using DelimitedFiles
 
 sn = @reaction_network begin
     0.005, S --> ∅
@@ -18,15 +29,16 @@ rn = @reaction_network begin
     0.01, X --> ∅ 
 end
 
-me = Trajectories.marginal_entropy(sn, rn, 2000, 2000, 16)
+me = Trajectories.marginal_entropy(sn, rn, 200, 2000, 16)
+
+@info "Finished marginal entropy"
+
 ce = Trajectories.conditional_entropy(sn, rn, 100_000)
 
-using DelimitedFiles
+@info "Finished conditional entropy"
 
-open(filename * "_me.txt", "w") do io
-    writedlm(io, me, ',')
-end
+writedlm(mefile, me, ',')
+writedlm(cefile, ce, ',')
 
-open(filename * "_ce.txt", "w") do io
-    writedlm(io, ce, ',')
-end
+close(mefile)
+close(cefile)
