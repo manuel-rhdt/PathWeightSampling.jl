@@ -18,4 +18,4 @@ jobs:
   fast_finish: true   
   allow_failures:
     - julia: nightly
-install: travis_wait mvn install
+install: alias julia='travis_wait julia'
