@@ -5,8 +5,12 @@ if isfile(filename * "_me.txt") || isfile(filename * "_ce.txt")
     error("File exists")
 end
 
+mefile = open(filename * "-me.txt", "w")
+cefile = open(filename * "-ce.txt", "w")
+
 using GaussianMcmc.Trajectories
 using Catalyst
+using DelimitedFiles
 
 sn = @reaction_network begin
     0.005, S --> ∅
@@ -18,15 +22,11 @@ rn = @reaction_network begin
     0.01, X --> ∅ 
 end
 
-me = Trajectories.marginal_entropy(sn, rn, 2000, 2000, 16)
+me = Trajectories.marginal_entropy(sn, rn, 200, 2000, 16)
 ce = Trajectories.conditional_entropy(sn, rn, 100_000)
 
-using DelimitedFiles
+writedlm(mefile, me, ',')
+writedlm(cefile, ce, ',')
 
-open(filename * "_me.txt", "w") do io
-    writedlm(io, me, ',')
-end
-
-open(filename * "_ce.txt", "w") do io
-    writedlm(io, ce, ',')
-end
+close(mefile)
+close(cefile)
