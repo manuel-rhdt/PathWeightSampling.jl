@@ -11,6 +11,7 @@ end
 Base.copy(traj::Trajectory) = Trajectory(copy(traj.syms), copy(traj.t), copy(traj.u))
 Base.getindex(traj::Trajectory, i::Int) = traj.u[i]
 Base.getindex(traj::Trajectory, i::AbstractRange) = traj.u[i]
+Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.syms == traj2.syms) && (traj1.t==traj2.t) && (traj1.u==traj2.u)
 
 function Base.copyto!(to::Trajectory, from::Trajectory)
     resize!(to.t, length(from.t))

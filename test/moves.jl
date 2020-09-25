@@ -15,14 +15,21 @@ rn = @reaction_network begin
 end
 
 gen = Trajectories.configuration_generator(sn, rn)
-conf1 = Trajectories.generate_configuration(gen)
-conf2 = copy(conf1)
+(system, s1) = Trajectories.generate_configuration(gen)
+s2 = deepcopy(s1)
+scopy = deepcopy(s1)
 
-Trajectories.shoot_forward!(conf2.signal, conf1.signal, conf1.jump_problem)
 
-@test issorted(conf2.signal.t)
-@test conf1.signal.u[1] == conf2.signal.u[1]
+Trajectories.shoot_forward!(s2, s1, system.jump_problem)
+@test issorted(s2.t)
+@test s1.t != s2.t
+@test s1.u != s2.u
+@test s1.u[1] == s2.u[1]
+@test scopy == s1
 
-Trajectories.shoot_backward!(conf2.signal, conf1.signal, conf1.jump_problem)
-@test conf1.signal.u[end] == conf2.signal.u[end]
-@test issorted(conf2.signal.t)
+Trajectories.shoot_backward!(s2, s1, system.jump_problem)
+@test issorted(s2.t)
+@test s1.t != s2.t
+@test s1.u != s2.u
+@test s1.u[end] == s2.u[end]
+@test scopy == s1

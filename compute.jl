@@ -1,12 +1,9 @@
 
-filename = ARGS[1]
+dir_name = ARGS[1]
 
-me_fname = filename * "-me.txt"
-ce_fname = filename * "-ce.txt"
-
-if isfile(me_fname) || isfile(ce_fname)
-    error("File exists")
-end
+path = mkdir(dir_name)
+me_fname = joinpath(path, "me.txt")
+ce_fname = joinpath(path, "ce.txt")
 
 using Logging
 
@@ -15,30 +12,31 @@ mefile = open(me_fname, "w")
 cefile = open(ce_fname, "w")
 @info "Created File" ce_fname
 
-using GaussianMcmc.Trajectories
-using Catalyst
-using DelimitedFiles
+using Distributed
+addprocs(exeflags="--project")
 
-sn = @reaction_network begin
+@everywhere using GaussianMcmc.Trajectories
+@everywhere using Catalyst
+using CSV
+
+@everywhere sn = @reaction_network begin
     0.005, S --> ∅
     0.25, ∅ --> S
 end
 
-rn = @reaction_network begin
+@everywhere rn = @reaction_network begin
     0.01, S --> X + S
     0.01, X --> ∅ 
 end
 
-me = Trajectories.marginal_entropy(sn, rn; num_responses=8, num_samples=2000, integration_nodes=16)
-
+me = @distributed (vcat) for i = 1:8
+    Trajectories.marginal_entropy(sn, rn; num_responses=1, num_samples=2000, integration_nodes=16, duration=500.0)
+end
+CSV.write(mefile, me)
+close(mefile)
 @info "Finished marginal entropy"
 
-ce = Trajectories.conditional_entropy(sn, rn, 100_000)
-
-@info "Finished conditional entropy"
-
-writedlm(mefile, me, ',')
-writedlm(cefile, ce, ',')
-
-close(mefile)
+ce = Trajectories.conditional_entropy(sn, rn, num_responses=10_000, duration=500.0)
+CSV.write(cefile, ce)
 close(cefile)
+@info "Finished conditional entropy"

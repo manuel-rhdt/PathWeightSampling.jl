@@ -1,41 +1,45 @@
 using Statistics
 using FastGaussQuadrature
 using LinearAlgebra
+using DataFrames
 
-mutable struct MetropolisSampler{S}
-    burn_in::Int
+mutable struct MetropolisSampler{S, Sys}
     skip::Int
     current_energy::Float64
     state::S
+    system::Sys
 end
 
-function Base.iterate(iter::MetropolisSampler, state=nothing)    
+Base.iterate(sampler::MetropolisSampler) = iterate(sampler, deepcopy(sampler.state))
+
+function Base.iterate(sampler::MetropolisSampler{S, Sys}, new_state::S) where {S, Sys}    
     accepted = 0
     rejected = 0
-    
-    new_conf = copy(iter.state)
-    
+
     while true
-        propose!(new_conf, iter.state)
-        new_energy = energy(new_conf)
+        propose!(new_state, sampler.state, sampler.system)
+        new_energy = energy(new_state, sampler.system)
         
-        if rand() < exp(iter.current_energy - new_energy)
+        if rand() < exp(sampler.current_energy - new_energy)
             accepted += 1
-            iter.current_energy = new_energy
-            copyto!(iter.state, new_conf)
+            sampler.current_energy = new_energy
+            # simple variable swap
+            tmp = new_state
+            new_state = sampler.state
+            sampler.state = tmp
         else
             rejected += 1
         end
         
-        if (accepted + rejected) == iter.skip + 1
+        if (accepted + rejected) == sampler.skip + 1
             acceptance_rate = accepted / (rejected + accepted)
-            return (iter.state, acceptance_rate), nothing
+            return (deepcopy(sampler.state), acceptance_rate), new_state
         end
     end
 end
 
-function generate_mcmc_samples(initial::State, skip::Int, num_samples::Int) where State
-    sampler = MetropolisSampler(0, skip, energy(initial), initial)
+function generate_mcmc_samples(initial::State, system, skip::Int, num_samples::Int) where State
+    sampler = MetropolisSampler(skip, energy(initial, system), initial, system)
 
     samples = Vector{State}(undef, num_samples)
     acceptance = zeros(num_samples)
@@ -48,7 +52,7 @@ function generate_mcmc_samples(initial::State, skip::Int, num_samples::Int) wher
 end
 
 # parallel Monte-Carlo computation of the marginal probability for the given configuration
-function log_marginal(initial::StochasticConfiguration, num_samples::Int, integration_nodes::Int, skip_samples::Int)
+function log_marginal(initial::Trajectory, system::StochasticSystem, num_samples::Int, integration_nodes::Int, skip_samples::Int)
     # Generate the array of θ values for which we want to simulate the system.
     # We use Gauss-Legendre quadrature which predetermines the choice of θ.
     nodes, weights = gausslegendre(integration_nodes)
@@ -57,16 +61,17 @@ function log_marginal(initial::StochasticConfiguration, num_samples::Int, integr
     energies = Array{Float64}(undef, num_samples, length(θrange))
     accept = Array{Float64}(undef, num_samples, length(θrange))
     for i in eachindex(θrange)
-        init = with_interaction(initial, θrange[i])
-        samples, acceptance = generate_mcmc_samples(init, skip_samples, num_samples)
+        system.θ = θrange[i]
+        samples, acceptance = generate_mcmc_samples(initial, system, skip_samples, num_samples)
         for j in eachindex(samples)
-            energies[j, i] = energy(samples[j], θ=1.0)
+            energies[j, i] = energy(samples[j], system, θ=1.0)
+            accept[j, i] = acceptance[j]
         end
     end
 
     # Perform the quadrature integral. The factor 0.5 comes from rescaling the integration limits
     # from [-1,1] to [0,1].
-    dot(weights, 0.5 .* vec(mean(energies, dims=1)))
+    dot(weights, 0.5 .* vec(mean(energies, dims=1))), mean(accept)
 end
 
 function marginal_entropy(
@@ -79,23 +84,42 @@ function marginal_entropy(
         duration::Float64=500.0
     )
     generator = configuration_generator(sn, rn)
-    result = zeros(Float64, num_responses)
-    Threads.@threads for i in eachindex(result)
-        conf = generate_configuration(generator; duration=duration)
-        result[i] = @time log_marginal(conf, num_samples, integration_nodes, skip_samples)
+    result = DataFrame(
+        Sample=zeros(Float64, num_responses), 
+        Acceptance=zeros(Float64, num_responses), 
+        TimeElapsed=zeros(Float64, num_responses), 
+        GcTime=zeros(Float64, num_responses)
+    )
+    #Threads.@threads 
+    for i in 1:num_responses
+        (system, initial) = generate_configuration(generator; duration=duration)
+        lm = @timed log_marginal(initial, system, num_samples, integration_nodes, skip_samples)
+        (val, acc) = lm.value
+        elapsed = lm.time
+        gctime = lm.gctime
+
+        result.Sample[i] = val
+        result.Acceptance[i] = acc
+        result.TimeElapsed[i] = elapsed
+        result.GcTime[i] = gctime
+
+        println(NamedTuple(result[i, :]))
     end
 
     result
 end
 
 
-function conditional_entropy(sn::ReactionSystem, rn::ReactionSystem, num_configurations::Int)
+function conditional_entropy(sn::ReactionSystem, rn::ReactionSystem; num_responses::Int=1, duration::Float64=500.0)
     generator = configuration_generator(sn, rn)
-    result = zeros(Float64, num_configurations)
-    Threads.@threads for i in 1:num_configurations
-        conf = generate_configuration(generator)
-        result[i] = energy(conf, θ=1.0)
+    result = zeros(Float64, num_responses)
+    #Threads.@threads 
+    for i in 1:num_responses
+        (system, initial) = generate_configuration(generator, duration=duration)
+        result[i] = energy(initial, system)
     end
 
-    result
+    DataFrame(
+        Sample=result
+    )
 end

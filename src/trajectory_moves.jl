@@ -7,34 +7,20 @@ using Statistics
 include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
 
-struct StochasticConfiguration{uType,tType,TRate,Rates,R <: AbstractTrajectory{uType,tType},S <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J}}
+mutable struct StochasticSystem{uType,tType,TRate,Rates,R <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J}}
     jump_problem::P
     distribution::TrajectoryDistribution{TRate,Rates}
     response::R
-    signal::S
     # interaction parameter
     θ::Float64
 end
 
-function Base.copy(conf::StochasticConfiguration)
-    StochasticConfiguration(conf.jump_problem, conf.distribution, copy(conf.response), copy(conf.signal), conf.θ)
-end
-
-function Base.copyto!(to::StochasticConfiguration, from::StochasticConfiguration)
-    copyto!(to.signal, from.signal)
-    to
-end
-
-function with_interaction(conf::StochasticConfiguration, θ)
-    StochasticConfiguration(conf.jump_problem, conf.distribution, copy(conf.response), copy(conf.signal), θ)
-end
-
-function propose!(new_conf::StochasticConfiguration, old_conf::StochasticConfiguration)
-    jump_problem = old_conf.jump_problem
+function propose!(new_signal::Trajectory, old_signal::Trajectory, system::StochasticSystem)
+    jump_problem = system.jump_problem
     if rand(Bool)
-        shoot_forward!(new_conf.signal, old_conf.signal, jump_problem)
+        shoot_forward!(new_signal, old_signal, jump_problem)
     else
-        shoot_backward!(new_conf.signal, old_conf.signal, jump_problem)
+        shoot_backward!(new_signal, old_signal, jump_problem)
     end
     nothing
 end
@@ -94,13 +80,12 @@ function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_proble
     nothing
 end
 
-function energy(conf::StochasticConfiguration; θ=conf.θ)
-    signal = conf.signal
-    response = conf.response
+function energy(signal::Trajectory, system::StochasticSystem; θ=system.θ)
+    response = system.response
 
     joint = merge(signal, response)
 
-    -θ * logpdf(conf.distribution, joint)
+    -θ * logpdf(system.distribution, joint)
 end
 
 struct ConfigurationGenerator{TRate,Rates}
@@ -128,5 +113,5 @@ function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::F
     dprob_s = DiscreteProblem(u0s, tspan)
     jprob_s = JumpProblem(gen.signal_network, dprob_s, Direct())
 
-    StochasticConfiguration(jprob_s, gen.distribution, response, signal, θ)
+    (StochasticSystem(jprob_s, gen.distribution, response, θ), signal)
 end
