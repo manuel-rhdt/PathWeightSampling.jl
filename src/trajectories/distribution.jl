@@ -6,7 +6,7 @@ ModelingToolkit.get_variables(f::Number) = Variable[]
 
 function build_rate_functions(reaction_network::ReactionSystem)
     totalrate = sum((jumpratelaw(react) for react in reactions(reaction_network)))
-    totalrate_fun = build_function(totalrate, species(reaction_network), params(reaction_network); expression=Val{false})
+    totalrate_fun = eval(build_function(totalrate, species(reaction_network), params(reaction_network); expression=Val{true}))
 
     rate_funs = build_reaction_rate(reaction_network, reactions(reaction_network)...)
     # symbol_map = speciesmap(reaction_network)
@@ -80,7 +80,7 @@ function build_reaction_rate(network::ReactionSystem, reaction::Reaction)
         net_change[symbol_map[species]] = change
     end
     expr = jumpratelaw(reaction)
-    rate = build_function(expr, species(network), params(network); expression=Val{false})
+    rate = eval(build_function(expr, species(network), params(network); expression=Val{true}))
     ReactionRate(net_change, rate)
 end
 

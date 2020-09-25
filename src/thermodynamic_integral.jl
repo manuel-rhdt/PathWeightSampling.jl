@@ -75,15 +75,13 @@ function log_marginal(initial::Trajectory, system::StochasticSystem, num_samples
 end
 
 function marginal_entropy(
-        sn::ReactionSystem, 
-        rn::ReactionSystem; 
+        gen::ConfigurationGenerator; 
         num_responses::Int=1,
         num_samples::Int=1000, 
         skip_samples::Int=50,
         integration_nodes::Int=16,
         duration::Float64=500.0
     )
-    generator = configuration_generator(sn, rn)
     result = DataFrame(
         Sample=zeros(Float64, num_responses), 
         Acceptance=zeros(Float64, num_responses), 
@@ -92,7 +90,7 @@ function marginal_entropy(
     )
     #Threads.@threads 
     for i in 1:num_responses
-        (system, initial) = generate_configuration(generator; duration=duration)
+        (system, initial) = generate_configuration(gen; duration=duration)
         lm = @timed log_marginal(initial, system, num_samples, integration_nodes, skip_samples)
         (val, acc) = lm.value
         elapsed = lm.time
@@ -110,12 +108,11 @@ function marginal_entropy(
 end
 
 
-function conditional_entropy(sn::ReactionSystem, rn::ReactionSystem; num_responses::Int=1, duration::Float64=500.0)
-    generator = configuration_generator(sn, rn)
+function conditional_entropy(gen::ConfigurationGenerator;  num_responses::Int=1, duration::Float64=500.0)
     result = zeros(Float64, num_responses)
     #Threads.@threads 
     for i in 1:num_responses
-        (system, initial) = generate_configuration(generator, duration=duration)
+        (system, initial) = generate_configuration(gen, duration=duration)
         result[i] = energy(initial, system)
     end
 
