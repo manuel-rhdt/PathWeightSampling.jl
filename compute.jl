@@ -16,15 +16,15 @@ using Distributed
 addprocs(exeflags="--project")
 
 @everywhere using GaussianMcmc.Trajectories
-@everywhere using Catalyst
+using Catalyst
 using CSV
 
-@everywhere sn = @reaction_network begin
+sn = @reaction_network begin
     0.005, S --> ∅
     0.25, ∅ --> S
 end
 
-@everywhere rn = @reaction_network begin
+rn = @reaction_network begin
     0.01, S --> X + S
     0.01, X --> ∅ 
 end
