@@ -1,122 +1,18 @@
 using ModelingToolkit
 
-# needed to work around issue in ModelingToolkit where the call to jumpratelaw fails
-# if the rate is a simple number instead of an operation
-ModelingToolkit.get_variables(f::Number) = Variable[]
-
-function build_rate_functions(reaction_network::ReactionSystem)
-    totalrate = sum((jumpratelaw(react) for react in reactions(reaction_network)))
-    totalrate_fun = eval(build_function(totalrate, species(reaction_network), params(reaction_network); expression=Val{true}))
-
-    rate_funs = build_reaction_rate(reaction_network, reactions(reaction_network)...)
-    # symbol_map = speciesmap(reaction_network)
-    # rates = Dict{Vector{Int64},ModelingToolkit.Operation}()
-    # for react in reactions(reaction_network)
-    #     net_change = zeros(Int64, numspecies(reaction_network))
-    #     for (species, change) in react.netstoich
-    #         net_change[symbol_map[species]] = change
-    #     end
-
-    #     rate = jumpratelaw(react)
-        
-    #     if haskey(rates, net_change)
-    #         rates[net_change] += rate
-    #     else
-    #         rates[net_change] = rate
-    #     end
-    # end
-
-    # rate_funs = [
-    #     change => build_function(expr, species(reaction_network), params(reaction_network); expression=Val{false}) for (change, expr) in pairs(rates)
-    # ]
-    (totalrate_fun, rate_funs)
+struct ChemicalReaction
+    rate::Float64
+    substoich::Vector{Tuple{Int,Int}}
+    netstoich::Vector{Tuple{Int,Int}}
 end
 
-function build_rate_function_derivatives(reaction_network::ReactionSystem)
-    totalrate::Operation = sum((jumpratelaw(react) for react in reactions(reaction_network)))
-
-    interaction_param = params(reaction_network)[1]()
-    @derivatives D'~interaction_param
-    d_totalrate = expand_derivatives(D(totalrate))
-    totalrate_fun = build_function(d_totalrate, species(reaction_network), params(reaction_network); expression=Val{false})
-
-    symbol_map = speciesmap(reaction_network)
-    rates = Dict{Vector{Int64},ModelingToolkit.Operation}()
-    for react in reactions(reaction_network)
-        net_change = zeros(Int64, numspecies(reaction_network))
-        for (species, change) in react.netstoich
-            net_change[symbol_map[species]] = change
-        end
-
-        rate = jumpratelaw(react)
-        if haskey(rates, net_change)
-            rates[net_change] += rate
-        else
-            rates[net_change] = rate
-        end
-    end
-
-    for key in keys(rates)
-        rates[key] = expand_derivatives(D(log(rates[key])))
-    end
-
-    println(rates)
-    rate_funs = [
-        change => build_function(expr, species(reaction_network), params(reaction_network); expression=Val{false}) for (change, expr) in pairs(rates)
-    ]
-    (totalrate_fun, rate_funs)
+struct TrajectoryDistribution
+    reactions::Vector{ChemicalReaction}
 end
 
-struct ReactionRate{Rate}
-    net_change::Vector{Int}
-    rate::Rate
-end
+distribution(rn::ReactionSystem) = TrajectoryDistribution(create_chemical_reactions(rn))
 
-function build_reaction_rate(network::ReactionSystem, reaction::Reaction)
-    symbol_map = speciesmap(network)
-
-    net_change = zeros(Int, numspecies(network))
-    for (species, change) in reaction.netstoich
-        net_change[symbol_map[species]] = change
-    end
-    expr = jumpratelaw(reaction)
-    rate = eval(build_function(expr, species(network), params(network); expression=Val{true}))
-    ReactionRate(net_change, rate)
-end
-
-build_reaction_rate(network::ReactionSystem, r1::Reaction, r2::Reaction) = (build_reaction_rate(network, r1), build_reaction_rate(network, r2))
-
-build_reaction_rate(network::ReactionSystem, r1::Reaction, r2::Reaction, rother::Reaction...) = (build_reaction_rate(network, r1), build_reaction_rate(network, r2, rother...)...)
-
-function evaluate_rate(acc, du, uprev, params, rate::ReactionRate)
-    if du == rate.net_change
-        return acc + log(rate.rate(uprev, params))
-    else
-        return acc
-    end
-end
-
-function evaluate_rate(acc, du, uprev, params, rate::ReactionRate{<:Tuple})
-    if du == rate.net_change
-        return acc + log(rate.rate[1](uprev, params)[1])
-    else
-        return acc
-    end
-end
-
-function evaluate_rate(acc, du, uprev, params, rate::ReactionRate, rates::ReactionRate...)
-    new_acc = evaluate_rate(acc, du, uprev, params, rate)
-    evaluate_rate(new_acc, du, uprev, params, rates...)
-end
-
-struct TrajectoryDistribution{TRate,Rates}
-    totalrate::TRate
-    rates::Rates
-end
-
-distribution(rn::ReactionSystem) = TrajectoryDistribution(build_rate_functions(rn)...)
-
-function logpdf(dist::TrajectoryDistribution, trajectory; params=[])
+@fastmath function logpdf(dist::TrajectoryDistribution, trajectory; params=[])
     result = 0.0
     ((uprev, tprev), state) = iterate(trajectory)
 
@@ -124,8 +20,13 @@ function logpdf(dist::TrajectoryDistribution, trajectory; params=[])
         dt = t - tprev
         du = u - uprev
 
-        result += - dt * dist.totalrate(uprev, params)
-        result += evaluate_rate(0.0, du, uprev, params, dist.rates...)
+        result += - dt * evaltotalrate(uprev, dist.reactions)
+
+        idx = findreactions(du, dist.reactions)
+        if idx > 0
+            rate = evalrxrate(uprev, dist.reactions[idx])
+            result += log(rate)
+        end
 
         tprev = t
         uprev = copy(u)
@@ -133,3 +34,60 @@ function logpdf(dist::TrajectoryDistribution, trajectory; params=[])
 
     result
 end
+
+function create_chemical_reactions(reaction_system::ReactionSystem)
+    smap = speciesmap(reaction_system)
+    map(reactions(reaction_system)) do (mreact)
+        rate = mreact.rate
+        substoich = sort([(smap[sub.op], stoich) for (sub, stoich) in zip(mreact.substrates, mreact.substoich)])
+        netstoich = sort([(smap[sub], stoich) for (sub, stoich) in mreact.netstoich])
+        ChemicalReaction(rate, substoich, netstoich)
+    end
+end
+
+@inline function allzero(array::AbstractArray, range::AbstractRange)
+    for i in eachindex(range)
+        @inbounds if array[i] != 0
+            return false
+        end
+    end
+    true
+end
+
+@inline @fastmath function findreactions(du::AbstractVector, reactions::Vector{ChemicalReaction})::Int
+    for (j, reaction) in enumerate(reactions)
+        i = 1
+        found = true
+        for (index, netstoich) in reaction.netstoich
+            if !allzero(du, i:index - 1)
+                found = false
+                break
+            else
+                i = index + 1
+                @inbounds if du[index] != netstoich
+                    found = false
+                    break
+                end
+            end
+        end
+        if found
+            return j
+        end
+    end
+    0
+end
+
+@inline @fastmath function evalrxrate(speciesvec::AbstractVector, reaction::ChemicalReaction)
+    val = 1.0
+    for specstoch in reaction.substoich
+        @inbounds specpop = speciesvec[specstoch[1]]
+        val    *= specpop
+        @inbounds for k = 2:specstoch[2]
+            specpop -= one(specpop)
+            val     *= specpop
+        end
+    end
+    val * reaction.rate
+end
+
+evaltotalrate(speciesvec::AbstractVector, reactions::Vector{ChemicalReaction}) = sum(r -> evalrxrate(speciesvec, r), reactions)

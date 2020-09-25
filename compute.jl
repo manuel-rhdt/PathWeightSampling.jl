@@ -16,20 +16,21 @@ using Distributed
 addprocs(exeflags="--project")
 
 @everywhere using GaussianMcmc.Trajectories
-@everywhere using Catalyst
+using Catalyst
 using CSV
 
-@everywhere sn = @reaction_network begin
+sn = @reaction_network begin
     0.005, S --> ∅
     0.25, ∅ --> S
 end
 
-@everywhere rn = @reaction_network begin
+rn = @reaction_network begin
     0.01, S --> X + S
     0.01, X --> ∅ 
 end
 
-@everywhere gen = Trajectories.configuration_generator(sn, rn)
+gen = Trajectories.configuration_generator(sn, rn)
+Trajectories.marginal_entropy(gen; num_responses=1, num_samples=2000, integration_nodes=16, duration=100.0)
 
 me = @distributed (vcat) for i = 1:8
     Trajectories.marginal_entropy(gen; num_responses=1, num_samples=2000, integration_nodes=16, duration=100.0)

@@ -7,9 +7,9 @@ using Statistics
 include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
 
-mutable struct StochasticSystem{uType,tType,TRate,Rates,R <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J}}
+mutable struct StochasticSystem{uType,tType,R <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J}}
     jump_problem::P
-    distribution::TrajectoryDistribution{TRate,Rates}
+    distribution::TrajectoryDistribution
     response::R
     # interaction parameter
     θ::Float64
@@ -88,11 +88,11 @@ function energy(signal::Trajectory, system::StochasticSystem; θ=system.θ)
     -θ * logpdf(system.distribution, joint)
 end
 
-struct ConfigurationGenerator{TRate,Rates}
+struct ConfigurationGenerator
     signal_network::ReactionSystem
     response_network::ReactionSystem
     joint_network::ReactionSystem
-    distribution::TrajectoryDistribution{TRate,Rates}
+    distribution::TrajectoryDistribution
 end
 
 function configuration_generator(sn::ReactionSystem, rn::ReactionSystem)
