@@ -114,9 +114,9 @@ function configuration_generator(sn::ReactionSystem, rn::ReactionSystem)
     ConfigurationGenerator(sn, rn, Base.merge(sn, rn), distribution(rn))
 end
 
-function generate_configuration(gen::ConfigurationGenerator, θ=1.0)
+function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::Float64=500.0)
     u0 = SVector(50, 50)
-    tspan = (0., 500.)
+    tspan = (0., duration)
     discrete_prob = DiscreteProblem(u0, tspan)
     jump_prob = JumpProblem(gen.joint_network, discrete_prob, Direct())
     sol = solve(jump_prob, SSAStepper())

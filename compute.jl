@@ -29,7 +29,7 @@ rn = @reaction_network begin
     0.01, X --> ∅ 
 end
 
-me = Trajectories.marginal_entropy(sn, rn, 200, 2000, 16)
+me = Trajectories.marginal_entropy(sn, rn; num_responses=8, num_samples=2000, integration_nodes=16)
 
 @info "Finished marginal entropy"
 
