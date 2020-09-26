@@ -30,11 +30,12 @@ rn = @reaction_network begin
 end
 
 gen = Trajectories.configuration_generator(sn, rn)
-Trajectories.marginal_entropy(gen; num_responses=1, num_samples=2000, integration_nodes=16, duration=100.0)
+
+algorithm = AnnealingEstimate(10, 50, 1000)
 
 # using distributed because of GarbageCollector pauses in Multi-Threaded code
 me = @distributed (vcat) for i = 1:8
-    Trajectories.marginal_entropy(gen; num_responses=1, num_samples=2000, integration_nodes=16, duration=100.0)
+    Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=1, duration=500.0)
 end
 CSV.write(mefile, me)
 close(mefile)

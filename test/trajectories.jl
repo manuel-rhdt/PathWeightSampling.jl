@@ -14,13 +14,13 @@ sn = @reaction_network begin
     0.25, ∅ --> S
 end
 
-u0 = SA[50]
-tspan = (0., 10.)
-discrete_prob = DiscreteProblem{SVector{1,Int64}}(sn, u0, tspan)
+u0 = SA[50.0]
+tspan = (0., 100.)
+discrete_prob = DiscreteProblem(u0, tspan)
 jump_prob = JumpProblem(sn, discrete_prob, Direct())
 sol = solve(jump_prob, SSAStepper())
 
-traj_sol = Trajectories.trajectory(sol)
+traj_sol = convert(Trajectory, Trajectories.trajectory(sol, SA[:S], SA[1]))
 
 for i in eachindex(sol)
     @test sol.t[i] == traj_sol.t[i]
@@ -46,13 +46,13 @@ end
 
 network = merge(sn, rn)
 
-u0 = SA[50,50]
-tspan = (0., 10.)
-discrete_prob = DiscreteProblem{SVector{2,Int64}}(network, u0, tspan)
+u0 = SA[50.0,50.0]
+tspan = (0., 100.)
+discrete_prob = DiscreteProblem(u0, tspan)
 jump_prob = JumpProblem(network, discrete_prob, Direct())
 sol = solve(jump_prob, SSAStepper())
 
-partial = Trajectories.trajectory(sol, SA[:S])
+partial = Trajectories.trajectory(sol, SA[:S], SA[1])
 for i in eachindex(sol)
     @test sol.t[i] == partial.t[i]
     @test sol[[1],i] == partial[i]

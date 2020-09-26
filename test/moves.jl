@@ -19,17 +19,18 @@ gen = Trajectories.configuration_generator(sn, rn)
 s2 = deepcopy(s1)
 scopy = deepcopy(s1)
 
+branch = div(length(s1), 2, RoundDown)
 
-Trajectories.shoot_forward!(s2, s1, system.jump_problem)
+Trajectories.shoot_forward!(s2, s1, system.jump_problem, branch)
 @test issorted(s2.t)
 @test s1.t != s2.t
 @test s1.u != s2.u
-@test s1.u[1] == s2.u[1]
+@test s1.u[1:branch] == s2.u[1:branch]
 @test scopy == s1
 
-Trajectories.shoot_backward!(s2, s1, system.jump_problem)
+Trajectories.shoot_backward!(s2, s1, system.jump_problem, branch)
 @test issorted(s2.t)
 @test s1.t != s2.t
 @test s1.u != s2.u
-@test s1.u[end] == s2.u[end]
+@test s1.u[branch:end] == s2.u[length(s2) - (length(s1)-branch):end]
 @test scopy == s1
