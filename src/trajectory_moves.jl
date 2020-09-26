@@ -15,6 +15,16 @@ mutable struct StochasticSystem{uType,tType,R <: AbstractTrajectory{uType,tType}
     θ::Float64
 end
 
+function new_signal(old_signal::Trajectory, system::StochasticSystem)
+    jump_problem = system.jump_problem
+
+    tspan = (old_signal.t[begin], old_signal.t[end])
+
+    jump_problem = myremake(jump_problem; u0=old_signal.u[begin], tspan=tspan)
+    new = solve(jump_problem, SSAStepper())
+    Trajectory(SA[:S], new.t, new.u)
+end
+
 function propose!(new_signal::Trajectory, old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
 

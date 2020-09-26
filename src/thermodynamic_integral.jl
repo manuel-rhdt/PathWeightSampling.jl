@@ -33,7 +33,7 @@ function Base.iterate(sampler::MetropolisSampler{S, Sys}, new_state::S) where {S
         
         if (accepted + rejected) == sampler.skip + 1
             acceptance_rate = accepted / (rejected + accepted)
-            return (deepcopy(sampler.state), acceptance_rate), new_state
+            return acceptance_rate, new_state
         end
     end
 end
@@ -43,15 +43,52 @@ function generate_mcmc_samples(initial::State, system, skip::Int, num_samples::I
 
     samples = Vector{State}(undef, num_samples)
     acceptance = zeros(num_samples)
-    for (index, (sample, rate)) in Iterators.enumerate(Iterators.take(sampler, num_samples))
-        samples[index] = sample
+    for (index, rate) in Iterators.enumerate(Iterators.take(sampler, num_samples))
+        samples[index] = deepcopy(sampler.state)
         acceptance[index] = rate
     end
 
     samples, acceptance
 end
 
-# parallel Monte-Carlo computation of the marginal probability for the given configuration
+function annealed_importance_sampling(initial, system::StochasticSystem, skip::Int, num_samples::Int)
+    weights = zeros(Float64, num_samples)
+    temps = range(0, 1; length=num_samples + 1)
+    acceptance = zeros(Float64, num_samples)
+    acceptance[1] = 1.0
+
+    e_prev = energy(initial, system, θ = temps[1])
+    e_cur = energy(initial, system, θ = temps[2])
+    weights[1] = e_prev - e_cur
+
+    system.θ = temps[2]
+    sampler = MetropolisSampler(skip, e_cur, initial, system)
+    for (i, acc) in zip(2:num_samples, sampler)
+        e_prev = sampler.current_energy
+        e_cur = energy(sampler.state, system, θ = temps[i + 1])
+
+        weights[i] = weights[i-1] + e_prev - e_cur
+        acceptance[i] = acc
+
+        # change the temperature for the next iteration
+        sampler.system.θ = temps[i + 1]
+        sampler.current_energy = e_cur
+    end
+    temps[2:end], weights, acceptance
+end
+
+function log_marginal(::Val{:Annealing}, initial::Trajectory, system::StochasticSystem, skip::Int, num_temps::Int, num_samples::Int)
+    all_weights = zeros(Float64, num_temps, num_samples)
+    for i in 1:num_samples
+        signal = new_signal(initial, system)
+        (temps, weights, acceptance) = annealed_importance_sampling(signal, system, skip, num_temps)
+        all_weights[:, i] = weights
+    end
+
+    range(0,1,length=num_temps + 1), all_weights
+end
+
+# Monte-Carlo computation of the marginal probability for the given configuration
 function log_marginal(initial::Trajectory, system::StochasticSystem, num_samples::Int, integration_nodes::Int, skip_samples::Int)
     # Generate the array of θ values for which we want to simulate the system.
     # We use Gauss-Legendre quadrature which predetermines the choice of θ.
