@@ -19,5 +19,3 @@ reac1 = log(0.25)
 reac2 = log(51 * 0.005)
 
 @test Trajectories.logpdf(dist, traj) ≈ sum((wait1, wait2, wait3, reac1, reac2))
-
-@code_native Trajectories.:(var"#logpdf#7")([], Trajectories.logpdf, dist, traj)

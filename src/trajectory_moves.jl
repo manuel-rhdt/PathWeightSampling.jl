@@ -17,10 +17,14 @@ end
 
 function propose!(new_signal::Trajectory, old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
-    if rand(Bool)
-        shoot_forward!(new_signal, old_signal, jump_problem)
+
+    num_steps = length(old_signal)
+    branch_point = rand(2:num_steps - 1)
+
+    if branch_point > div(num_steps, 2, RoundDown)
+        shoot_forward!(new_signal, old_signal, jump_problem, branch_point)
     else
-        shoot_backward!(new_signal, old_signal, jump_problem)
+        shoot_backward!(new_signal, old_signal, jump_problem, branch_point)
     end
     nothing
 end
@@ -34,10 +38,7 @@ function myremake(jprob::JumpProblem; u0, tspan)
     )
 end
 
-function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem)
-    num_steps = length(old_traj)
-    branch_point = rand(2:num_steps - 1)
-
+function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem, branch_point::Int)
     branch_time = old_traj.t[branch_point]
     branch_value = old_traj[branch_point]
 
@@ -57,10 +58,7 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem
     nothing
 end
 
-function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem)
-    num_steps = length(old_traj)
-    branch_point = rand(2:num_steps - 1)
-
+function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem, branch_point::Int)
     branch_time = old_traj.t[branch_point]
     branch_value = old_traj[branch_point]
 
