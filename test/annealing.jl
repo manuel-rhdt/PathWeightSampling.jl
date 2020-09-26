@@ -16,7 +16,9 @@ end
 gen = Trajectories.configuration_generator(sn, rn)
 (system, initial) = Trajectories.generate_configuration(gen, duration=300.0)
 
-temps, weights = Trajectories.log_marginal(Val(:Annealing), initial, system, 10, 50, 1000)
-value = -(logsumexp(weights[end, :]) - log(size(weights, 2)))
-(value2, acc) = Trajectories.log_marginal(initial, system, 2000, 8, 50)
-@test isapprox(value, value2; rtol=1e-3)
+annealing = AnnealingEstimate(10, 50, 1000)
+ti = TIEstimate(50, 8, 2000)
+
+(value1, acc) = Trajectories.log_marginal(annealing, initial, system)
+(value2, acc) = Trajectories.log_marginal(ti, initial, system)
+@test isapprox(value1, value2; rtol=1e-3)

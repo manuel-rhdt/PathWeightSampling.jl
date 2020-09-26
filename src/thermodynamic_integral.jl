@@ -2,6 +2,7 @@ using Statistics
 using FastGaussQuadrature
 using LinearAlgebra
 using DataFrames
+using StatsFuns
 
 mutable struct MetropolisSampler{S, Sys}
     skip::Int
@@ -77,29 +78,43 @@ function annealed_importance_sampling(initial, system::StochasticSystem, skip::I
     temps[2:end], weights, acceptance
 end
 
-function log_marginal(::Val{:Annealing}, initial::Trajectory, system::StochasticSystem, skip::Int, num_temps::Int, num_samples::Int)
-    all_weights = zeros(Float64, num_temps, num_samples)
-    for i in 1:num_samples
+struct AnnealingEstimate
+    skip::Int
+    num_temps::Int
+    num_samples::Int
+end
+
+function log_marginal(algorithm::AnnealingEstimate, initial::Trajectory, system::StochasticSystem)
+    all_weights = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
+    acc = zeros(Float64, algorithm.num_samples)
+    for i in 1:algorithm.num_samples
         signal = new_signal(initial, system)
-        (temps, weights, acceptance) = annealed_importance_sampling(signal, system, skip, num_temps)
+        (temps, weights, acceptance) = annealed_importance_sampling(signal, system, algorithm.skip, algorithm.num_temps)
         all_weights[:, i] = weights
+        acc[i] = mean(acceptance)
     end
 
-    range(0,1,length=num_temps + 1), all_weights
+    -(logsumexp(all_weights[end, :]) - log(size(all_weights, 2))), mean(acc)
+end
+
+struct TIEstimate
+    skip::Int
+    integration_nodes::Int
+    num_samples::Int
 end
 
 # Monte-Carlo computation of the marginal probability for the given configuration
-function log_marginal(initial::Trajectory, system::StochasticSystem, num_samples::Int, integration_nodes::Int, skip_samples::Int)
+function log_marginal(algorithm::TIEstimate, initial::Trajectory, system::StochasticSystem)
     # Generate the array of θ values for which we want to simulate the system.
     # We use Gauss-Legendre quadrature which predetermines the choice of θ.
-    nodes, weights = gausslegendre(integration_nodes)
+    nodes, weights = gausslegendre(algorithm.integration_nodes)
     θrange = 0.5 .* nodes .+ 0.5
 
-    energies = Array{Float64}(undef, num_samples, length(θrange))
-    accept = Array{Float64}(undef, num_samples, length(θrange))
+    energies = Array{Float64}(undef, algorithm.num_samples, length(θrange))
+    accept = Array{Float64}(undef, algorithm.num_samples, length(θrange))
     for i in eachindex(θrange)
         system.θ = θrange[i]
-        samples, acceptance = generate_mcmc_samples(initial, system, skip_samples, num_samples)
+        samples, acceptance = generate_mcmc_samples(initial, system, algorithm.skip, algorithm.num_samples)
         for j in eachindex(samples)
             energies[j, i] = energy(samples[j], system, θ=1.0)
             accept[j, i] = acceptance[j]
@@ -112,11 +127,9 @@ function log_marginal(initial::Trajectory, system::StochasticSystem, num_samples
 end
 
 function marginal_entropy(
-        gen::ConfigurationGenerator; 
+        gen::ConfigurationGenerator;
+        algorithm,
         num_responses::Int=1,
-        num_samples::Int=1000, 
-        skip_samples::Int=50,
-        integration_nodes::Int=16,
         duration::Float64=500.0
     )
     result = DataFrame(
@@ -128,7 +141,7 @@ function marginal_entropy(
     #Threads.@threads 
     for i in 1:num_responses
         (system, initial) = generate_configuration(gen; duration=duration)
-        lm = @timed log_marginal(initial, system, num_samples, integration_nodes, skip_samples)
+        lm = @timed log_marginal(algorithm, initial, system)
         (val, acc) = lm.value
         elapsed = lm.time
         gctime = lm.gctime
