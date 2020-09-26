@@ -39,7 +39,21 @@ Base.getindex(traj::PartialTrajectory, i::Int) = traj.u[i][traj.idxs]
 Base.getindex(traj::PartialTrajectory, i::AbstractRange) = [v[traj.idxs] for v in traj.u[i]]
 
 function Base.convert(::Type{Trajectory}, partial::PartialTrajectory{uType,tType,M,N}) where {uType,tType,M,N}
-    Trajectory(partial.syms, partial.t, partial[begin:end])
+    t = copy(partial.t)
+    u = partial[begin:end]
+
+    i = 2
+    while i < length(u)
+        du = u[i] - u[i-1]
+        if all(du .== 0)
+            popat!(u, i)
+            popat!(t, i)
+        else
+            i += 1
+        end
+    end
+
+    Trajectory(partial.syms, t, u)
 end
 
 function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}, syms::SVector{NPart, Symbol}) where {T, N, M, NPart}

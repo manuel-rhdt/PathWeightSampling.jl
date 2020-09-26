@@ -100,7 +100,7 @@ function configuration_generator(sn::ReactionSystem, rn::ReactionSystem)
 end
 
 function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::Float64=500.0)
-    u0 = SVector(50, 50)
+    u0 = SVector(50.0, 50.0)
     tspan = (0., duration)
     discrete_prob = DiscreteProblem(u0, tspan)
     jump_prob = JumpProblem(gen.joint_network, discrete_prob, Direct())
@@ -109,7 +109,7 @@ function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::F
     response = convert(Trajectory, trajectory(sol, SA[:X], SA[2]))
     signal = convert(Trajectory, trajectory(sol, SA[:S], SA[1]))
 
-    u0s = SVector(50)
+    u0s = SVector(50.0)
     dprob_s = DiscreteProblem(u0s, tspan)
     jprob_s = JumpProblem(gen.signal_network, dprob_s, Direct())
 
