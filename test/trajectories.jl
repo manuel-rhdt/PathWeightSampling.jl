@@ -58,6 +58,3 @@ for i in eachindex(sol)
     @test sol[[1],i] == partial[i]
 end
 ptraj = convert(Trajectory, partial)
-
-p = plot(sol)
-plot!(p, ptraj)

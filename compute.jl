@@ -30,7 +30,6 @@ rn = @reaction_network begin
 end
 
 gen = Trajectories.configuration_generator(sn, rn)
-Trajectories.marginal_entropy(gen; num_responses=1, num_samples=2000, integration_nodes=16, duration=100.0)
 
 me = @distributed (vcat) for i = 1:8
     Trajectories.marginal_entropy(gen; num_responses=1, num_samples=2000, integration_nodes=16, duration=100.0)
