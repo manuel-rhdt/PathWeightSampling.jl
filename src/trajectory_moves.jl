@@ -18,10 +18,12 @@ end
 function propose!(new_signal::Trajectory, old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
 
+    # we want to regenerate at least 1/4 of the trajectory
     num_steps = length(old_signal)
-    branch_point = rand(2:num_steps - 1)
+    at_least_one_quarter = div(num_steps, 4, RoundUp)
+    branch_point = rand(at_least_one_quarter:num_steps - at_least_one_quarter)
 
-    if branch_point > div(num_steps, 2, RoundDown)
+    if rand(Bool)
         shoot_forward!(new_signal, old_signal, jump_problem, branch_point)
     else
         shoot_backward!(new_signal, old_signal, jump_problem, branch_point)
