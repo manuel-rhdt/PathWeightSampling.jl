@@ -75,7 +75,7 @@ function annealed_importance_sampling(initial, system::StochasticSystem, skip::I
         sampler.system.θ = temps[i + 1]
         sampler.current_energy = e_cur
     end
-    temps[2:end], weights, acceptance
+    temps, weights, acceptance
 end
 
 struct AnnealingEstimate
@@ -84,17 +84,27 @@ struct AnnealingEstimate
     num_samples::Int
 end
 
-function log_marginal(algorithm::AnnealingEstimate, initial::Trajectory, system::StochasticSystem)
+struct AnnealingEstimationResult
+    inv_temps::Vector{Float64}
+    weights::Array{Float64, 2}
+    acceptance::Array{Float64, 2}
+end
+
+log_marginal(result::AnnealingEstimationResult) =  -(logsumexp(result.weights[end, :]) - log(size(result.weights, 2)))
+
+function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::StochasticSystem)
     all_weights = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
-    acc = zeros(Float64, algorithm.num_samples)
+    acc = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
+    inv_temps = nothing
     for i in 1:algorithm.num_samples
         signal = new_signal(initial, system)
         (temps, weights, acceptance) = annealed_importance_sampling(signal, system, algorithm.skip, algorithm.num_temps)
+        inv_temps = temps
         all_weights[:, i] = weights
-        acc[i] = mean(acceptance)
+        acc[:, i] = acceptance
     end
 
-    -(logsumexp(all_weights[end, :]) - log(size(all_weights, 2))), mean(acc)
+   AnnealingEstimationResult(collect(inv_temps), all_weights, acc)
 end
 
 struct TIEstimate
@@ -103,12 +113,24 @@ struct TIEstimate
     num_samples::Int
 end
 
+struct ThermodynamicIntegrationResult
+    integration_weights::Vector{Float64}
+    inv_temps::Vector{Float64}
+    energies::Array{Float64, 2}
+    acceptance::Array{Float64, 2}
+end
+
+# perform the quadrature integral
+log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
+
 # Monte-Carlo computation of the marginal probability for the given configuration
-function log_marginal(algorithm::TIEstimate, initial::Trajectory, system::StochasticSystem)
+function simulate(algorithm::TIEstimate, initial::Trajectory, system::StochasticSystem)
     # Generate the array of θ values for which we want to simulate the system.
     # We use Gauss-Legendre quadrature which predetermines the choice of θ.
     nodes, weights = gausslegendre(algorithm.integration_nodes)
     θrange = 0.5 .* nodes .+ 0.5
+    # The factor 0.5 comes from rescaling the integration limits from [-1,1] to [0,1].
+    weights = 0.5 .* weights
 
     energies = Array{Float64}(undef, algorithm.num_samples, length(θrange))
     accept = Array{Float64}(undef, algorithm.num_samples, length(θrange))
@@ -121,9 +143,7 @@ function log_marginal(algorithm::TIEstimate, initial::Trajectory, system::Stocha
         end
     end
 
-    # Perform the quadrature integral. The factor 0.5 comes from rescaling the integration limits
-    # from [-1,1] to [0,1].
-    dot(weights, 0.5 .* vec(mean(energies, dims=1))), mean(accept)
+    ThermodynamicIntegrationResult(weights, θrange, energies, accept)
 end
 
 function marginal_entropy(
@@ -138,10 +158,9 @@ function marginal_entropy(
         TimeElapsed=zeros(Float64, num_responses), 
         GcTime=zeros(Float64, num_responses)
     )
-    #Threads.@threads 
     for i in 1:num_responses
         (system, initial) = generate_configuration(gen; duration=duration)
-        lm = @timed log_marginal(algorithm, initial, system)
+        lm = @timed simulate(algorithm, initial, system)
         (val, acc) = lm.value
         elapsed = lm.time
         gctime = lm.gctime
@@ -160,7 +179,6 @@ end
 
 function conditional_entropy(gen::ConfigurationGenerator;  num_responses::Int=1, duration::Float64=500.0)
     result = zeros(Float64, num_responses)
-    #Threads.@threads 
     for i in 1:num_responses
         (system, initial) = generate_configuration(gen, duration=duration)
         result[i] = energy(initial, system)
