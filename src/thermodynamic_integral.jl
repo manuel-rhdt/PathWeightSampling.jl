@@ -4,7 +4,7 @@ using LinearAlgebra
 using DataFrames
 using StatsFuns
 
-mutable struct MetropolisSampler{S, Sys}
+mutable struct MetropolisSampler{S,Sys}
     skip::Int
     current_energy::Float64
     state::S
@@ -13,7 +13,7 @@ end
 
 Base.iterate(sampler::MetropolisSampler) = iterate(sampler, deepcopy(sampler.state))
 
-function Base.iterate(sampler::MetropolisSampler{S, Sys}, new_state::S) where {S, Sys}    
+function Base.iterate(sampler::MetropolisSampler{S,Sys}, new_state::S) where {S,Sys}    
     accepted = 0
     rejected = 0
 
@@ -58,17 +58,17 @@ function annealed_importance_sampling(initial, system::StochasticSystem, skip::I
     acceptance = zeros(Float64, num_samples)
     acceptance[1] = 1.0
 
-    e_prev = energy(initial, system, θ = temps[1])
-    e_cur = energy(initial, system, θ = temps[2])
+    e_prev = energy(initial, system, θ=temps[1])
+    e_cur = energy(initial, system, θ=temps[2])
     weights[1] = e_prev - e_cur
 
     system.θ = temps[2]
     sampler = MetropolisSampler(skip, e_cur, initial, system)
     for (i, acc) in zip(2:num_samples, sampler)
         e_prev = sampler.current_energy
-        e_cur = energy(sampler.state, system, θ = temps[i + 1])
+        e_cur = energy(sampler.state, system, θ=temps[i + 1])
 
-        weights[i] = weights[i-1] + e_prev - e_cur
+        weights[i] = weights[i - 1] + e_prev - e_cur
         acceptance[i] = acc
 
         # change the temperature for the next iteration
@@ -86,11 +86,21 @@ end
 
 struct AnnealingEstimationResult
     inv_temps::Vector{Float64}
-    weights::Array{Float64, 2}
-    acceptance::Array{Float64, 2}
+    weights::Array{Float64,2}
+    acceptance::Array{Float64,2}
 end
 
 log_marginal(result::AnnealingEstimationResult) =  -(logsumexp(result.weights[end, :]) - log(size(result.weights, 2)))
+
+function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
+    inv_temps = cat((r.inv_temps for r in res_array)...; dims=2)
+    weights = cat((r.weights for r in res_array)...; dims=3)
+    acceptance = cat((r.acceptance for r in res_array)...; dims=3)
+
+    group["inv_temps"] = inv_temps[:, 1]
+    group["weights"] = weights
+    group["acceptance"] = acceptance
+end
 
 function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::StochasticSystem)
     all_weights = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
@@ -104,7 +114,7 @@ function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::Sto
         acc[:, i] = acceptance
     end
 
-   AnnealingEstimationResult(collect(inv_temps), all_weights, acc)
+    AnnealingEstimationResult(collect(inv_temps), all_weights, acc)
 end
 
 struct TIEstimate
@@ -116,8 +126,8 @@ end
 struct ThermodynamicIntegrationResult
     integration_weights::Vector{Float64}
     inv_temps::Vector{Float64}
-    energies::Array{Float64, 2}
-    acceptance::Array{Float64, 2}
+    energies::Array{Float64,2}
+    acceptance::Array{Float64,2}
 end
 
 # perform the quadrature integral
@@ -152,28 +162,20 @@ function marginal_entropy(
         num_responses::Int=1,
         duration::Float64=500.0
     )
-    result = DataFrame(
-        Sample=zeros(Float64, num_responses), 
-        Acceptance=zeros(Float64, num_responses), 
-        TimeElapsed=zeros(Float64, num_responses), 
-        GcTime=zeros(Float64, num_responses)
-    )
+    result = []
+    stats = DataFrame(TimeElapsed=zeros(Float64, num_responses), GcTime=zeros(Float64, num_responses))
+    sizehint!(result, num_responses)
     for i in 1:num_responses
         (system, initial) = generate_configuration(gen; duration=duration)
-        lm = @timed simulate(algorithm, initial, system)
-        (val, acc) = lm.value
-        elapsed = lm.time
-        gctime = lm.gctime
+        estimation_result = @timed simulate(algorithm, initial, system)
+        val = log_marginal(estimation_result)
+        push!(result, val)
 
-        result.Sample[i] = val
-        result.Acceptance[i] = acc
-        result.TimeElapsed[i] = elapsed
-        result.GcTime[i] = gctime
-
-        println(NamedTuple(result[i, :]))
+        stats.TimeElapsed[i] = elapsed
+        stats.GcTime[i] = gctime
     end
 
-    result
+    result, stats
 end
 
 
