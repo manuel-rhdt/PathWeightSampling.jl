@@ -62,6 +62,18 @@ git-tree-sha1 = "9e62e66db34540a0c919d72172cc2f642ac71260"
 uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 version = "0.5.0"
 
+[[Blosc]]
+deps = ["Blosc_jll"]
+git-tree-sha1 = "84cf7d0f8fd46ca6f1b3e0305b4b4a37afe50fd6"
+uuid = "a74b3585-a348-5f62-a45c-50e91977d574"
+version = "0.7.0"
+
+[[Blosc_jll]]
+deps = ["Libdl", "Lz4_jll", "Pkg", "Zlib_jll", "Zstd_jll"]
+git-tree-sha1 = "aa9ef39b54a168c3df1b2911e7797e4feee50fbe"
+uuid = "0b7ba130-8d10-5ba8-a3d6-c5182647fed9"
+version = "1.14.3+1"
+
 [[BoundaryValueDiffEq]]
 deps = ["BandedMatrices", "DiffEqBase", "FiniteDiff", "ForwardDiff", "LinearAlgebra", "NLsolve", "Reexport", "SparseArrays"]
 git-tree-sha1 = "3f2969de608af70db755cee9d4490a7294a6afc3"
@@ -444,6 +456,18 @@ git-tree-sha1 = "03d381f65183cb2d0af8b3425fde97263ce9a995"
 uuid = "42e2da0e-8278-4e71-bc24-59509adca0fe"
 version = "1.0.0"
 
+[[HDF5]]
+deps = ["Blosc", "HDF5_jll", "Libdl", "Mmap", "Random"]
+git-tree-sha1 = "0713cbabdf855852dfab3ce6447c87145f3d9ea8"
+uuid = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+version = "0.13.6"
+
+[[HDF5_jll]]
+deps = ["Libdl", "Pkg", "Zlib_jll"]
+git-tree-sha1 = "3dbc683172cb53428907485a4bb98a29d3874083"
+uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
+version = "1.10.5+6"
+
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
 git-tree-sha1 = "c7ec02c4c6a039a98a15f955462cd7aea5df4508"
@@ -600,6 +624,12 @@ deps = ["DocStringExtensions", "LinearAlgebra", "OffsetArrays", "SIMDPirates", "
 git-tree-sha1 = "3242a8f411e19eda9adc49d0b877681975c11375"
 uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
 version = "0.8.26"
+
+[[Lz4_jll]]
+deps = ["Libdl", "Pkg"]
+git-tree-sha1 = "51b1db0732bbdcfabb60e36095cc3ed9c0016932"
+uuid = "5ced341a-0733-55b8-9ab6-a4889d929147"
+version = "1.9.2+2"
 
 [[METIS_jll]]
 deps = ["Libdl", "Pkg"]
@@ -1140,6 +1170,12 @@ deps = ["Libdl", "Pkg"]
 git-tree-sha1 = "fdd89e5ab270ea0f2a0174bd9093e557d06d4bfa"
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
 version = "1.2.11+16"
+
+[[Zstd_jll]]
+deps = ["Libdl", "Pkg"]
+git-tree-sha1 = "4de91f4313d9e88162d461e282fe3066ab3a3c09"
+uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
+version = "1.4.5+1"
 
 [[ZygoteRules]]
 deps = ["MacroTools"]

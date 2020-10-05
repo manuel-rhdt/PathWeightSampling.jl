@@ -84,7 +84,12 @@ struct AnnealingEstimate
     num_samples::Int
 end
 
-struct AnnealingEstimationResult
+abstract type SimulationResult end
+
+function write_hdf5!(group, res_array::Vector{<: SimulationResult})
+end
+
+struct AnnealingEstimationResult <: SimulationResult
     inv_temps::Vector{Float64}
     weights::Array{Float64,2}
     acceptance::Array{Float64,2}
@@ -100,6 +105,7 @@ function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
     group["inv_temps"] = inv_temps[:, 1]
     group["weights"] = weights
     group["acceptance"] = acceptance
+    nothing
 end
 
 function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::StochasticSystem)
@@ -123,11 +129,24 @@ struct TIEstimate
     num_samples::Int
 end
 
-struct ThermodynamicIntegrationResult
+struct ThermodynamicIntegrationResult <: SimulationResult
     integration_weights::Vector{Float64}
     inv_temps::Vector{Float64}
     energies::Array{Float64,2}
     acceptance::Array{Float64,2}
+end
+
+function write_hdf5!(group, res_array::Vector{ThermodynamicIntegrationResult})
+    inv_temps = cat((r.inv_temps for r in res_array)...; dims=2)
+    integration_weights = cat((r.integration_weights for r in res_array)...; dims=2)
+    energies = cat((r.energies for r in res_array)...; dims=3)
+    acceptance = cat((r.acceptance for r in res_array)...; dims=3)
+
+    group["inv_temps"] = inv_temps[:, 1]
+    group["integration_weights"] = integration_weights
+    group["energies"] = energies
+    group["acceptance"] = acceptance
+    nothing
 end
 
 # perform the quadrature integral
@@ -162,17 +181,16 @@ function marginal_entropy(
         num_responses::Int=1,
         duration::Float64=500.0
     )
-    result = []
     stats = DataFrame(TimeElapsed=zeros(Float64, num_responses), GcTime=zeros(Float64, num_responses))
-    sizehint!(result, num_responses)
-    for i in 1:num_responses
-        (system, initial) = generate_configuration(gen; duration=duration)
-        estimation_result = @timed simulate(algorithm, initial, system)
-        val = log_marginal(estimation_result)
-        push!(result, val)
 
-        stats.TimeElapsed[i] = elapsed
-        stats.GcTime[i] = gctime
+    result = map(1:num_responses) do i
+        (system, initial) = generate_configuration(gen; duration=duration)
+        timed_result = @timed simulate(algorithm, initial, system)
+
+        stats.TimeElapsed[i] = timed_result.time
+        stats.GcTime[i] = timed_result.gctime
+
+        timed_result.value
     end
 
     result, stats
