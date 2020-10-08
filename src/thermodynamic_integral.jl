@@ -86,9 +86,6 @@ end
 
 abstract type SimulationResult end
 
-function write_hdf5!(group, res_array::Vector{<: SimulationResult})
-end
-
 struct AnnealingEstimationResult <: SimulationResult
     inv_temps::Vector{Float64}
     weights::Array{Float64,2}
@@ -103,8 +100,8 @@ function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
     acceptance = cat((r.acceptance for r in res_array)...; dims=3)
 
     group["inv_temps"] = inv_temps[:, 1]
-    group["weights"] = weights
-    group["acceptance"] = acceptance
+    group["weights", "compress", 9] = weights
+    group["acceptance", "compress", 9] = acceptance
     nothing
 end
 
