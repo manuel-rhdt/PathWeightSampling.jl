@@ -7,11 +7,7 @@ ce_fname = joinpath(path, "ce.txt")
 
 using Logging
 
-
-using Distributed
-addprocs(exeflags="--project")
-
-@everywhere using GaussianMcmc.Trajectories
+using GaussianMcmc.Trajectories
 using Catalyst
 using CSV
 using HDF5
@@ -28,14 +24,9 @@ end
 
 gen = Trajectories.configuration_generator(sn, rn)
 
-algorithm = AnnealingEstimate(10, 50, 1000)
+algorithm = AnnealingEstimate(10, 50, 100)
 
-# using distributed because of GarbageCollector pauses in Multi-Threaded code
-me = @distributed (vcat) for i = 1:1
-    result, stats = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=1, duration=500.0)
-    println(stats)
-    result
-end
+me, stats = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=5, duration=100.0)
 
 h5open(me_fname, "w") do file
     Trajectories.write_hdf5!(file, me)

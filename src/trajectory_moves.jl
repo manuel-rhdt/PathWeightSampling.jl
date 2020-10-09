@@ -1,5 +1,5 @@
 using Plots
-using DifferentialEquations
+using DiffEqJump
 using Catalyst
 using ModelingToolkit
 using Statistics

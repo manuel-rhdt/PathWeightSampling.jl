@@ -10,6 +10,13 @@ struct TrajectoryDistribution
     reactions::Vector{ChemicalReaction}
 end
 
+function write_hdf5!(group, d::TrajectoryDistribution)
+    
+    structure = map(d.reactions) do react
+
+    end
+end
+
 distribution(rn::ReactionSystem) = TrajectoryDistribution(create_chemical_reactions(rn))
 
 @fastmath function logpdf(dist::TrajectoryDistribution, trajectory; params=[])

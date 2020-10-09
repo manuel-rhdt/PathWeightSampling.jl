@@ -3,6 +3,7 @@ using FastGaussQuadrature
 using LinearAlgebra
 using DataFrames
 using StatsFuns
+using HDF5
 
 mutable struct MetropolisSampler{S,Sys}
     skip::Int
@@ -21,10 +22,11 @@ function Base.iterate(sampler::MetropolisSampler{S,Sys}, new_state::S) where {S,
         propose!(new_state, sampler.state, sampler.system)
         new_energy = energy(new_state, sampler.system)
         
+        # metropolis acceptance criterion
         if rand() < exp(sampler.current_energy - new_energy)
             accepted += 1
             sampler.current_energy = new_energy
-            # simple variable swap
+            # simple variable swap (sampler.state <--> new_state)
             tmp = new_state
             new_state = sampler.state
             sampler.state = tmp
@@ -99,9 +101,20 @@ function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
     weights = cat((r.weights for r in res_array)...; dims=3)
     acceptance = cat((r.acceptance for r in res_array)...; dims=3)
 
-    group["inv_temps"] = inv_temps[:, 1]
+    group["response_index"] = Vector(1:size(weights, 3))
+    group["annealing_run"] = Vector(1:size(weights, 2))
+    group["theta"] = inv_temps[:, 1]
     group["weights", "compress", 9] = weights
     group["acceptance", "compress", 9] = acceptance
+
+    weight_attrs = attrs(group["weights"])
+    acceptance_attrs = attrs(group["acceptance"])
+
+    weight_attrs["long_name"] = "Annealed Importance Sampling Weights"
+    acceptance_attrs["long_name"] = "MCMC acceptance rates"
+
+    weight_attrs["Coordinates"] = ["response_index", "annealing_run", "theta"]
+    acceptance_attrs["Coordinates"] = ["response_index", "annealing_run", "theta"]
     nothing
 end
 
