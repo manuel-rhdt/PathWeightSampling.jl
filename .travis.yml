@@ -14,8 +14,8 @@ arch:
 cache:
   directories:
     - ~/.julia/artifacts
+script: travis_wait julia --check-bounds=yes --color=yes -e "using Pkg; Pkg.test(coverage=true);"
 jobs:
   fast_finish: true   
   allow_failures:
     - julia: nightly
-install: alias julia='travis_wait julia'
