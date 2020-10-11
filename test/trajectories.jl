@@ -1,7 +1,7 @@
 using Test
 using GaussianMcmc.Trajectories
+using DiffEqJump
 using Catalyst
-using DifferentialEquations
 using StaticArrays
 
 traj = Trajectory(SA[:S, :X], [0.0, 1.0, 2.0], [SA[1,4], SA[2,5], SA[3,6]])

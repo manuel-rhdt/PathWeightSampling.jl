@@ -1,4 +1,3 @@
-using Plots
 using DiffEqJump
 using Catalyst
 using ModelingToolkit

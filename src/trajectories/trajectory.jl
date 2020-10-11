@@ -1,4 +1,5 @@
-using DifferentialEquations
+using RecipesBase
+using DiffEqBase
 
 abstract type AbstractTrajectory{uType,tType,N} end
 

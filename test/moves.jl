@@ -1,7 +1,6 @@
 using GaussianMcmc.Trajectories
 using Catalyst
 using StaticArrays
-using DifferentialEquations
 using Test
 
 sn = @reaction_network begin
