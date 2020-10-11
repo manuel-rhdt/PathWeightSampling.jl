@@ -159,6 +159,24 @@ function write_hdf5!(group, res_array::Vector{ThermodynamicIntegrationResult})
     nothing
 end
 
+function write_hdf5!(group, dict::AbstractDict)
+    for (name, value) in dict
+        if typeof(value) <: String || typeof(value) <: Number
+            attrs(group)[name] = value
+        else
+            newgroup = g_create(group, String(name))
+            write_hdf5!(newgroup, value)
+        end
+    end
+end
+
+
+function write_hdf5!(group, df::AbstractDataFrame)
+    for (name, value) in zip(names(df), eachcol(df))
+        group[name] = value
+    end
+end
+
 # perform the quadrature integral
 log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
 
@@ -203,7 +221,7 @@ function marginal_entropy(
         timed_result.value
     end
 
-    result, stats
+    Dict("marginal_entropy" => result, "stats" => stats)
 end
 
 
@@ -214,7 +232,7 @@ function conditional_entropy(gen::ConfigurationGenerator;  num_responses::Int=1,
         result[i] = energy(initial, system)
     end
 
-    DataFrame(
+    Dict("conditional_entropy" => DataFrame(
         Sample=result
-    )
+    ))
 end
