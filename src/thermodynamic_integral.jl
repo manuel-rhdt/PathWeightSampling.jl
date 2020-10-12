@@ -4,8 +4,10 @@ using LinearAlgebra
 using DataFrames
 using StatsFuns
 using HDF5
+using Statistics
 
 mutable struct MetropolisSampler{S,Sys}
+    burn_in::Int
     skip::Int
     current_energy::Float64
     state::S
@@ -34,21 +36,21 @@ function Base.iterate(sampler::MetropolisSampler{S,Sys}, new_state::S) where {S,
             rejected += 1
         end
         
-        if (accepted + rejected) == sampler.skip + 1
-            acceptance_rate = accepted / (rejected + accepted)
-            return acceptance_rate, new_state
+        if (accepted + rejected) >= max(sampler.burn_in, sampler.skip)
+            sampler.burn_in = 0
+            return accepted, new_state
         end
     end
 end
 
-function generate_mcmc_samples(initial::State, system, skip::Int, num_samples::Int) where State
-    sampler = MetropolisSampler(skip, energy(initial, system), initial, system)
+function generate_mcmc_samples(initial::State, system, burn_in::Int, num_samples::Int) where State
+    sampler = MetropolisSampler(burn_in, 0, energy(initial, system), initial, system)
 
     samples = Vector{State}(undef, num_samples)
-    acceptance = zeros(num_samples)
-    for (index, rate) in Iterators.enumerate(Iterators.take(sampler, num_samples))
+    acceptance = zeros(Int16, num_samples)
+    for (index, was_accepted) in Iterators.enumerate(Iterators.take(sampler, num_samples))
         samples[index] = deepcopy(sampler.state)
-        acceptance[index] = rate
+        acceptance[index] = was_accepted
     end
 
     samples, acceptance
@@ -57,7 +59,7 @@ end
 function annealed_importance_sampling(initial, system::StochasticSystem, skip::Int, num_samples::Int)
     weights = zeros(Float64, num_samples)
     temps = range(0, 1; length=num_samples + 1)
-    acceptance = zeros(Float64, num_samples)
+    acceptance = zeros(Int16, num_samples)
     acceptance[1] = 1.0
 
     e_prev = energy(initial, system, θ=temps[1])
@@ -65,7 +67,7 @@ function annealed_importance_sampling(initial, system::StochasticSystem, skip::I
     weights[1] = e_prev - e_cur
 
     system.θ = temps[2]
-    sampler = MetropolisSampler(skip, e_cur, initial, system)
+    sampler = MetropolisSampler(0, skip, e_cur, initial, system)
     for (i, acc) in zip(2:num_samples, sampler)
         e_prev = sampler.current_energy
         e_cur = energy(sampler.state, system, θ=temps[i + 1])
@@ -91,7 +93,7 @@ abstract type SimulationResult end
 struct AnnealingEstimationResult <: SimulationResult
     inv_temps::Vector{Float64}
     weights::Array{Float64,2}
-    acceptance::Array{Float64,2}
+    acceptance::Array{Int16,2}
 end
 
 log_marginal(result::AnnealingEstimationResult) =  -(logsumexp(result.weights[end, :]) - log(size(result.weights, 2)))
@@ -134,7 +136,7 @@ function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::Sto
 end
 
 struct TIEstimate
-    skip::Int
+    burn_in::Int
     integration_nodes::Int
     num_samples::Int
 end
@@ -143,7 +145,7 @@ struct ThermodynamicIntegrationResult <: SimulationResult
     integration_weights::Vector{Float64}
     inv_temps::Vector{Float64}
     energies::Array{Float64,2}
-    acceptance::Array{Float64,2}
+    acceptance::Array{Int16,2}
 end
 
 function write_hdf5!(group, res_array::Vector{ThermodynamicIntegrationResult})
@@ -179,6 +181,14 @@ end
 
 # perform the quadrature integral
 log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
+function Statistics.std(result::ThermodynamicIntegrationResult)
+    block_averages(array, block_size) = map(mean, Iterators.partition(array, block_size))
+    sem(array) = sqrt(var(array, corrected=false) / (length(array) - 1))
+    σ = map(eachcol(result.energies)) do col
+        sem(block_averages(col, 2^8))
+    end
+    dot(result.integration_weights, σ)
+end
 
 # Monte-Carlo computation of the marginal probability for the given configuration
 function simulate(algorithm::TIEstimate, initial::Trajectory, system::StochasticSystem)
@@ -190,10 +200,10 @@ function simulate(algorithm::TIEstimate, initial::Trajectory, system::Stochastic
     weights = 0.5 .* weights
 
     energies = Array{Float64}(undef, algorithm.num_samples, length(θrange))
-    accept = Array{Float64}(undef, algorithm.num_samples, length(θrange))
+    accept = Array{Int16}(undef, algorithm.num_samples, length(θrange))
     for i in eachindex(θrange)
         system.θ = θrange[i]
-        samples, acceptance = generate_mcmc_samples(initial, system, algorithm.skip, algorithm.num_samples)
+        samples, acceptance = generate_mcmc_samples(initial, system, algorithm.burn_in, algorithm.num_samples)
         for j in eachindex(samples)
             energies[j, i] = energy(samples[j], system, θ=1.0)
             accept[j, i] = acceptance[j]

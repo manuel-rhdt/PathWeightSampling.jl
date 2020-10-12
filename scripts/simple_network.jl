@@ -22,7 +22,8 @@ end
 
 gen = Trajectories.configuration_generator(sn, rn)
 
-algorithm = AnnealingEstimate(10, 50, 100)
+# algorithm = AnnealingEstimate(10, 50, 100)
+algorithm = TIEstimate(1024, 16, 2^14)
 
 marginal_entropy = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=5, duration=100.0)
 conditional_entropy = Trajectories.conditional_entropy(gen, num_responses=10_000, duration=500.0)
