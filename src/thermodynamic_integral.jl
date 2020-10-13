@@ -145,7 +145,7 @@ struct ThermodynamicIntegrationResult <: SimulationResult
     integration_weights::Vector{Float64}
     inv_temps::Vector{Float64}
     energies::Array{Float64,2}
-    acceptance::Array{Int16,2}
+    acceptance::Array{Bool,2}
 end
 
 function write_hdf5!(group, res_array::Vector{ThermodynamicIntegrationResult})
@@ -156,8 +156,8 @@ function write_hdf5!(group, res_array::Vector{ThermodynamicIntegrationResult})
 
     group["inv_temps"] = inv_temps[:, 1]
     group["integration_weights"] = integration_weights
-    group["energies"] = energies
-    group["acceptance"] = acceptance
+    group["energies", "compress", 9] = energies
+    group["acceptance", "compress", 9] = acceptance
     nothing
 end
 
@@ -206,7 +206,7 @@ function simulate(algorithm::TIEstimate, initial::Trajectory, system::Stochastic
         samples, acceptance = generate_mcmc_samples(initial, system, algorithm.burn_in, algorithm.num_samples)
         for j in eachindex(samples)
             energies[j, i] = energy(samples[j], system, θ=1.0)
-            accept[j, i] = acceptance[j]
+            accept[j, i] = acceptance[j] != 0
         end
     end
 
