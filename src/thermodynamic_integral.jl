@@ -225,6 +225,8 @@ function marginal_entropy(
         (system, initial) = generate_configuration(gen; duration=duration)
         timed_result = @timed simulate(algorithm, initial, system)
 
+        @info "Finished response" response = i log_marginal = log_marginal(timed_result.value) time = timed_result.time
+
         stats.TimeElapsed[i] = timed_result.time
         stats.GcTime[i] = timed_result.gctime
 

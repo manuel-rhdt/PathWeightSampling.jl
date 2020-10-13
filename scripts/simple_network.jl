@@ -3,6 +3,7 @@ import JSON
 
 f = ARGS[1]
 dict = JSON.parsefile(projectdir("_research", "tmp", f))
+@info "Read file" file=f
 
 duration = dict["duration"]
 N = dict["N"]
@@ -21,6 +22,8 @@ else
     error("Unsupported algorithm " * dict["algorithm"])
 end
 
+@info "Parameters" duration N num_responses algorithm
+
 sn = @reaction_network begin
     0.005, S --> ∅
     0.25, ∅ --> S
@@ -33,8 +36,9 @@ end
 
 gen = Trajectories.configuration_generator(sn, rn)
 marginal_entropy = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses, duration=duration)
+@info "Finished marginal entropy"
 conditional_entropy = Trajectories.conditional_entropy(gen, num_responses=10_000, duration=duration)
-
+@info "Finished conditional entropy"
 
 function DrWatson._wsave(filename, result::Dict)
     h5open(filename, "w") do file
@@ -45,3 +49,4 @@ end
 
 filename = savename((@dict duration N num_responses), "hdf5")
 tagsave(datadir(dict["algorithm"], filename), merge(dict, marginal_entropy, conditional_entropy))
+@info "Saved to" filename
