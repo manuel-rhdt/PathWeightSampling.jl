@@ -5,8 +5,8 @@ using Random
 my_args = Dict(
     "algorithm" => "thermodynamic_integration",
     "duration" => collect(range(50.0, 500.0, length=10)),
-    "N" => collect(1:8),
-    "num_responses" => 1000
+    "N" => collect(9:28),
+    "num_responses" => 500
 )
 
 function runsave(dicts, tmp=projectdir("_research", "tmp"), prefix="", suffix="json", l=8)
