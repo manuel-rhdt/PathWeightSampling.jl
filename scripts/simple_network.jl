@@ -1,7 +1,8 @@
 using DrWatson
+import JSON
 
 f = ARGS[1]
-dict = load(projectdir("_research", "tmp", f))
+dict = JSON.parsefile(projectdir("_research", "tmp", f))
 
 duration = dict["duration"]
 N = dict["N"]
