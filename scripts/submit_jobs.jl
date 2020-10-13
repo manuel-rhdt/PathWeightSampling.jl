@@ -36,7 +36,7 @@ filename = runsave(dicts)
 jobscript = """
     export JULIA_PROJECT=$(projectdir())
 
-    julia -e "using InteractiveUtils; versioninfo()"
+    julia -e "using InteractiveUtils; versioninfo(verbose=true)"
     julia $(projectdir("scripts", "simple_network.jl")) $filename.\$PBS_ARRAYID.json
     """
 
