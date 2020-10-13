@@ -5,8 +5,8 @@ using Random
 my_args = Dict(
     "algorithm" => "thermodynamic_integration",
     "duration" => collect(range(50.0, 500.0, length=10)),
-    "N" => Vector(1:8),
-    "num_responses" => 2
+    "N" => collect(1:8),
+    "num_responses" => 1000
 )
 
 function runsave(dicts, tmp=projectdir("_research", "tmp"), prefix="", suffix="json", l=8)
@@ -41,7 +41,11 @@ jobscript = """
     """
 
 result = ""
-open(`qsub -N runname -l nodes=1:ppn=1:highcpu,mem=4gb,walltime=24:00:00 -t 1:$(length(dicts))`, "r+") do io
+
+out_dir = projectdir("data", "output")
+mkpath(out_dir)
+
+open(`qsub -N TI1 -l nodes=1:ppn=1:highcpu,mem=4gb,walltime=24:00:00 -t 1:$(length(dicts)) -k o -o $out_dir`, "r+") do io
     print(io, jobscript)
     close(io.in)
     global result *= read(io, String)

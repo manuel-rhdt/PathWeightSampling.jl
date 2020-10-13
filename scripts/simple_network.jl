@@ -43,5 +43,5 @@ function DrWatson._wsave(filename, result::Dict)
 end
 
 
-filename = savename((@dict duration N), "hdf5")
+filename = savename((@dict duration N num_responses), "hdf5")
 tagsave(datadir(dict["algorithm"], filename), merge(dict, marginal_entropy, conditional_entropy))
