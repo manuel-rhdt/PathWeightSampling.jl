@@ -41,7 +41,7 @@ jobscript = """
     """
 
 result = ""
-open(`qsub -N runname -l nodes=1:ppn=1:highcpu,mem=4gb,walltime=24:00:00 -t 1:$(length(dicts))`, "r+") do io
+open(`qsub -N runname -l nodes=1:ppn=1:highcpu,mem=4gb,walltime=24:00:00 -t 1-$(length(dicts))`, "r+") do io
     print(io, jobscript)
     close(io.in)
     global result *= read(io, String)
