@@ -1,5 +1,3 @@
-using ModelingToolkit
-
 struct ChemicalReaction
     rate::Float64
     substoich::Vector{Tuple{Int,Int}}

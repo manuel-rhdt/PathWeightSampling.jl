@@ -1,34 +1,9 @@
-using GaussianMcmc.Trajectories
-using Catalyst
-
-sn = @reaction_network begin
-    0.005, S --> ∅
-    0.25, ∅ --> S
-end
-
-rn = @reaction_network begin
-    0.01, S --> X + S
-    0.01, X --> ∅ 
-end
-
-gen = Trajectories.configuration_generator(sn, rn)
-
-(system, initial) = Trajectories.generate_configuration(gen; duration=500.0)
-signal = Trajectories.new_signal(initial, system)
-
-system.θ = 1.0
-
-
-
+include("basic_setup.jl")
 using Plots
 using Statistics
 using StatsBase
 
-plot(energies)
-plot(autocor(energies))
-
-mean(acceptance)
-
+system.θ = 1.0
 block(arr) = 0.5 .* (arr[begin:2:end-1] .+ arr[begin+1:2:end])
 
 function plot_block_averages!(p, values)

@@ -1,19 +1,4 @@
-using GaussianMcmc.Trajectories
-using Catalyst
+include("basic_setup.jl")
 
-sn = @reaction_network begin
-    0.005, S --> ∅
-    0.25, ∅ --> S
-end
+system
 
-rn = @reaction_network begin
-    0.01, S --> X + S
-    0.01, X --> ∅ 
-end
-
-gen = Trajectories.configuration_generator(sn, rn)
-
-(system, initial) = Trajectories.generate_configuration(gen; duration=500.0)
-signal = Trajectories.new_signal(initial, system)
-
-system.θ = 1.0

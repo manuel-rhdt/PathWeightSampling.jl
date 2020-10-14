@@ -1,6 +1,5 @@
 using DiffEqJump
 using Catalyst
-using ModelingToolkit
 using Statistics
 
 include("trajectories/trajectory.jl")
