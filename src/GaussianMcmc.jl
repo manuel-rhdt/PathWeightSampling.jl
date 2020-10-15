@@ -154,7 +154,7 @@ energy(conf::SystemConfiguration, prior, joint, θ::Float64) = energy(conf.state
 
 struct Mcmc{Conf <: SystemConfiguration,Prior,Joint}
     scale::Float64
-    skip::Int64
+    subsample::Int64
     prior::Prior
     joint::Joint
     theta::Float64
@@ -183,7 +183,7 @@ function Base.iterate(iter::Mcmc, state = iter.initial)
             rejected += 1
         end
         
-        if (accepted + rejected) == iter.skip + 1
+        if (accepted + rejected) == iter.subsample + 1
             acceptance_rate = accepted / (rejected + accepted)
             return (current_conf, acceptance_rate), current_conf
         end
@@ -220,11 +220,11 @@ function propose_conf!(new_conf::GaussianProposal{T}, previous_conf::GaussianPro
 end
 
 
-function generate_mcmc_samples(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, skip::Integer, θ::Real = 1.0)
+function generate_mcmc_samples(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, subsample::Integer, θ::Real = 1.0)
     prior_distr = FastMvNormal(corr_ss(system).(t))
     joint_distr = FastMvNormal(corr_z(system, t))
     
-    mcmc = Mcmc(scale, skip, prior_distr, joint_distr, θ, initial)
+    mcmc = Mcmc(scale, subsample, prior_distr, joint_distr, θ, initial)
 
     samples = zeros((size(t, 1) * 2, num_samples))
     acceptance = zeros(num_samples)
@@ -242,14 +242,14 @@ mutable struct ThermodynamicIntegral
     t::Matrix
     initial::SystemConfiguration
     scale::Real
-    skip::Integer
+    subsample::Integer
     samples::Array{Float64,3}
     acceptance_rates::Array{Float64,2}
     θ::Vector{Float64}
 end
 
-function ThermodynamicIntegral(system::System, t::Matrix, initial::SystemConfiguration, scale::Real, skip::Integer)
-    ThermodynamicIntegral(system, t, initial, scale, skip, Array{Float64}(undef, (0, 0, 0)), Array{Float64}(undef, (0, 0)), Vector{Float64}(undef, 0))
+function ThermodynamicIntegral(system::System, t::Matrix, initial::SystemConfiguration, scale::Real, subsample::Integer)
+    ThermodynamicIntegral(system, t, initial, scale, subsample, Array{Float64}(undef, (0, 0, 0)), Array{Float64}(undef, (0, 0)), Vector{Float64}(undef, 0))
 end
 
 function perform(integral::ThermodynamicIntegral, num_samples::Integer, θ::Real)
@@ -260,7 +260,7 @@ function perform(integral::ThermodynamicIntegral, num_samples::Integer, θ::Abst
     samples = []
     acceptance = []
     for θ in θ
-        s, a = generate_mcmc_samples(integral.initial, num_samples, integral.system, integral.t, scale = integral.scale, skip = integral.skip, θ = θ)
+        s, a = generate_mcmc_samples(integral.initial, num_samples, integral.system, integral.t, scale = integral.scale, subsample = integral.subsample, θ = θ)
         push!(samples, s)
         push!(acceptance, a)
     end
@@ -283,8 +283,8 @@ function potential(integral::ThermodynamicIntegral)
 end
 
 
-function estimate_marginal_density(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, skip::Integer, θ::Real = 1.0)
-    samples, acceptance = generate_mcmc_samples(initial, num_samples, system, t, scale = scale, skip = skip, θ = θ)
+function estimate_marginal_density(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, subsample::Integer, θ::Real = 1.0)
+    samples, acceptance = generate_mcmc_samples(initial, num_samples, system, t, scale = scale, subsample = subsample, θ = θ)
     n_dim = Int(size(t, 1))
     signal = @view samples[1:n_dim,:]
     response = @view initial.state[n_dim + 1:end]

@@ -87,10 +87,10 @@ function estimate_marginal_density(::Val{:WangLandau}, system::System, t::Matrix
     (estimate, result)
 end
 
-function estimate_marginal_density(::Val{:ThermodynamicIntegration}, system::System, t::Matrix{<:Real}, initial::Vector{<:Real}; scale::Real, num_samples::Integer, skip::Integer)
+function estimate_marginal_density(::Val{:ThermodynamicIntegration}, system::System, t::Matrix{<:Real}, initial::Vector{<:Real}; scale::Real, num_samples::Integer, subsample::Integer)
     θ = rand()
     initial = GaussianProposal(initial)
-    samples, acceptance = generate_mcmc_samples(initial, num_samples, system, t; scale = scale, skip = skip, θ = θ)
+    samples, acceptance = generate_mcmc_samples(initial, num_samples, system, t; scale = scale, subsample = subsample, θ = θ)
 
     n_dim = size(t, 1)
 

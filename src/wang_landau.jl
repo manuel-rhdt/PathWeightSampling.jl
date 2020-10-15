@@ -10,7 +10,7 @@ mutable struct WangLandau{Conf <: SystemConfiguration}
     scale::Float64
     current_conf::Conf
     energy_bins::Vector{Float64}
-    skip::Integer
+    subsample::Integer
     ϵ::Float64
 end
 
@@ -21,10 +21,10 @@ function WangLandau(system::System,
         initial::SystemConfiguration, 
         energy_bins::Vector{<:Real}; 
         ϵ::Real = 1e-4, 
-        skip::Integer = 1_000_000
+        subsample::Integer = 1_000_000
     )
     num_bins = length(energy_bins) - 1
-    WangLandau(system, t, f_param, zeros(num_bins), zeros(UInt64, num_bins), scale, initial, energy_bins, skip, ϵ)
+    WangLandau(system, t, f_param, zeros(num_bins), zeros(UInt64, num_bins), scale, initial, energy_bins, subsample, ϵ)
 end
 
 
@@ -83,7 +83,7 @@ function Base.iterate(iter::WangLandau{T} where T, state)
             iter.f_param *= 0.5
         end
 
-        if (accepted + rejected) % iter.skip == 0
+        if (accepted + rejected) % iter.subsample == 0
             return ((accepted, rejected), (current_dens, current_energy, current_energy_bin, prior, joint))
         end
     end

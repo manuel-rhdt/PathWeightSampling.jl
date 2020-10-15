@@ -8,7 +8,7 @@ using Statistics
 
 mutable struct MetropolisSampler{S,Sys}
     burn_in::Int
-    skip::Int
+    subsample::Int
     current_energy::Float64
     state::S
     system::Sys
@@ -26,6 +26,7 @@ function Base.iterate(sampler::MetropolisSampler{S,Sys}, new_state::S) where {S,
         
         # metropolis acceptance criterion
         if rand() < exp(sampler.current_energy - new_energy)
+            accept(sampler.system)
             accepted += 1
             sampler.current_energy = new_energy
             # simple variable swap (sampler.state <--> new_state)
@@ -33,10 +34,11 @@ function Base.iterate(sampler::MetropolisSampler{S,Sys}, new_state::S) where {S,
             new_state = sampler.state
             sampler.state = tmp
         else
+            reject(sampler.system)
             rejected += 1
         end
         
-        if (accepted + rejected) >= max(sampler.burn_in, sampler.skip)
+        if (accepted + rejected) > max(sampler.burn_in, sampler.subsample)
             sampler.burn_in = 0
             return accepted, new_state
         end
@@ -56,7 +58,7 @@ function generate_mcmc_samples(initial::State, system, burn_in::Int, num_samples
     samples, acceptance
 end
 
-function annealed_importance_sampling(initial, system::StochasticSystem, skip::Int, num_samples::Int)
+function annealed_importance_sampling(initial, system::StochasticSystem, subsample::Int, num_samples::Int)
     weights = zeros(Float64, num_samples)
     temps = range(0, 1; length=num_samples + 1)
     acceptance = zeros(Int16, num_samples)
@@ -67,7 +69,7 @@ function annealed_importance_sampling(initial, system::StochasticSystem, skip::I
     weights[1] = e_prev - e_cur
 
     system.θ = temps[2]
-    sampler = MetropolisSampler(0, skip, e_cur, initial, system)
+    sampler = MetropolisSampler(0, subsample, e_cur, initial, system)
     for (i, acc) in zip(2:num_samples, sampler)
         e_prev = sampler.current_energy
         e_cur = energy(sampler.state, system, θ=temps[i + 1])
@@ -83,7 +85,7 @@ function annealed_importance_sampling(initial, system::StochasticSystem, skip::I
 end
 
 struct AnnealingEstimate
-    skip::Int
+    subsample::Int
     num_temps::Int
     num_samples::Int
 end
@@ -126,7 +128,7 @@ function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::Sto
     inv_temps = nothing
     for i in 1:algorithm.num_samples
         signal = new_signal(initial, system)
-        (temps, weights, acceptance) = annealed_importance_sampling(signal, system, algorithm.skip, algorithm.num_temps)
+        (temps, weights, acceptance) = annealed_importance_sampling(signal, system, algorithm.subsample, algorithm.num_temps)
         inv_temps = temps
         all_weights[:, i] = weights
         acc[:, i] = acceptance

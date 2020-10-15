@@ -1,5 +1,6 @@
 using GaussianMcmc.Trajectories
 using Catalyst
+using DrWatson
 
 sn = @reaction_network begin
     0.005, S --> ∅

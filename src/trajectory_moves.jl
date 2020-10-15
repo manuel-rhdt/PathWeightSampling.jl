@@ -11,13 +11,28 @@ mutable struct StochasticSystem{uType,tType,R <: AbstractTrajectory{uType,tType}
     response::R
     # interaction parameter
     θ::Float64
+
+    last_regrowth::Float64
+    accepted_list::Vector{Float64}
+    rejected_list::Vector{Float64}
+end
+
+function reset(system::StochasticSystem)
+    resize!(system.accepted_list, 0)
+    resize!(system.rejected_list, 0)
+end
+
+function accept(system::StochasticSystem)
+    push!(system.accepted_list, system.last_regrowth)
+end
+
+function reject(system::StochasticSystem)
+    push!(system.rejected_list, system.last_regrowth)
 end
 
 function new_signal(old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
-
     tspan = (old_signal.t[begin], old_signal.t[end])
-
     jump_problem = myremake(jump_problem; u0=old_signal.u[begin], tspan=tspan)
     new = solve(jump_problem, SSAStepper())
     Trajectory(SA[:S], new.t, new.u)
@@ -26,16 +41,19 @@ end
 function propose!(new_signal::Trajectory, old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
 
-    # we want to regenerate at least 1/4 of the trajectory
-    num_steps = length(old_signal)
-    at_least_one_quarter = div(num_steps, 4, RoundUp)
-    branch_point = rand(at_least_one_quarter:num_steps - at_least_one_quarter)
+    regrow_steps = rand(1:length(old_signal) - 2)
 
     if rand(Bool)
+        branch_point = length(old_signal) - regrow_steps
+        regrowth = old_signal.t[end] - old_signal.t[branch_point]
         shoot_forward!(new_signal, old_signal, jump_problem, branch_point)
     else
+        branch_point = regrow_steps + 1
+        regrowth = old_signal.t[branch_point] - old_signal.t[begin]
         shoot_backward!(new_signal, old_signal, jump_problem, branch_point)
     end
+
+    system.last_regrowth = regrowth
     nothing
 end
 
@@ -121,5 +139,5 @@ function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::F
     dprob_s = DiscreteProblem(u0s, tspan)
     jprob_s = JumpProblem(gen.signal_network, dprob_s, Direct())
 
-    (StochasticSystem(jprob_s, gen.distribution, response, θ), signal)
+    (StochasticSystem(jprob_s, gen.distribution, response, θ, 0.0, Float64[], Float64[]), signal)
 end
