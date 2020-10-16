@@ -202,7 +202,7 @@ function simulate(algorithm::TIEstimate, initial::Trajectory, system::Stochastic
     weights = 0.5 .* weights
 
     energies = Array{Float64}(undef, algorithm.num_samples, length(θrange))
-    accept = Array{Int16}(undef, algorithm.num_samples, length(θrange))
+    accept = Array{Bool}(undef, algorithm.num_samples, length(θrange))
     for i in eachindex(θrange)
         system.θ = θrange[i]
         samples, acceptance = generate_mcmc_samples(initial, system, algorithm.burn_in, algorithm.num_samples)
