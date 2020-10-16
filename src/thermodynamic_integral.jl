@@ -183,13 +183,11 @@ end
 
 # perform the quadrature integral
 log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
-function Statistics.std(result::ThermodynamicIntegrationResult)
-    block_averages(array, block_size) = map(mean, Iterators.partition(array, block_size))
-    sem(array) = sqrt(var(array, corrected=false) / (length(array) - 1))
+function Statistics.var(result::ThermodynamicIntegrationResult)
     σ = map(eachcol(result.energies)) do col
-        sem(block_averages(col, 2^8))
+        var(col) / (length(col) / 25 - 1)
     end
-    dot(result.integration_weights, σ)
+    dot(result.integration_weights.^2, σ)
 end
 
 # Monte-Carlo computation of the marginal probability for the given configuration
@@ -205,10 +203,10 @@ function simulate(algorithm::TIEstimate, initial::Trajectory, system::Stochastic
     accept = Array{Bool}(undef, algorithm.num_samples, length(θrange))
     for i in eachindex(θrange)
         system.θ = θrange[i]
-        samples, acceptance = generate_mcmc_samples(initial, system, algorithm.burn_in, algorithm.num_samples)
-        for j in eachindex(samples)
-            energies[j, i] = energy(samples[j], system, θ=1.0)
-            accept[j, i] = acceptance[j] != 0
+        sampler = MetropolisSampler(algorithm.burn_in, 0, energy(initial, system), initial, system)
+        for (j, was_accepted) in Iterators.enumerate(Iterators.take(sampler, algorithm.num_samples))
+            energies[j, i] = energy(sampler.state, system, θ=1.0)
+            accept[j, i] = was_accepted != 0
         end
     end
 
@@ -221,21 +219,28 @@ function marginal_entropy(
         num_responses::Int=1,
         duration::Float64=500.0
     )
-    stats = DataFrame(TimeElapsed=zeros(Float64, num_responses), GcTime=zeros(Float64, num_responses))
+    stats = DataFrame(
+        Sample=zeros(Float64, num_responses), 
+        Variance=zeros(Float64, num_responses), 
+        TimeElapsed=zeros(Float64, num_responses), 
+        GcTime=zeros(Float64, num_responses)
+    )
 
-    result = map(1:num_responses) do i
+    for i ∈ 1:num_responses
         (system, initial) = generate_configuration(gen; duration=duration)
         timed_result = @timed simulate(algorithm, initial, system)
 
-        @info "Finished response" response = i log_marginal = log_marginal(timed_result.value) time = timed_result.time
+        sample = log_marginal(timed_result.value)
+        variance = var(timed_result.value)
+        @info "Finished response" response = i log_marginal = sample time = timed_result.time
 
+        stats.Sample[i] = sample
+        stats.Variance[i] = variance
         stats.TimeElapsed[i] = timed_result.time
         stats.GcTime[i] = timed_result.gctime
-
-        timed_result.value
     end
 
-    Dict("marginal_entropy" => result, "stats" => stats)
+    Dict("marginal_entropy" => stats)
 end
 
 
