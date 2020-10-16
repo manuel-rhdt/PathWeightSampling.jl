@@ -183,11 +183,13 @@ end
 
 # perform the quadrature integral
 log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
-function Statistics.var(result::ThermodynamicIntegrationResult)
-    σ = map(eachcol(result.energies)) do col
-        var(col) / (length(col) / 25 - 1)
+function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^10)
+    block_averages(array, block_size) = map(mean, Iterators.partition(array, block_size))
+    σ² = map(eachcol(result.energies)) do col
+        blocks = block_averages(col, block_size)
+        var(blocks) / (length(blocks) - 1)
     end
-    dot(result.integration_weights.^2, σ)
+    dot(result.integration_weights.^2, σ²)
 end
 
 # Monte-Carlo computation of the marginal probability for the given configuration
