@@ -3,11 +3,12 @@ import JSON
 
 f = ARGS[1]
 dict = JSON.parsefile(projectdir("_research", "tmp", f))
-@info "Read file" file=f
+@info "Read file" file = projectdir("_research", "tmp", f)
 
 duration = dict["duration"]
 N = dict["N"]
 num_responses = dict["num_responses"]
+run_name = dict["run_name"]
 
 using GaussianMcmc.Trajectories
 using HDF5
@@ -22,7 +23,7 @@ else
     error("Unsupported algorithm " * dict["algorithm"])
 end
 
-@info "Parameters" duration N num_responses algorithm
+@info "Parameters" run_name duration N num_responses algorithm
 
 sn = @reaction_network begin
     0.005, S --> ∅
@@ -48,5 +49,5 @@ end
 
 
 filename = savename((@dict duration N num_responses), "hdf5")
-tagsave(datadir(dict["algorithm"], filename), merge(dict, marginal_entropy, conditional_entropy))
+tagsave(datadir(dict["algorithm"], run_name, filename), merge(dict, marginal_entropy, conditional_entropy))
 @info "Saved to" filename
