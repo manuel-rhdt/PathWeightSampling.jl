@@ -21,11 +21,8 @@ ho = @hyperopt for i in 50,
 end
 
 using Plots
-plot(ho)
-
-minimum(ho)
-
-typeof(ho)
+p = plot(ho, dpi=300)
+savefig(p, projectdir("plots", "hyperopt.png"))
 
 using JSON
 
