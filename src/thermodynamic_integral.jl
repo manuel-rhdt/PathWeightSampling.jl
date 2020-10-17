@@ -192,6 +192,11 @@ function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^10)
     dot(result.integration_weights.^2, σ²)
 end
 
+function blocks(result::ThermodynamicIntegrationResult, block_size=2^10)
+    block_averages(array) = map(mean, Iterators.partition(array, block_size))
+    hcat(map(block_averages, eachcol(result.energies))...)
+end
+
 # Monte-Carlo computation of the marginal probability for the given configuration
 function simulate(algorithm::TIEstimate, initial::Trajectory, system::StochasticSystem)
     # Generate the array of θ values for which we want to simulate the system.
@@ -228,6 +233,8 @@ function marginal_entropy(
         GcTime=zeros(Float64, num_responses)
     )
 
+    b = Array{Float64,2}[]
+
     for i ∈ 1:num_responses
         (system, initial) = generate_configuration(gen; duration=duration)
         timed_result = @timed simulate(algorithm, initial, system)
@@ -240,9 +247,11 @@ function marginal_entropy(
         stats.Variance[i] = variance
         stats.TimeElapsed[i] = timed_result.time
         stats.GcTime[i] = timed_result.gctime
+
+        push!(b, blocks(timed_result.value))
     end
 
-    Dict("marginal_entropy" => stats)
+    Dict("marginal_entropy" => stats, "blocks" => cat(b...; dims=3))
 end
 
 
