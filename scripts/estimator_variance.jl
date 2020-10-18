@@ -1,39 +1,42 @@
 include("basic_setup.jl")
 
-using Statistics
+import Logging
+Logging.disable_logging(Logging.Info)
 
-function cost(num_responses, integration_nodes, chain_length)
+function estimator_variance(num_responses, integration_nodes, chain_length)
     algorithm = TIEstimate(1024, integration_nodes, chain_length)
     result = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses, duration=100.0)
     estimator_var = var(result["marginal_entropy"].Sample) / (num_responses - 1)
     time = sum(result["marginal_entropy"].TimeElapsed)
-    estimator_var * time
+    (estimator_var, time)
 end
 
-using Hyperopt
+integration_nodes = 4
 
-ho = @hyperopt for i in 50,
-            sampler in GPSampler(Min),
-            integration_nodes in 4.0:8.0,
-            chain_length in 2.0.^(9:0.125:13)
-    @show integration_nodes chain_length
-    @show cost(200, round(Int, integration_nodes), round(Int, chain_length))
-end
+chains = map(x -> round(Int, x), 2 .^ (7:0.25:10))
 
-using Plots
-p = plot(ho, dpi=300)
-savefig(p, projectdir("plots", "hyperopt.png"))
+results = estimator_variance.(100, integration_nodes, chains)
+times = map(x->x[2], results)
+variance = map(x->x[1], results)
 
-using JSON
+using DataFrames, GLM
+data = DataFrame(N=chains, Time=times, Variance=variance)
 
-filename = projectdir("data", "hyperopt.json")
+ols = lm(@formula(Time ~ N), data)
 
-open(filename, "w") do io
-    JSON.print(io, Dict(
-    "iterations" => ho.iterations,
-    "params" => ho.params,
-    "candidates" => ho.candidates,
-    "history" => ho.history,
-    "results" => ho.results
-    ))
-end
+fixtime = coef(ols)[1] / 100
+tau_s = coef(ols)[2] / 100
+
+nr(ns) = round(Int, 10 * 60 / (fixtime + ns * tau_s))
+
+chains2 = map(x -> round(Int, x), 2 .^ (9:0.125:12))
+nr.(chains2)
+
+results2 = estimator_variance.(nr.(chains2), integration_nodes, chains2)
+
+
+plot(data.N, [data.Time, predict(ols)])
+
+data2 = DataFrame(N=chains2, Time=map(x->x[2], results2), Variance=map(x->x[1], results2))
+
+plot(data2.N, data2.Time, ylim=(0, 40))
