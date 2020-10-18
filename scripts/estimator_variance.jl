@@ -1,7 +1,5 @@
 include("basic_setup.jl")
-
-import Logging
-Logging.disable_logging(Logging.Info)
+using Statistics
 
 function estimator_variance(num_responses, integration_nodes, chain_length)
     algorithm = TIEstimate(1024, integration_nodes, chain_length)
@@ -13,7 +11,7 @@ end
 
 integration_nodes = 4
 
-chains = map(x -> round(Int, x), 2 .^ (7:0.25:10))
+chains = map(x -> round(Int, x), 2 .^ (8:0.25:11))
 
 results = estimator_variance.(100, integration_nodes, chains)
 times = map(x->x[2], results)
@@ -23,6 +21,7 @@ using DataFrames, GLM
 data = DataFrame(N=chains, Time=times, Variance=variance)
 
 ols = lm(@formula(Time ~ N), data)
+print(ols)
 
 fixtime = coef(ols)[1] / 100
 tau_s = coef(ols)[2] / 100
@@ -34,9 +33,18 @@ nr.(chains2)
 
 results2 = estimator_variance.(nr.(chains2), integration_nodes, chains2)
 
-
+using Plots
 plot(data.N, [data.Time, predict(ols)])
 
 data2 = DataFrame(N=chains2, Time=map(x->x[2], results2), Variance=map(x->x[1], results2))
 
-plot(data2.N, data2.Time, ylim=(0, 40))
+
+
+plot(data2.N, data2.Variance, xlim=(0, :auto), ylim=(0, :auto))
+
+using DrWatson
+using CSV
+
+mkpath(projectdir("data", "estimator_variance"))
+CSV.write(projectdir("data", "estimator_variance", "integration_nodes=4.csv"), data2)
+CSV.write(projectdir("data", "estimator_variance", "timing_integration_nodes=4.csv"), data)
