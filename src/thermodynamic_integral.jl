@@ -184,17 +184,14 @@ end
 # perform the quadrature integral
 log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
 function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^10)
-    block_averages(array, block_size) = map(mean, Iterators.partition(array, block_size))
-    σ² = map(eachcol(result.energies)) do col
-        blocks = block_averages(col, block_size)
-        var(blocks) / (length(blocks) - 1)
-    end
+    b = blocks(result, block_size)
+    σ² = var(b, dims=1) ./ size(b, 1)
     dot(result.integration_weights.^2, σ²)
 end
 
 function blocks(result::ThermodynamicIntegrationResult, block_size=2^10)
     block_averages(array) = map(mean, Iterators.partition(array, block_size))
-    hcat(map(block_averages, eachcol(result.energies))...)
+    mapreduce(block_averages, hcat, eachcol(result.energies))
 end
 
 # Monte-Carlo computation of the marginal probability for the given configuration
@@ -241,7 +238,6 @@ function marginal_entropy(
 
         sample = log_marginal(timed_result.value)
         variance = var(timed_result.value)
-        @info "Finished response" response = i log_marginal = sample time = timed_result.time
 
         stats.Sample[i] = sample
         stats.Variance[i] = variance
@@ -251,7 +247,7 @@ function marginal_entropy(
         push!(b, blocks(timed_result.value))
     end
 
-    Dict("marginal_entropy" => stats, "blocks" => cat(b...; dims=3))
+    Dict("marginal_entropy" => stats, "blocks" => reduce((x, y)->cat(x, y; dims=3), b))
 end
 
 
