@@ -23,7 +23,8 @@ function plot_block_averages!(p, values; kwargs...)
         a = block(a)
     end
 
-    plot!(p, (1:length(y_vals)), y_vals, yerror=y_err; kwargs...)
+    block_size = 2 .^ (eachindex(y_vals) .- 1)
+    plot!(p, block_size, y_vals, yerror=y_err; kwargs...)
 end
 
 signal = Trajectories.new_signal(initial, system)
@@ -33,12 +34,13 @@ for num_samples ∈ [14, 16, 18]
     push!(energies_list, Trajectories.energy.(samples, Ref(system)))
 end
 
+pgfplotsx()
 p = plot()
-for (e, num_samples) ∈ zip(energies_list, 2 .^ [14, 16, 18])
-    plot_block_averages!(p, e, label="N = $num_samples")
+for (e, num_samples) ∈ zip(energies_list, [14, 16, 18])
+    plot_block_averages!(p, e, label=L"N = 2^ {%$num_samples}", xscale=:log2, size=(400, 200))
 end
-xlabel!(p, "number of blockings")
-ylabel!(p, "block variance")
-plot!(p, dpi=300)
+xlabel!(p, L"block size $= N/N_\mathrm{blocks}$")
+ylabel!(p, L"\sigma^2 / N_\mathrm{blocks}")
 
 savefig(p, projectdir("plots", "mcmc_correlations.png"))
+savefig(p, projectdir("plots", "mcmc_correlations.tex"))
