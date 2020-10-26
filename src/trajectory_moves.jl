@@ -12,11 +12,13 @@ mutable struct StochasticSystem{uType,tType,R <: AbstractTrajectory{uType,tType}
     # interaction parameter
     θ::Float64
 
+    # to save statistics
     last_regrowth::Float64
     accepted_list::Vector{Float64}
     rejected_list::Vector{Float64}
 end
 
+# reset statistics
 function reset(system::StochasticSystem)
     resize!(system.accepted_list, 0)
     resize!(system.rejected_list, 0)
@@ -41,19 +43,15 @@ end
 function propose!(new_signal::Trajectory, old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
 
-    regrow_steps = rand(1:length(old_signal) - 2)
+    regrow_duration = rand() * duration(old_signal)
 
     if rand(Bool)
-        branch_point = length(old_signal) - regrow_steps
-        regrowth = old_signal.t[end] - old_signal.t[branch_point]
-        shoot_forward!(new_signal, old_signal, jump_problem, branch_point)
+        shoot_forward!(new_signal, old_signal, jump_problem, old_signal.t[end] - regrow_duration)
     else
-        branch_point = regrow_steps + 1
-        regrowth = old_signal.t[branch_point] - old_signal.t[begin]
-        shoot_backward!(new_signal, old_signal, jump_problem, branch_point)
+        shoot_backward!(new_signal, old_signal, jump_problem, old_signal.t[begin] + regrow_duration)
     end
 
-    system.last_regrowth = regrowth
+    system.last_regrowth = regrow_duration
     nothing
 end
 
@@ -66,30 +64,34 @@ function myremake(jprob::JumpProblem; u0, tspan)
     )
 end
 
-function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem, branch_point::Int)
-    branch_time = old_traj.t[branch_point]
-    branch_value = old_traj[branch_point]
-
+function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem, branch_time::Real)
+    branch_value = old_traj(branch_time)
+    branch_point = searchsortedfirst(old_traj.t, branch_time)
     tspan = (branch_time, old_traj.t[end])
+
+    resize!(new_traj.u, 0)
+    resize!(new_traj.t, 0)
+    append!(new_traj.u, old_traj[begin:branch_point - 1])
+    append!(new_traj.t, old_traj.t[begin:branch_point - 1])
+
 
     jump_problem = myremake(jump_problem; u0=branch_value, tspan=tspan)
     new_branch = solve(jump_problem, SSAStepper())
 
-    resize!(new_traj.u, 0)
-    resize!(new_traj.t, 0)
+    # integrator = init(jump_problem, SSAStepper())
+    # for (u, t) in tuples(integrator)
+    #    
+    # end
 
-    append!(new_traj.u, old_traj[begin:branch_point - 1])
-    append!(new_traj.u, new_branch.u)
-
-    append!(new_traj.t, old_traj.t[begin:branch_point - 1])
+    
     append!(new_traj.t, new_branch.t)
+    append!(new_traj.u, new_branch.u)
     nothing
 end
 
-function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem, branch_point::Int)
-    branch_time = old_traj.t[branch_point]
-    branch_value = old_traj[branch_point]
-
+function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem, branch_time::Real)
+    branch_value = old_traj(branch_time)
+    branch_point = searchsortedfirst(old_traj.t, branch_time)
     tspan = (old_traj.t[begin], branch_time)
 
     jump_problem = myremake(jump_problem; u0=branch_value, tspan=tspan)
@@ -98,11 +100,11 @@ function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_proble
     resize!(new_traj.u, 0)
     resize!(new_traj.t, 0)
 
-    append!(new_traj.u, new_branch.u[end:-1:begin])
-    append!(new_traj.u, old_traj[branch_point + 1:end])
+    append!(new_traj.u, @view new_branch.u[end - 1:-1:begin])
+    append!(new_traj.u, @view old_traj.u[branch_point:end])
 
-    append!(new_traj.t, branch_time .- new_branch.t[end:-1:begin])
-    append!(new_traj.t, old_traj.t[branch_point + 1:end])
+    append!(new_traj.t, branch_time .- @view new_branch.t[end:-1:begin + 1])
+    append!(new_traj.t, @view old_traj.t[branch_point:end])
     nothing
 end
 
@@ -140,4 +142,9 @@ function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::F
     jprob_s = JumpProblem(gen.signal_network, dprob_s, Direct())
 
     (StochasticSystem(jprob_s, gen.distribution, response, θ, 0.0, Float64[], Float64[]), signal)
+end
+
+function generate_configuration(sn::ReactionSystem, rn::ReactionSystem; θ::Real=1.0, duration::Real=500.0)
+    cg = configuration_generator(sn, rn)
+    generate_configuration(cg, θ=θ, duration=duration)
 end

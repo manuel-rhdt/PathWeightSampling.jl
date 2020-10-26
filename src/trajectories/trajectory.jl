@@ -1,18 +1,19 @@
 using RecipesBase
 using DiffEqBase
+using DataInterpolations
 
 abstract type AbstractTrajectory{uType,tType,N} end
 
 mutable struct Trajectory{uType,tType,N} <: AbstractTrajectory{uType,tType,N}
-    syms::SVector{N, Symbol}
+    syms::SVector{N,Symbol}
     t::Vector{tType}
-    u::Vector{SVector{N, uType}}
+    u::Vector{SVector{N,uType}}
 end
 
 Base.copy(traj::Trajectory) = Trajectory(copy(traj.syms), copy(traj.t), copy(traj.u))
 Base.getindex(traj::Trajectory, i::Int) = traj.u[i]
 Base.getindex(traj::Trajectory, i::AbstractRange) = traj.u[i]
-Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.syms == traj2.syms) && (traj1.t==traj2.t) && (traj1.u==traj2.u)
+Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.syms == traj2.syms) && (traj1.t == traj2.t) && (traj1.u == traj2.u)
 
 function Base.copyto!(to::Trajectory, from::Trajectory)
     resize!(to.t, length(from.t))
@@ -22,20 +23,33 @@ function Base.copyto!(to::Trajectory, from::Trajectory)
     to
 end
 
-function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}) where {T, N, M}
+function (t::Trajectory)(time::Real)
+    interp = ConstantInterpolation(t.u, t.t, dir=:left)
+    interp(time)
+end
+
+function clip!(t::Trajectory, time::Real)
+    index = searchsortedfirst(t.t, time)
+    resize!(t.t, index)
+    resize!(t.u, index)
+    t.t[index] = time
+    t
+end
+
+function trajectory(sol::ODESolution{T,N,Vector{SVector{M,T}}}) where {T,N,M}
     variables = species(sol.prob.f.f)
     symbols = SVector{M}([v.name for v in variables]::Vector{Symbol})
     Trajectory(symbols, sol.t, sol.u)
 end
 
 mutable struct PartialTrajectory{uType,tType,N,NPart} <: AbstractTrajectory{uType,tType,NPart}
-    syms::SVector{NPart, Symbol}
-    idxs::SVector{NPart, Int}
+    syms::SVector{NPart,Symbol}
+    idxs::SVector{NPart,Int}
     t::Vector{tType}
-    u::Vector{SVector{N, uType}}
+    u::Vector{SVector{N,uType}}
 end
 
-Base.copy(traj::PartialTrajectory) = PartialTrajectory(traj.syms,traj.idxs, copy(traj.t), copy(traj.u))
+Base.copy(traj::PartialTrajectory) = PartialTrajectory(traj.syms, traj.idxs, copy(traj.t), copy(traj.u))
 Base.getindex(traj::PartialTrajectory, i::Int) = traj.u[i][traj.idxs]
 Base.getindex(traj::PartialTrajectory, i::AbstractRange) = [v[traj.idxs] for v in traj.u[i]]
 
@@ -45,7 +59,7 @@ function Base.convert(::Type{Trajectory}, partial::PartialTrajectory{uType,tType
 
     i = 2
     while i < length(u)
-        du = u[i] - u[i-1]
+        du = u[i] - u[i - 1]
         if all(du .== 0)
             popat!(u, i)
             popat!(t, i)
@@ -57,7 +71,11 @@ function Base.convert(::Type{Trajectory}, partial::PartialTrajectory{uType,tType
     Trajectory(partial.syms, t, u)
 end
 
-function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}, syms::SVector{NPart, Symbol}) where {T, N, M, NPart}
+function duration(traj::AbstractTrajectory)
+    traj.t[end] - traj.t[begin]
+end
+
+function trajectory(sol::ODESolution{T,N,Vector{SVector{M,T}}}, syms::SVector{NPart,Symbol}) where {T,N,M,NPart}
     idxs = Int[]
 
     variables = species(sol.prob.f.f)
@@ -67,11 +85,11 @@ function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}, syms::SVector{N
         push!(idxs, i)
     end
 
-    idxs = SVector{NPart, Int}(idxs)
+    idxs = SVector{NPart,Int}(idxs)
     PartialTrajectory(syms, idxs, sol.t, sol.u)
 end
 
-function trajectory(sol::ODESolution{T,N,Vector{SVector{M, T}}}, syms::SVector{NPart, Symbol}, idxs::SVector{NPart, Int}) where {T, N, M, NPart}
+function trajectory(sol::ODESolution{T,N,Vector{SVector{M,T}}}, syms::SVector{NPart,Symbol}, idxs::SVector{NPart,Int}) where {T,N,M,NPart}
     PartialTrajectory(syms, idxs, sol.t, sol.u)
 end
 
@@ -95,19 +113,19 @@ function Base.iterate(traj::PartialTrajectory, index=1)
     (traj.u[index][traj.idxs], traj.t[index]), index + 1
 end
 
-Base.eltype(::Type{T}) where {uType,tType,N,T<:AbstractTrajectory{uType,tType,N}} = Tuple{SVector{N,uType}, tType}
+Base.eltype(::Type{T}) where {uType,tType,N,T <: AbstractTrajectory{uType,tType,N}} = Tuple{SVector{N,uType},tType}
 
-struct MergeTrajectory{uType,tType,N,N1,N2,T1<:AbstractTrajectory{uType,tType,N1},T2<:AbstractTrajectory{uType,tType,N2}} <: AbstractTrajectory{uType,tType,N}
-    syms::SVector{N, Symbol}
+struct MergeTrajectory{uType,tType,N,N1,N2,T1 <: AbstractTrajectory{uType,tType,N1},T2 <: AbstractTrajectory{uType,tType,N2}} <: AbstractTrajectory{uType,tType,N}
+    syms::SVector{N,Symbol}
     first::T1
     second::T2
 end
 
 Base.merge(traj1::AbstractTrajectory, traj2::AbstractTrajectory) = MergeTrajectory(vcat(traj1.syms, traj2.syms), traj1, traj2)
 Base.IteratorSize(::Type{MergeTrajectory{uType,tType,N,N1,N2,T1,T2}}) where {uType,tType,N,N1,N2,T1,T2} = Base.SizeUnknown()
-Base.iterate(iter::MergeTrajectory{uType,tType,N}) where {uType, tType, N} = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin])))
+Base.iterate(iter::MergeTrajectory{uType,tType,N}) where {uType,tType,N} = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin])))
 
-function Base.iterate(iter::MergeTrajectory{uType,tType,N,N1,N2}, (i, j, t)::Tuple{Int, Int, tType}) where {uType, tType, N, N1, N2}
+function Base.iterate(iter::MergeTrajectory{uType,tType,N,N1,N2}, (i, j, t)::Tuple{Int,Int,tType}) where {uType,tType,N,N1,N2}
     if i > length(iter.first) && j > length(iter.second)
         return nothing
     end

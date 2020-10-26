@@ -1,17 +1,17 @@
 include("basic_setup.jl")
 
 Trajectories.reset(system)
-samples, acceptance = Trajectories.generate_mcmc_samples(initial, system, 2^10, 2^18)
+samples, acceptance = Trajectories.generate_mcmc_samples(initial, system, 2^8, 2^19)
 
 using Plots
 using Statistics
 using StatsBase
 using LaTeXStrings
 
-hist_acc = fit(Histogram, system.accepted_list, nbins=35)
-hist_rej = fit(Histogram, system.rejected_list, hist_acc.edges[1], closed=:left)
+hist_acc = fit(Histogram, system.accepted_list, nbins=30)
+hist_rej = fit(Histogram, system.rejected_list, hist_acc.edges[1])
 
-acc_rate = hist_acc.weights ./ (hist_rej.weights + hist_acc.weights)
+acc_rate = hist_acc.weights ./ (hist_rej.weights .+ hist_acc.weights)
 
 pgfplotsx()
 p = plot(
