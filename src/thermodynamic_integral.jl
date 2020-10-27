@@ -167,13 +167,14 @@ function write_hdf5!(group, dict::AbstractDict)
     for (name, value) in dict
         if typeof(value) <: String || typeof(value) <: Number
             attrs(group)[name] = value
+        elseif typeof(value) <: AbstractArray
+            group[name] = value
         else
             newgroup = g_create(group, String(name))
             write_hdf5!(newgroup, value)
         end
     end
 end
-
 
 function write_hdf5!(group, df::AbstractDataFrame)
     for (name, value) in zip(names(df), eachcol(df))
@@ -183,13 +184,13 @@ end
 
 # perform the quadrature integral
 log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
-function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^10)
+function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^9)
     b = blocks(result, block_size)
     σ² = var(b, dims=1) ./ size(b, 1)
     dot(result.integration_weights.^2, σ²)
 end
 
-function blocks(result::ThermodynamicIntegrationResult, block_size=2^10)
+function blocks(result::ThermodynamicIntegrationResult, block_size=2^9)
     block_averages(array) = map(mean, Iterators.partition(array, block_size))
     mapreduce(block_averages, hcat, eachcol(result.energies))
 end
