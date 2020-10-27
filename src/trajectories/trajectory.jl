@@ -24,8 +24,25 @@ function Base.copyto!(to::Trajectory, from::Trajectory)
 end
 
 function (t::Trajectory)(time::Real)
-    interp = ConstantInterpolation(t.u, t.t, dir=:left)
-    interp(time)
+    index = searchsortedfirst(t.t, time)
+    t.u[index - 1]
+end
+
+function (t::Trajectory)(times::AbstractArray{<:Real})
+    j = 2
+    map(times) do time
+        val = nothing
+        while j <= length(t.t)
+            if t.t[j] < time
+                j += 1
+                continue
+            else
+                val = t.u[j-1]
+                break
+            end
+        end
+        val
+    end
 end
 
 function clip!(t::Trajectory, time::Real)
