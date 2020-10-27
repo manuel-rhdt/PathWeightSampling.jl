@@ -136,7 +136,7 @@ end
 
 function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::Float64=500.0)
     p0_dist = MvNormal([50.0, 50.0], [50.0 100.0/3; 100.0/3 250.0/3])
-    sample = map(x->round(Int, x), rand(p0_dist))
+    sample = map(round, rand(p0_dist))
 
     u0 = SVector(sample...)
     tspan = (0., duration)
