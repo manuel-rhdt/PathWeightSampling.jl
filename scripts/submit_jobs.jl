@@ -4,10 +4,10 @@ using Random
 
 my_args = Dict(
     "algorithm" => "thermodynamic_integration",
-    "run_name" => "2020-10-16",
+    "run_name" => "2020-10-27",
     "duration" => collect(range(50.0, 500.0, length=6)),
-    "N" => collect(1:583),
-    "num_responses" => 250
+    "N" => collect(1:290),
+    "num_responses" => 500
 )
 
 function runsave(dicts, tmp=projectdir("_research", "tmp"), prefix="", suffix="json", l=8)
@@ -46,7 +46,7 @@ result = ""
 out_dir = projectdir("data", "output")
 mkpath(out_dir)
 
-open(`qsub -N TI -l nodes=1:ppn=1,mem=4gb,walltime=6:00:00 -t 1-$(length(dicts))%140 -j oe -o $out_dir`, "r+") do io
+open(`qsub -N TI -l nodes=1:ppn=2,mem=4gb,walltime=8:00:00 -t 1-$(length(dicts)) -j oe -o $out_dir`, "r+") do io
     print(io, jobscript)
     close(io.in)
     global result *= read(io, String)
