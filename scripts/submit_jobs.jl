@@ -46,7 +46,7 @@ result = ""
 out_dir = projectdir("data", "output")
 mkpath(out_dir)
 
-open(`qsub -N TI -l nodes=1:ppn=2,mem=4gb,walltime=8:00:00 -t 1-$(length(dicts)) -j oe -o $out_dir`, "r+") do io
+open(`qsub -N TI -l nodes=1:ppn=2:highcore,mem=4gb,walltime=8:00:00 -t 1-$(length(dicts)) -j oe -o $out_dir`, "r+") do io
     print(io, jobscript)
     close(io.in)
     global result *= read(io, String)
