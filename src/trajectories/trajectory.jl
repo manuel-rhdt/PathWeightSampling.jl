@@ -1,6 +1,5 @@
 using RecipesBase
 using DiffEqBase
-using DataInterpolations
 
 abstract type AbstractTrajectory{uType,tType,N} end
 
