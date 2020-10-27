@@ -1,7 +1,7 @@
 include("basic_setup.jl")
 
 Trajectories.reset(system)
-samples, acceptance = Trajectories.generate_mcmc_samples(initial, system, 2^8, 2^19)
+samples, acceptance = Trajectories.generate_mcmc_samples(initial, system, 2^8, 2^18)
 
 using Plots
 using Statistics

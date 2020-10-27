@@ -4,22 +4,16 @@ struct ChemicalReaction
     netstoich::Vector{Tuple{Int,Int}}
 end
 
-struct TrajectoryDistribution
+struct TrajectoryDistribution{Dist}
     reactions::Vector{ChemicalReaction}
+    log_p0::Dist
 end
 
-function write_hdf5!(group, d::TrajectoryDistribution)
-    
-    structure = map(d.reactions) do react
-
-    end
-end
-
-distribution(rn::ReactionSystem) = TrajectoryDistribution(create_chemical_reactions(rn))
+distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemical_reactions(rn), log_p0)
 
 @fastmath function logpdf(dist::TrajectoryDistribution, trajectory; params=[])
-    result = 0.0
     ((uprev, tprev), state) = iterate(trajectory)
+    result = dist.log_p0(uprev...)
 
     for (u, t) in Iterators.rest(trajectory, state)
         dt = t - tprev

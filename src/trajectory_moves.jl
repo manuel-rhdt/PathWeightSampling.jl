@@ -1,6 +1,8 @@
 using DiffEqJump
 using Catalyst
 using Statistics
+using Distributions
+import Distributions: logpdf
 
 include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
@@ -124,7 +126,12 @@ struct ConfigurationGenerator
 end
 
 function configuration_generator(sn::ReactionSystem, rn::ReactionSystem)
-    ConfigurationGenerator(sn, rn, Base.merge(sn, rn), distribution(rn))
+    p0_dist = MvNormal([50.0, 50.0], [50.0 100.0/3; 100.0/3 250.0/3])
+    s0_dist = MvNormal([50.0], [50.0])
+
+    log_p0 = (s, x) -> logpdf(p0_dist, [s, x]) - logpdf(s0_dist, [s])
+
+    ConfigurationGenerator(sn, rn, Base.merge(sn, rn), distribution(rn, log_p0))
 end
 
 function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::Float64=500.0)
