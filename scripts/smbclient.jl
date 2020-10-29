@@ -127,7 +127,7 @@ function Base.Filesystem.dirname(path::SmbPath)
 end
 
 function Base.Filesystem.basename(path::SmbPath)
-    splitdir("", path.path)[2]
+    splitdir(path.path)[2]
 end
 
 function Base.Filesystem.mkpath(path::SmbPath)
