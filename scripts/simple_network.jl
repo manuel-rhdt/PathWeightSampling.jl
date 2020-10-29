@@ -49,5 +49,13 @@ end
 
 
 filename = savename((@dict duration N num_responses), "hdf5")
-tagsave(datadir(dict["algorithm"], run_name, filename), merge(dict, marginal_entropy, conditional_entropy))
+local_path = datadir(dict["algorithm"], run_name, filename)
+tagsave(local_path, merge(dict, marginal_entropy, conditional_entropy))
 @info "Saved to" filename
+
+# upload to SUN storage
+
+include("smbclient.jl")
+sun_path = joinpath(sun_home, "data", dict["algorithm"], run_name, filename)
+mkpath(dirname(sun_path))
+cp(local_path, sun_path)
