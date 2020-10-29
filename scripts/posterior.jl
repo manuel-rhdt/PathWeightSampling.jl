@@ -22,9 +22,9 @@ for (i, θ) in enumerate(θs)
     end
 end
 
-x = grid
-y = reshape(mean(resampled_samples, dims=2), (length(grid), :))
-yerror = reshape(std(resampled_samples, dims=2), (length(grid), :))
+x = range(0.0, 500.0, length=grid_size)
+y = reshape(mean(resampled_samples, dims=2), (length(x), :))
+yerror = reshape(std(resampled_samples, dims=2), (length(x), :))
 yerror[:,1:5] .= 0.0
 
 pyplot()
@@ -35,7 +35,7 @@ p1 = plot(x, y,
     line_z=θs', 
     fill_z=θs', 
     label=hcat(("$θ" for θ in θs)...), 
-    ylim=(42,62),
+    ylim=(35,65),
     linewidth=2.5,
     c=:linear_blue_5_95_c73_n256,
     ylabel=L"S_t",

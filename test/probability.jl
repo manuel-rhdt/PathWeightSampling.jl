@@ -4,10 +4,15 @@ using Test
 using StaticArrays
 using Distributions
 
+# sn = @reaction_network begin
+#     0.005, S --> ∅
+#     0.25, ∅ --> S
+# end
+
 sn = @reaction_network begin
-    0.005, S --> ∅
-    0.25, ∅ --> S
-end
+    κ, S --> ∅
+    λ, ∅ --> S
+end κ λ
 
 s0_dist = MvNormal([50.0], [50.0])
 log_p0 = (s) -> logpdf(s0_dist, [s])
@@ -23,4 +28,7 @@ wait3 = - 1.0 * (0.25 + 50 * 0.005)
 reac1 = log(0.25)
 reac2 = log(51 * 0.005)
 
-@test Trajectories.logpdf(dist, traj) ≈ sum((p0, wait1, wait2, wait3, reac1, reac2))
+@test Trajectories.logpdf(dist, traj, params=[0.005, 0.25]) ≈ sum((p0, wait1, wait2, wait3, reac1, reac2))
+
+# @code_warntype Trajectories.logpdf(dist, traj, params=[0.005, 0.25])
+# @code_warntype Trajectories.:(var"#logpdf#9")([0.005, 0.25], Distributions.logpdf, dist, traj)

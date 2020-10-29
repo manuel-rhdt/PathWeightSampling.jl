@@ -32,19 +32,19 @@ else
     error("Unsupported algorithm " * dict["algorithm"])
 end
 
-@info "Parameters" run_name duration N num_responses algorithm
+@info "Parameters" run_name duration N num_responses algorithm mean_s corr_time_s corr_time_ratio
 
 sn = @reaction_network begin
     κ, S --> ∅
     λ, ∅ --> S
-end
+end κ λ
 
 rn = @reaction_network begin
     ρ, S --> X + S
     μ, X --> ∅ 
-end
+end ρ μ
 
-gen = Trajectories.configuration_generator(sn, rn)
+gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ])
 marginal_entropy = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses, duration=duration)
 @info "Finished marginal entropy"
 conditional_entropy = Trajectories.conditional_entropy(gen, num_responses=10_000, duration=duration)

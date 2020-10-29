@@ -18,6 +18,8 @@ mutable struct StochasticSystem{uType,tType,R <: AbstractTrajectory{uType,tType}
     last_regrowth::Float64
     accepted_list::Vector{Float64}
     rejected_list::Vector{Float64}
+
+    params::Vector{Float64}
 end
 
 # reset statistics
@@ -118,23 +120,25 @@ function energy(signal::Trajectory, system::StochasticSystem; θ=system.θ)
 
     joint = merge(signal, response)
 
-    -θ * logpdf(system.distribution, joint)
+    -θ * logpdf(system.distribution, joint, params=system.params)
 end
 
 struct ConfigurationGenerator
     signal_network::ReactionSystem
     response_network::ReactionSystem
+    sparams::Vector{Float64}
+    rparams::Vector{Float64}
     joint_network::ReactionSystem
     distribution::TrajectoryDistribution
 end
 
-function configuration_generator(sn::ReactionSystem, rn::ReactionSystem)
+function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams=[], rparams=[])
     p0_dist = MvNormal([50.0, 50.0], [50.0 100.0/3; 100.0/3 250.0/3])
     s0_dist = MvNormal([50.0], [50.0])
 
     log_p0 = (s, x) -> logpdf(p0_dist, [s, x]) - logpdf(s0_dist, [s])
 
-    ConfigurationGenerator(sn, rn, Base.merge(sn, rn), distribution(rn, log_p0))
+    ConfigurationGenerator(sn, rn, sparams, rparams, Base.merge(sn, rn), distribution(rn, log_p0))
 end
 
 function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::Float64=500.0)
@@ -143,7 +147,8 @@ function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::F
 
     u0 = SVector(sample...)
     tspan = (0., duration)
-    discrete_prob = DiscreteProblem(u0, tspan)
+    discrete_prob = DiscreteProblem(gen.joint_network, u0, tspan, vcat(gen.sparams, gen.rparams))
+    discrete_prob = remake(discrete_prob, u0=SVector(discrete_prob.u0...))
     jump_prob = JumpProblem(gen.joint_network, discrete_prob, Direct())
     sol = solve(jump_prob, SSAStepper())
 
@@ -151,13 +156,13 @@ function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::F
     signal = convert(Trajectory, trajectory(sol, SA[:S], SA[1]))
 
     u0s = SVector(50.0)
-    dprob_s = DiscreteProblem(u0s, tspan)
+    dprob_s = DiscreteProblem(u0s, tspan, gen.sparams)
     jprob_s = JumpProblem(gen.signal_network, dprob_s, Direct())
 
-    (StochasticSystem(jprob_s, gen.distribution, response, θ, 0.0, Float64[], Float64[]), signal)
+    (StochasticSystem(jprob_s, gen.distribution, response, θ, 0.0, Float64[], Float64[], gen.rparams), signal)
 end
 
-function generate_configuration(sn::ReactionSystem, rn::ReactionSystem; θ::Real=1.0, duration::Real=500.0)
-    cg = configuration_generator(sn, rn)
+function generate_configuration(sn::ReactionSystem, rn::ReactionSystem, sparams=[], rparams=[]; θ::Real=1.0, duration::Real=500.0)
+    cg = configuration_generator(sn, rn, sparams, rparams)
     generate_configuration(cg, θ=θ, duration=duration)
 end
