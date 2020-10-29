@@ -7,7 +7,7 @@ my_args = Dict(
     "run_name" => "2020-10-29",
     "duration" => 2 .^ range(log2(20), log2(500), length=12),
     "N" => collect(1:100),
-    "num_responses" => 1000
+    "num_responses" => 500
 )
 
 function runsave(dicts, tmp=projectdir("_research", "tmp"), prefix="", suffix="json", l=8)
