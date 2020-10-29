@@ -131,17 +131,17 @@ end
 
 Base.eltype(::Type{T}) where {uType,tType,N,T <: AbstractTrajectory{uType,tType,N}} = Tuple{SVector{N,uType},tType}
 
-struct MergeTrajectory{uType,tType,N,N1,N2,T1 <: AbstractTrajectory{uType,tType,N1},T2 <: AbstractTrajectory{uType,tType,N2}} <: AbstractTrajectory{uType,tType,N}
-    syms::SVector{N,Symbol}
+struct MergeTrajectory{uType,tType,T1<:Trajectory{uType,tType},T2<:Trajectory{uType,tType},Syms}
+    syms::Syms
     first::T1
     second::T2
 end
 
-Base.merge(traj1::AbstractTrajectory, traj2::AbstractTrajectory) = MergeTrajectory(vcat(traj1.syms, traj2.syms), traj1, traj2)
-Base.IteratorSize(::Type{MergeTrajectory{uType,tType,N,N1,N2,T1,T2}}) where {uType,tType,N,N1,N2,T1,T2} = Base.SizeUnknown()
-Base.iterate(iter::MergeTrajectory{uType,tType,N}) where {uType,tType,N} = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin])))
+Base.merge(traj1::T1, traj2::T2) where {uType, tType, T1<:Trajectory{uType,tType}, T2<:Trajectory{uType,tType}} = MergeTrajectory{uType,tType,T1,T2,typeof(vcat(traj1.syms, traj2.syms))}(vcat(traj1.syms, traj2.syms), traj1, traj2)
+Base.IteratorSize(::Type{MergeTrajectory{uType,tType,T1,T2,N}}) where {uType,tType,T1,T2,N} = Base.SizeUnknown()
+Base.iterate(iter::MergeTrajectory) = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin])))
 
-function Base.iterate(iter::MergeTrajectory{uType,tType,N,N1,N2}, (i, j, t)::Tuple{Int,Int,tType}) where {uType,tType,N,N1,N2}
+function Base.iterate(iter::MergeTrajectory{uType,tType}, (i, j, t)::Tuple{Int,Int,tType}) where {uType,tType}
     if i > length(iter.first) && j > length(iter.second)
         return nothing
     end

@@ -117,7 +117,6 @@ end
 
 function energy(signal::Trajectory, system::StochasticSystem; θ=system.θ)
     response = system.response
-
     joint = merge(signal, response)
 
     -θ * logpdf(system.distribution, joint, params=system.params)
