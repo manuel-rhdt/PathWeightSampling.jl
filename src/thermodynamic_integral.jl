@@ -105,11 +105,9 @@ function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
     weights = cat((r.weights for r in res_array)...; dims=3)
     acceptance = cat((r.acceptance for r in res_array)...; dims=3)
 
-    group["response_index"] = Vector(1:size(weights, 3))
-    group["annealing_run"] = Vector(1:size(weights, 2))
     group["theta"] = inv_temps[:, 1]
-    group["weights", "compress", 9] = weights
-    group["acceptance", "compress", 9] = acceptance
+    group["weights"] = weights[end, :, :]
+    group["acceptance"] = acceptance[end, :, :]
 
     weight_attrs = attrs(group["weights"])
     acceptance_attrs = attrs(group["acceptance"])
@@ -117,8 +115,8 @@ function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
     weight_attrs["long_name"] = "Annealed Importance Sampling Weights"
     acceptance_attrs["long_name"] = "MCMC acceptance rates"
 
-    weight_attrs["Coordinates"] = ["response_index", "annealing_run", "theta"]
-    acceptance_attrs["Coordinates"] = ["response_index", "annealing_run", "theta"]
+    weight_attrs["Coordinates"] = ["response_index", "annealing_run"]
+    acceptance_attrs["Coordinates"] = ["response_index", "annealing_run"]
     nothing
 end
 
@@ -153,13 +151,17 @@ end
 function write_hdf5!(group, res_array::Vector{ThermodynamicIntegrationResult})
     inv_temps = cat((r.inv_temps for r in res_array)...; dims=2)
     integration_weights = cat((r.integration_weights for r in res_array)...; dims=2)
-    energies = cat((r.energies for r in res_array)...; dims=3)
-    acceptance = cat((r.acceptance for r in res_array)...; dims=3)
+    # energies = cat((r.energies for r in res_array)...; dims=3)
+    # acceptance = cat((r.acceptance for r in res_array)...; dims=3)
+
+    block_size = 512
 
     group["inv_temps"] = inv_temps[:, 1]
     group["integration_weights"] = integration_weights
-    group["energies", "compress", 9] = energies
-    group["acceptance", "compress", 9] = acceptance
+    group["energy_blocks"] = cat((blocks(r, block_size) for r in res_array), dims=3)
+
+    attrs(group["energy_blocks"])["block_size"] = block_size
+
     nothing
 end
 
@@ -167,7 +169,7 @@ function write_hdf5!(group, dict::AbstractDict)
     for (name, value) in dict
         if typeof(value) <: String || typeof(value) <: Number
             attrs(group)[name] = value
-        elseif typeof(value) <: AbstractArray
+        elseif typeof(value) <: AbstractArray{<:Number}
             group[name] = value
         else
             newgroup = g_create(group, String(name))
@@ -188,6 +190,10 @@ function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^9)
     b = blocks(result, block_size)
     σ² = var(b, dims=1) ./ size(b, 1)
     dot(result.integration_weights.^2, σ²)
+end
+
+function Statistics.var(result::AnnealingEstimationResult)
+    var(result.weights[end, :]) / size(result.weights, 2)
 end
 
 function blocks(result::ThermodynamicIntegrationResult, block_size=2^9)
@@ -231,9 +237,7 @@ function marginal_entropy(
         GcTime=zeros(Float64, num_responses)
     )
 
-    b = Array{Float64,2}[]
-
-    for i ∈ 1:num_responses
+    results = map(1:num_responses) do i
         (system, initial) = generate_configuration(gen; duration=duration)
         timed_result = @timed simulate(algorithm, initial, system)
 
@@ -245,10 +249,10 @@ function marginal_entropy(
         stats.TimeElapsed[i] = timed_result.time
         stats.GcTime[i] = timed_result.gctime
 
-        push!(b, blocks(timed_result.value))
+        timed_result.value
     end
 
-    Dict("marginal_entropy" => stats, "blocks" => reduce((x, y)->cat(x, y; dims=3), b))
+    Dict("marginal_entropy" => stats, "marginal_entropy_estimate" => results)
 end
 
 
