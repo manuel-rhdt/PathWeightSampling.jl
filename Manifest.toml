@@ -407,9 +407,9 @@ version = "1.1.13"
 
 [[DrWatson]]
 deps = ["Dates", "FileIO", "LibGit2", "Pkg", "Random", "Requires", "UnPack"]
-git-tree-sha1 = "8fb7b924022fe47d03c00f98319cbb2aaf082a9d"
+git-tree-sha1 = "904ebb75e1d1dc3872af39df4d020db4d77b91ee"
 uuid = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
-version = "1.16.3"
+version = "1.16.4"
 
 [[EarCut_jll]]
 deps = ["Libdl", "Pkg"]
@@ -610,10 +610,10 @@ uuid = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 version = "0.13.6"
 
 [[HDF5_jll]]
-deps = ["Libdl", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "3dbc683172cb53428907485a4bb98a29d3874083"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
+git-tree-sha1 = "bc9c3d43ffd4d8988bfa372b86d4bdbd26860e95"
 uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
-version = "1.10.5+6"
+version = "1.10.5+7"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
@@ -769,10 +769,10 @@ uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 version = "0.14.1"
 
 [[LatinHypercubeSampling]]
-deps = ["Random", "StatsBase", "Test"]
-git-tree-sha1 = "f6df9a2cd3c2ee1123c39fac3cca18993fc88247"
+deps = ["Random", "StableRNGs", "StatsBase", "Test"]
+git-tree-sha1 = "199344019438476dbe6913fd6d43e572693092e9"
 uuid = "a5e1c1ea-c99a-51d3-a14d-a9a37257b02d"
-version = "1.6.4"
+version = "1.7.0"
 
 [[Lazy]]
 deps = ["MacroTools"]
@@ -1355,11 +1355,17 @@ git-tree-sha1 = "d8d8b8a9f4119829410ecd706da4cc8594a1e020"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
 version = "0.10.3"
 
+[[StableRNGs]]
+deps = ["Random", "Test"]
+git-tree-sha1 = "3be7d49667040add7ee151fefaf1f8c04c8c8276"
+uuid = "860ef19b-820b-49d6-a774-d7a799459cd3"
+version = "1.0.0"
+
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "016d1e1a00fabc556473b07161da3d39726ded35"
+git-tree-sha1 = "da4cf579416c81994afd6322365d00916c79b8ae"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "0.12.4"
+version = "0.12.5"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
