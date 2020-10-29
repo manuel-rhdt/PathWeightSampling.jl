@@ -36,8 +36,11 @@ end
 
 function new_signal(old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
+    s0_dist = MvNormal([50.0], [50.0])
+    sample = round.(rand(s0_dist))
+    u0 = SVector(sample...)
     tspan = (old_signal.t[begin], old_signal.t[end])
-    jump_problem = myremake(jump_problem; u0=old_signal.u[begin], tspan=tspan)
+    jump_problem = myremake(jump_problem; u0=u0, tspan=tspan)
     new = solve(jump_problem, SSAStepper())
     Trajectory(SA[:S], new.t, new.u)
 end
