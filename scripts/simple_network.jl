@@ -10,6 +10,15 @@ N = dict["N"]
 num_responses = dict["num_responses"]
 run_name = dict["run_name"]
 
+mean_s = dict["mean_s"]
+corr_time_s = dict["corr_time_s"]
+corr_time_ratio = dict["corr_time_ratio"]
+
+λ = 1/corr_time_s
+κ = mean_s * λ
+μ = corr_time_ratio/corr_time_s
+ρ = μ
+
 using GaussianMcmc.Trajectories
 using HDF5
 using Logging
@@ -26,13 +35,13 @@ end
 @info "Parameters" run_name duration N num_responses algorithm
 
 sn = @reaction_network begin
-    0.005, S --> ∅
-    0.25, ∅ --> S
+    κ, S --> ∅
+    λ, ∅ --> S
 end
 
 rn = @reaction_network begin
-    0.01, S --> X + S
-    0.01, X --> ∅ 
+    ρ, S --> X + S
+    μ, X --> ∅ 
 end
 
 gen = Trajectories.configuration_generator(sn, rn)
@@ -48,7 +57,7 @@ function DrWatson._wsave(filename, result::Dict)
 end
 
 
-filename = savename((@dict duration N num_responses), "hdf5")
+filename = savename((@dict duration N mean_s), "hdf5")
 local_path = datadir(dict["algorithm"], run_name, filename)
 tagsave(local_path, merge(dict, marginal_entropy, conditional_entropy))
 @info "Saved to" filename

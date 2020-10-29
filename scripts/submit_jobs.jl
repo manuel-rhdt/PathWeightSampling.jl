@@ -4,10 +4,13 @@ using Random
 
 my_args = Dict(
     "algorithm" => "annealing",
-    "run_name" => "2020-10-29",
+    "run_name" => "stationary_sweep",
     "duration" => 2 .^ range(log2(20), log2(500), length=12),
     "N" => collect(1:100),
-    "num_responses" => 500
+    "num_responses" => 1000,
+    "mean_s" => [20, 50, 100, 200],
+    "corr_time_s" => 100,
+    "corr_time_ratio" => 5,
 )
 
 function runsave(dicts, tmp=projectdir("_research", "tmp"), prefix="", suffix="json", l=8)
@@ -46,7 +49,7 @@ result = ""
 out_dir = projectdir("data", "output")
 mkpath(out_dir)
 
-open(`qsub -N TI -l nodes=1:ppn=1:highcore,mem=4gb,walltime=5:00:00 -t 1-$(length(dicts)) -j oe -o $out_dir`, "r+") do io
+open(`qsub -N Sweep_S -l nodes=1:ppn=1:highcore,mem=4gb,walltime=10:00:00 -t 1-$(length(dicts)) -j oe -o $out_dir`, "r+") do io
     print(io, jobscript)
     close(io.in)
     global result *= read(io, String)
