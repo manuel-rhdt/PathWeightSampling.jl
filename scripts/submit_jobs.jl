@@ -3,8 +3,8 @@ import JSON
 using Random
 
 my_args = Dict(
-    "algorithm" => "thermodynamic_integration",
-    "run_name" => "2020-10-28",
+    "algorithm" => "annealing",
+    "run_name" => "2020-10-29",
     "duration" => 2 .^ range(log2(20), log2(500), length=12),
     "N" => collect(1:100),
     "num_responses" => 1000
@@ -46,7 +46,7 @@ result = ""
 out_dir = projectdir("data", "output")
 mkpath(out_dir)
 
-open(`qsub -N TI -l nodes=1:ppn=2:highcore,mem=4gb,walltime=5:00:00 -t 1-$(length(dicts)) -j oe -o $out_dir`, "r+") do io
+open(`qsub -N TI -l nodes=1:ppn=1:highcore,mem=4gb,walltime=5:00:00 -t 1-$(length(dicts)) -j oe -o $out_dir`, "r+") do io
     print(io, jobscript)
     close(io.in)
     global result *= read(io, String)
