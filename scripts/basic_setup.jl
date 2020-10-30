@@ -13,8 +13,8 @@ using DrWatson
 # end
 
 sn = @reaction_network begin
-    κ, S --> ∅
-    λ, ∅ --> S
+    κ, ∅ --> S
+    λ, s --> ∅
 end κ λ
 
 rn = @reaction_network begin

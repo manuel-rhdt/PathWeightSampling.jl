@@ -2,10 +2,10 @@ import ModelingToolkit:build_function
 
 struct ChemicalReaction{Rate,N}
     rate::Rate
-    netstoich::SVector{N, Int}
+    netstoich::SVector{N,Int}
 end
 
-struct TrajectoryDistribution{Reactions, Dist}
+struct TrajectoryDistribution{Reactions,Dist}
     reactions::Reactions
     log_p0::Dist
 end
@@ -41,7 +41,7 @@ function _create_chemical_reactions(rn::ReactionSystem, r1::Reaction)
 
     netstoich = sort([(smap[sub], stoich) for (sub, stoich) in r1.netstoich])
 
-    du = zero(SVector{numspecies(rn), Int})
+    du = zero(SVector{numspecies(rn),Int})
     for (index, netstoich) in netstoich
         du = setindex(du, netstoich, index)
     end
@@ -89,7 +89,7 @@ end
     (reaction.rate)(speciesvec, params)
 end
 
-@inline @fastmath function evalrxrate(speciesvec::AbstractVector, du::AbstractVector; params=[])::Float64
+@inline function evalrxrate(speciesvec::AbstractVector, du::AbstractVector; params=[])::Float64
     1.0
 end
 

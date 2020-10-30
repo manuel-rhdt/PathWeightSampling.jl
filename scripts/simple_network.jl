@@ -14,10 +14,11 @@ mean_s = dict["mean_s"]
 corr_time_s = dict["corr_time_s"]
 corr_time_ratio = dict["corr_time_ratio"]
 
-λ = 1/corr_time_s
+λ = 1 / corr_time_s
 κ = mean_s * λ
-μ = corr_time_ratio/corr_time_s
+μ = corr_time_ratio / corr_time_s
 ρ = μ
+mean_x = mean_s
 
 using GaussianMcmc.Trajectories
 using HDF5
@@ -35,8 +36,8 @@ end
 @info "Parameters" run_name duration N num_responses algorithm mean_s corr_time_s corr_time_ratio
 
 sn = @reaction_network begin
-    κ, S --> ∅
-    λ, ∅ --> S
+    κ, ∅ --> S
+    λ, S --> ∅
 end κ λ
 
 rn = @reaction_network begin
@@ -44,7 +45,18 @@ rn = @reaction_network begin
     μ, X --> ∅ 
 end ρ μ
 
-gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ])
+using Distributions
+using LinearAlgebra
+
+# see Tostevin, ten Wolde, eq. 27
+sigma_squared_ss = mean_s
+sigma_squared_sx = ρ * mean_s / (λ + μ)
+sigma_squared_xx = mean_x * (1 + ρ / (λ + μ))
+
+joint_stationary = MvNormal([mean_s, mean_x], [sigma_squared_ss sigma_squared_sx; sigma_squared_sx sigma_squared_xx])
+signal_stationary = MvNormal([mean_s], sigma_squared_ss .* Matrix{Float64}(I, 1, 1))
+
+gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], signal_stationary, joint_stationary)
 marginal_entropy = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses, duration=duration)
 @info "Finished marginal entropy"
 conditional_entropy = Trajectories.conditional_entropy(gen, num_responses=10_000, duration=duration)

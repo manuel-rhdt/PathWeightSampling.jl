@@ -9,6 +9,7 @@ include("trajectories/distribution.jl")
 
 mutable struct StochasticSystem{uType,tType,R <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J}}
     jump_problem::P
+    s0_dist::MultivariateNormal
     distribution::TrajectoryDistribution
     response::R
     # interaction parameter
@@ -38,9 +39,10 @@ end
 
 function new_signal(old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
-    s0_dist = MvNormal([50.0], [50.0])
+    s0_dist = system.s0_dist
     sample = round.(rand(s0_dist))
     u0 = SVector(sample...)
+
     tspan = (old_signal.t[begin], old_signal.t[end])
     jump_problem = myremake(jump_problem; u0=u0, tspan=tspan)
     new = solve(jump_problem, SSAStepper())
@@ -129,19 +131,18 @@ struct ConfigurationGenerator
     rparams::Vector{Float64}
     joint_network::ReactionSystem
     distribution::TrajectoryDistribution
+    s0_dist::MultivariateNormal
+    p0_dist::MultivariateNormal
 end
 
-function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams=[], rparams=[])
-    p0_dist = MvNormal([50.0, 50.0], [50.0 100.0/3; 100.0/3 250.0/3])
-    s0_dist = MvNormal([50.0], [50.0])
-
+function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s0_dist, p0_dist)
     log_p0 = (s, x) -> logpdf(p0_dist, [s, x]) - logpdf(s0_dist, [s])
 
-    ConfigurationGenerator(sn, rn, sparams, rparams, Base.merge(sn, rn), distribution(rn, log_p0))
+    ConfigurationGenerator(sn, rn, sparams, rparams, Base.merge(sn, rn), distribution(rn, log_p0), s0_dist, p0_dist)
 end
 
 function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::Float64=500.0)
-    p0_dist = MvNormal([50.0, 50.0], [50.0 100.0/3; 100.0/3 250.0/3])
+    p0_dist = gen.p0_dist
     sample = round.(rand(p0_dist))
 
     u0 = SVector(sample...)
@@ -158,7 +159,7 @@ function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::F
     dprob_s = DiscreteProblem(u0s, tspan, gen.sparams)
     jprob_s = JumpProblem(gen.signal_network, dprob_s, Direct())
 
-    (StochasticSystem(jprob_s, gen.distribution, response, θ, 0.0, Float64[], Float64[], gen.rparams), signal)
+    (StochasticSystem(jprob_s, gen.s0_dist, gen.distribution, response, θ, 0.0, Float64[], Float64[], gen.rparams), signal)
 end
 
 function generate_configuration(sn::ReactionSystem, rn::ReactionSystem, sparams=[], rparams=[]; θ::Real=1.0, duration::Real=500.0)
