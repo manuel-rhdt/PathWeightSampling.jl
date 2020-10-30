@@ -4,7 +4,7 @@ using Random
 
 my_args = Dict(
     "algorithm" => "annealing",
-    "run_name" => "stationary_sweep",
+    "run_name" => "2020-10-30_stationary_sweep",
     "duration" => 2 .^ range(log2(20), log2(500), length=12),
     "N" => collect(1:100),
     "num_responses" => 1000,
@@ -41,7 +41,7 @@ jobscript = """
     export JULIA_PROJECT=$(projectdir())
 
     julia -e "using InteractiveUtils; versioninfo(verbose=true)"
-    julia $(projectdir("scripts", "simple_network.jl")) $filename.\$PBS_ARRAYID.json
+    julia -O3 $(projectdir("scripts", "simple_network.jl")) $filename.\$PBS_ARRAYID.json
     """
 
 result = ""
