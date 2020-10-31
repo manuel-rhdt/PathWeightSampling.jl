@@ -2,3 +2,4 @@ _research/tmp
 data/**/*.hdf5
 test.jl
 plots/*.mp4
+plots/*.gif
