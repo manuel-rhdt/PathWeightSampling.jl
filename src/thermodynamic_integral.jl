@@ -192,7 +192,12 @@ function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^9)
 end
 
 function Statistics.var(result::AnnealingEstimationResult)
-    var(result.weights[end, :]) / size(result.weights, 2)
+    max_weight = maximum(result.weights[end, :])
+    log_mean_weight = max_weight + log(mean(exp.(result.weights[end,:] .- max_weight)))
+    log_var = log(var(exp.(result.weights[end, :] .- max_weight))) + 2*max_weight
+    log_var -= log(size(result.weights, 2))
+
+    exp(-2log_mean_weight + log_var)
 end
 
 function blocks(result::ThermodynamicIntegrationResult, block_size=2^9)
