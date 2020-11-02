@@ -1,19 +1,8 @@
-using GaussianMcmc.Trajectories
-using Catalyst
 using StaticArrays
 using Test
 
-sn = @reaction_network begin
-    0.005, S --> ∅
-    0.25, ∅ --> S
-end
+include("test_system.jl")
 
-rn = @reaction_network begin
-    0.01, S --> X + S
-    0.01, X --> ∅ 
-end
-
-gen = Trajectories.configuration_generator(sn, rn)
 (system, s1) = Trajectories.generate_configuration(gen, duration=20.0)
 s2 = deepcopy(s1)
 scopy = deepcopy(s1)
