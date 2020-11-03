@@ -1,5 +1,6 @@
 _research/tmp
 data/**/*.hdf5
+data/output
 test.jl
 plots/*.mp4
 plots/*.gif
