@@ -60,7 +60,7 @@ function submit_job_array(filename, njobs, runtime)
         """
     
     result = ""
-    open(`qsub -N Sweep_S -l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime -t 1-$njobs -j oe -o $out_dir`, "r+") do io
+    open(`qsub -N Annealing -l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime -t 1-$njobs -j oe -o $out_dir`, "r+") do io
         print(io, jobscript)
         close(io.in)
         result *= read(io, String)
@@ -70,10 +70,12 @@ function submit_job_array(filename, njobs, runtime)
 end
 
 function estimate_runtime(dict)
-    if dict["algorithm" == "annealing"]
+    if dict["algorithm"] == "annealing"
         factor = 0.0005 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
-    else
+    elseif dict["algorithm"] == "thermodynamic_integration"
         factor = 0.002 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+    else
+        error("unknown algorithm $(dict["algorithm"])")
     end
     constant = 20 * 60 # just make sure we have an extra buffer of 20 minutes
     round(Int, factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] + constant)
