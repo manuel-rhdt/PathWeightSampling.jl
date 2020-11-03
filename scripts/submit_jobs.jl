@@ -56,7 +56,7 @@ function submit_job_array(filename, njobs, runtime)
         export JULIA_PROJECT=$(projectdir())
 
         julia -e "using InteractiveUtils; versioninfo(verbose=true)"
-        julia -O3 $(projectdir("scripts", "simple_network.jl")) $(filename).json
+        julia -O3 $(projectdir("scripts", "simple_network.jl")) $(filename)
         """
     
     result = ""
