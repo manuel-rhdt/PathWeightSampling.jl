@@ -61,7 +61,7 @@ end
 function annealed_importance_sampling(initial, system::StochasticSystem, subsample::Int, num_samples::Int)
     weights = zeros(Float64, num_samples)
     temps = range(0, 1; length=num_samples + 1)
-    acceptance = zeros(Int16, num_samples)
+    acceptance = zeros(Float64, num_samples)
     acceptance[1] = 1.0
 
     e_prev = energy(initial, system, θ=temps[1])
@@ -75,7 +75,7 @@ function annealed_importance_sampling(initial, system::StochasticSystem, subsamp
         e_cur = energy(sampler.state, system, θ=temps[i + 1])
 
         weights[i] = weights[i - 1] + e_prev - e_cur
-        acceptance[i] = acc
+        acceptance[i] = acc / subsample
 
         # change the temperature for the next iteration
         sampler.system.θ = temps[i + 1]
@@ -95,7 +95,7 @@ abstract type SimulationResult end
 struct AnnealingEstimationResult <: SimulationResult
     inv_temps::Vector{Float64}
     weights::Array{Float64,2}
-    acceptance::Array{Int16,2}
+    acceptance::Array{Float64,2}
 end
 
 log_marginal(result::AnnealingEstimationResult) =  -(logsumexp(result.weights[end, :]) - log(size(result.weights, 2)))
@@ -107,7 +107,7 @@ function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
 
     group["theta"] = inv_temps[:, 1]
     group["weights"] = weights[end, :, :]
-    group["acceptance"] = acceptance[end, :, :]
+    group["acceptance"] = mean(acceptance, dims=2)
 
     weight_attrs = attrs(group["weights"])
     acceptance_attrs = attrs(group["acceptance"])
@@ -116,7 +116,6 @@ function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
     acceptance_attrs["long_name"] = "MCMC acceptance rates"
 
     weight_attrs["Coordinates"] = ["response_index", "annealing_run"]
-    acceptance_attrs["Coordinates"] = ["response_index", "annealing_run"]
     nothing
 end
 
@@ -194,7 +193,12 @@ function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^9)
 end
 
 function Statistics.var(result::AnnealingEstimationResult)
-    var(result.weights[end, :]) / size(result.weights, 2)
+    max_weight = maximum(result.weights[end, :])
+    log_mean_weight = max_weight + log(mean(exp.(result.weights[end,:] .- max_weight)))
+    log_var = log(var(exp.(result.weights[end, :] .- max_weight))) + 2*max_weight
+    log_var -= log(size(result.weights, 2))
+
+    exp(-2log_mean_weight + log_var)
 end
 
 function blocks(result::ThermodynamicIntegrationResult, block_size=2^9)

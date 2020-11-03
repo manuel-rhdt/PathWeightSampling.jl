@@ -53,38 +53,6 @@ function _create_chemical_reactions(rn::ReactionSystem, r1::Reaction, rs::Reacti
     (_create_chemical_reactions(rn, r1)..., _create_chemical_reactions(rn, rs...)...)
 end
 
-@inline function allzero(array::AbstractArray)
-    for i in eachindex(array)
-        @inbounds if array[i] != 0
-            return false
-        end
-    end
-    true
-end
-
-@inline function allzero(array::AbstractArray, range::AbstractRange)
-    for i in eachindex(range)
-        @inbounds if array[i] != 0
-            return false
-        end
-    end
-    true
-end
-
-# # taken from DiffEqJump
-# @inline @fastmath function evalrxrate(speciesvec::AbstractVector, reaction::ChemicalReaction)::Float64
-#     val = 1.0
-#     for specstoch in reaction.substoich
-#         @inbounds specpop = speciesvec[specstoch[1]]
-#         val    *= specpop
-#         @inbounds for k = 2:specstoch[2]
-#             specpop -= one(specpop)
-#             val     *= specpop
-#         end
-#     end
-#     val * reaction.rate
-# end
-
 @inline @fastmath function evalrxrate(speciesvec::AbstractVector, reaction::ChemicalReaction, params=[])::Float64
     (reaction.rate)(speciesvec, params)
 end

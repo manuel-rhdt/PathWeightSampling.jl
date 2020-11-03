@@ -18,8 +18,8 @@ end
 
 # A collection of common parameters
 struct System
-    λ::Float64
     κ::Float64
+    λ::Float64
     ρ::Float64
     μ::Float64
 end
@@ -103,7 +103,7 @@ function posterior(system::System, t; response::AbstractVector)
     MvNormal(regression_coef * response, p_s_given_x_cov)
 end
 
-System() = System(0.005, 0.25, 0.01, 0.01)
+System() = System(0.25, 0.005, 0.01, 0.01)
 
 function log_likelihood(system::System, t; signal::AbstractArray, response::AbstractArray)
     c_ss = corr_ss(system).(t)

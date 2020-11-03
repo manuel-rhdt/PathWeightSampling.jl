@@ -78,10 +78,10 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem
     branch_point = searchsortedfirst(old_traj.t, branch_time)
     tspan = (branch_time, old_traj.t[end])
 
-    resize!(new_traj.u, 0)
-    resize!(new_traj.t, 0)
-    append!(new_traj.u, old_traj[begin:branch_point - 1])
-    append!(new_traj.t, old_traj.t[begin:branch_point - 1])
+    empty!(new_traj.u)
+    empty!(new_traj.t)
+    append!(new_traj.u, @view old_traj[begin:branch_point - 1])
+    append!(new_traj.t, @view old_traj.t[begin:branch_point - 1])
 
 
     jump_problem = myremake(jump_problem; u0=branch_value, tspan=tspan)
@@ -106,13 +106,15 @@ function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_proble
     jump_problem = myremake(jump_problem; u0=branch_value, tspan=tspan)
     new_branch = solve(jump_problem, SSAStepper())
 
-    resize!(new_traj.u, 0)
-    resize!(new_traj.t, 0)
+    empty!(new_traj.u)
+    empty!(new_traj.t)
 
     append!(new_traj.u, @view new_branch.u[end - 1:-1:begin])
     append!(new_traj.u, @view old_traj.u[branch_point:end])
 
-    append!(new_traj.t, branch_time .- @view new_branch.t[end:-1:begin + 1])
+    for rtime in @view new_branch.t[end:-1:begin + 1]
+        push!(new_traj.t, branch_time - rtime)
+    end
     append!(new_traj.t, @view old_traj.t[branch_point:end])
     nothing
 end

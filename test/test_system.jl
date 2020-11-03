@@ -1,7 +1,8 @@
 using GaussianMcmc.Trajectories
 using Catalyst
-using DrWatson
-using LinearAlgebra
+import Statistics: var
+import LinearAlgebra: I
+import Distributions: MvNormal
 
 sn = @reaction_network begin
     κ, ∅ --> S
@@ -29,7 +30,3 @@ joint_stationary = MvNormal([mean_s, mean_x], [sigma_squared_ss sigma_squared_sx
 signal_stationary = MvNormal([mean_s], sigma_squared_ss .* Matrix{Float64}(I, 1, 1))
 
 gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], signal_stationary, joint_stationary)
-
-(system, initial) = Trajectories.generate_configuration(gen; duration=500.0)
-
-nothing

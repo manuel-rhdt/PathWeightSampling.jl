@@ -55,10 +55,10 @@ function submit_job_array(dict, njobs)
     """
     
     result = ""
-    open(`qsub -N Sweep_S -l nodes=1:ppn=1:highcore,mem=4gb,walltime=10:00:00 -t 1-$njobs -j oe -o $out_dir`, "r+") do io
+    open(`qsub -N Sweep_S -l nodes=1:ppn=1:highcore,mem=4gb,walltime=24:00:00 -t 1-$njobs -j oe -o $out_dir`, "r+") do io
         print(io, jobscript)
         close(io.in)
-        global result *= read(io, String)
+        result *= read(io, String)
     end
     
     print(result)
