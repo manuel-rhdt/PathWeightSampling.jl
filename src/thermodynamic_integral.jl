@@ -75,7 +75,7 @@ function annealed_importance_sampling(initial, system::StochasticSystem, subsamp
         e_cur = energy(sampler.state, system, θ=temps[i + 1])
 
         weights[i] = weights[i - 1] + e_prev - e_cur
-        acceptance[i] = acc / subsample
+        acceptance[i] = acc / (subsample + 1)
 
         # change the temperature for the next iteration
         sampler.system.θ = temps[i + 1]
@@ -93,6 +93,7 @@ end
 abstract type SimulationResult end
 
 struct AnnealingEstimationResult <: SimulationResult
+    estimate::AnnealingEstimate
     inv_temps::Vector{Float64}
     weights::Array{Float64,2}
     acceptance::Array{Float64,2}
@@ -101,6 +102,11 @@ end
 log_marginal(result::AnnealingEstimationResult) =  -(logsumexp(result.weights[end, :]) - log(size(result.weights, 2)))
 
 function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
+    estimate = res_array[1].estimate
+    attrs(group)["subsample"] = estimate.subsample
+    attrs(group)["num_annealing_runs"] = estimate.num_samples
+    attrs(group)["num_thetas"] = estimate.num_temps
+
     inv_temps = cat((r.inv_temps for r in res_array)...; dims=2)
     weights = cat((r.weights for r in res_array)...; dims=3)
     acceptance = cat((r.acceptance for r in res_array)...; dims=3)
@@ -131,7 +137,7 @@ function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::Sto
         acc[:, i] = acceptance
     end
 
-    AnnealingEstimationResult(collect(inv_temps), all_weights, acc)
+    AnnealingEstimationResult(algorithm, collect(inv_temps), all_weights, acc)
 end
 
 struct TIEstimate
@@ -195,7 +201,7 @@ end
 function Statistics.var(result::AnnealingEstimationResult)
     max_weight = maximum(result.weights[end, :])
     log_mean_weight = max_weight + log(mean(exp.(result.weights[end,:] .- max_weight)))
-    log_var = log(var(exp.(result.weights[end, :] .- max_weight))) + 2*max_weight
+    log_var = log(var(exp.(result.weights[end, :] .- max_weight))) + 2 * max_weight
     log_var -= log(size(result.weights, 2))
 
     exp(-2log_mean_weight + log_var)
@@ -265,7 +271,7 @@ function conditional_entropy(gen::ConfigurationGenerator;  num_responses::Int=1,
     result = zeros(Float64, num_responses)
     for i in 1:num_responses
         (system, initial) = generate_configuration(gen, duration=duration)
-        result[i] = energy(initial, system)
+        result[i] = energy(initial, system, θ=1.0)
     end
 
     Dict("conditional_entropy" => DataFrame(
