@@ -3,10 +3,9 @@ import JSON
 using Random
 
 my_args = Dict(
-    "algorithm" => "annealing",
-    "run_name" => "2020-10-30_stationary_sweep",
-    "duration" => 2 .^ range(log2(20), log2(500), length=12),
-    "N" => collect(1:100),
+    "algorithm" => "thermodynamic_integration",
+    "run_name" => "2020-11-03_stationary_sweep",
+    "duration" => 2 .^ range(log2(20), log2(500), length=6),
     "num_responses" => 1000,
     "mean_s" => [20, 50, 100, 200],
     "corr_time_s" => 100,
@@ -35,24 +34,36 @@ function runsave(dicts, tmp=projectdir("_research", "tmp"), prefix="", suffix="j
 end
 
 dicts = dict_list(my_args)
-filename = runsave(dicts)
-
-jobscript = """
-    export JULIA_PROJECT=$(projectdir())
-
-    julia -e "using InteractiveUtils; versioninfo(verbose=true)"
-    julia -O3 $(projectdir("scripts", "simple_network.jl")) $filename.\$PBS_ARRAYID.json
-    """
-
-result = ""
 
 out_dir = projectdir("data", "output")
 mkpath(out_dir)
 
-open(`qsub -N Sweep_S -l nodes=1:ppn=1:highcore,mem=4gb,walltime=10:00:00 -t 1-$(length(dicts)) -j oe -o $out_dir`, "r+") do io
-    print(io, jobscript)
-    close(io.in)
-    global result *= read(io, String)
+function submit_job_array(dict, njobs)
+    jobarray = collect(1:njobs)
+
+    dict = copy(dict)
+
+    dict["N"] = jobarray
+    array_dicts = dict_list(dict)
+
+    filename = runsave(dicts)
+    jobscript = """
+        export JULIA_PROJECT=$(projectdir())
+
+        julia -e "using InteractiveUtils; versioninfo(verbose=true)"
+        julia -O3 $(projectdir("scripts", "simple_network.jl")) $filename.\$PBS_ARRAYID.json
+    """
+    
+    result = ""
+    open(`qsub -N Sweep_S -l nodes=1:ppn=1:highcore,mem=4gb,walltime=10:00:00 -t 1-$njobs -j oe -o $out_dir`, "r+") do io
+        print(io, jobscript)
+        close(io.in)
+        global result *= read(io, String)
+    end
+    
+    print(result)
 end
 
-print(result)
+for d in dicts
+    submit_job_array(d, 100)
+end

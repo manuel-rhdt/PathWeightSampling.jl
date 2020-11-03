@@ -152,13 +152,14 @@ function write_hdf5!(group, res_array::Vector{ThermodynamicIntegrationResult})
     inv_temps = cat((r.inv_temps for r in res_array)...; dims=2)
     integration_weights = cat((r.integration_weights for r in res_array)...; dims=2)
     # energies = cat((r.energies for r in res_array)...; dims=3)
-    # acceptance = cat((r.acceptance for r in res_array)...; dims=3)
+    acceptance = cat((r.acceptance for r in res_array)...; dims=3)
 
     block_size = 512
 
     group["inv_temps"] = inv_temps[:, 1]
     group["integration_weights"] = integration_weights
-    group["energy_blocks"] = cat((blocks(r, block_size) for r in res_array), dims=3)
+    group["energy_blocks"] = cat((blocks(r, block_size) for r in res_array)..., dims=3)
+    group["acceptance"] = mean(acceptance, dims=1)
 
     attrs(group["energy_blocks"])["block_size"] = block_size
 
