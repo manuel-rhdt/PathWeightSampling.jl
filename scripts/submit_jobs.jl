@@ -4,7 +4,7 @@ using Random
 using FileIO
 
 my_args = Dict(
-    "algorithm" => "thermodynamic_integration",
+    "algorithm" => "annealing",
     "run_name" => "2020-11-03_stationary_sweep",
     "duration" => 2 .^ range(log2(20), log2(200), length=6),
     "num_responses" => 1000,
@@ -70,7 +70,11 @@ function submit_job_array(filename, njobs, runtime)
 end
 
 function estimate_runtime(dict)
-    factor = 0.002 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+    if dict["algorithm" == "annealing"]
+        factor = 0.0005 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+    else
+        factor = 0.002 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+    end
     constant = 20 * 60 # just make sure we have an extra buffer of 20 minutes
     round(Int, factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] + constant)
 end
