@@ -56,8 +56,8 @@ function submit_job_array(filename, njobs, runtime)
         export JULIA_PROJECT=$(projectdir())
 
         julia -e "using InteractiveUtils; versioninfo(verbose=true)"
-        julia -O3 $(projectdir("scripts", "simple_network.jl")) $filename.json
-    """
+        julia -O3 $(projectdir("scripts", "simple_network.jl")) $(filename).json
+        """
     
     result = ""
     open(`qsub -N Sweep_S -l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime -t 1-$njobs -j oe -o $out_dir`, "r+") do io
@@ -66,7 +66,7 @@ function submit_job_array(filename, njobs, runtime)
         result *= read(io, String)
     end
     
-    println(result)
+    print(result)
 end
 
 function estimate_runtime(dict)
@@ -75,7 +75,7 @@ function estimate_runtime(dict)
     round(Int, factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] + constant)
 end
 
-for d in dicts
+for (d, f) in zip(dicts, filenames)
     runtime = estimate_runtime(d)
-    submit_job_array(d, 100, runtime)
+    submit_job_array(f, 100, runtime)
 end
