@@ -70,8 +70,8 @@ function submit_job_array(filename, njobs, runtime)
 end
 
 function estimate_runtime(dict)
-    factor = 0.0015 * 1.8
-    constant = 5 * 60
+    factor = 0.002 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+    constant = 20 * 60 # just make sure we have an extra buffer of 20 minutes
     round(Int, factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] + constant)
 end
 
