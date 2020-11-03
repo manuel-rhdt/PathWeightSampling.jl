@@ -3,6 +3,8 @@ using Catalyst
 using DrWatson
 using LinearAlgebra
 
+import Distributions: MvNormal
+
 sn = @reaction_network begin
     κ, ∅ --> S
     λ, S --> ∅
