@@ -34,12 +34,19 @@ function create_chemical_reactions(reaction_system::ReactionSystem)
     _create_chemical_reactions(reaction_system, reactions(reaction_system)...)
 end
 
+function var2name(var)
+    ModelingToolkit.operation(var).name
+end
+
 function _create_chemical_reactions(rn::ReactionSystem, r1::Reaction)
     smap = speciesmap(rn)
-    ratelaw = jumpratelaw(r1)
-    rate_fun = eval(build_function(ratelaw, Catalyst.species(rn), Catalyst.params(rn)))
+    spec = var2name.(Catalyst.species(rn))
+    ratelaw = substitute(jumpratelaw(r1), Dict(Catalyst.species(rn) .=> spec))
 
-    netstoich = sort([(smap[sub], stoich) for (sub, stoich) in r1.netstoich])
+    rate_fun = build_function(ratelaw, spec, Catalyst.params(rn))
+    rate_fun = eval(rate_fun)
+
+    netstoich = [(smap[sub], stoich) for (sub, stoich) in r1.netstoich]
 
     du = zero(SVector{numspecies(rn),Int})
     for (index, netstoich) in netstoich
