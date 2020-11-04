@@ -40,7 +40,7 @@ end
 function new_signal(old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
     s0_dist = system.s0_dist
-    sample = round.(rand(s0_dist))
+    sample = max.(round.(rand(s0_dist)), 0.0)
     u0 = SVector(sample...)
 
     tspan = (old_signal.t[begin], old_signal.t[end])
@@ -145,7 +145,7 @@ end
 
 function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::Float64=500.0)
     p0_dist = gen.p0_dist
-    sample = round.(rand(p0_dist))
+    sample = max.(round.(rand(p0_dist)), 0.0)
 
     u0 = SVector(sample...)
     tspan = (0., duration)
@@ -157,8 +157,9 @@ function generate_configuration(gen::ConfigurationGenerator; θ=1.0, duration::F
     response = convert(Trajectory, trajectory(sol, SA[:X], SA[2]))
     signal = convert(Trajectory, trajectory(sol, SA[:S], SA[1]))
 
-    u0s = SVector(50.0)
-    dprob_s = DiscreteProblem(u0s, tspan, gen.sparams)
+    u0s = SVector(0.0)
+    dprob_s = DiscreteProblem(gen.signal_network, u0s, tspan, gen.sparams)
+    dprob_s = remake(dprob_s, u0=u0s)
     jprob_s = JumpProblem(gen.signal_network, dprob_s, Direct())
 
     (StochasticSystem(jprob_s, gen.s0_dist, gen.distribution, response, θ, 0.0, Float64[], Float64[], gen.rparams), signal)
