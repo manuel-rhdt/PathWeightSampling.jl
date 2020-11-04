@@ -58,10 +58,10 @@ function generate_mcmc_samples(initial::State, system, burn_in::Int, num_samples
     samples, acceptance
 end
 
-function annealed_importance_sampling(initial, system::StochasticSystem, subsample::Int, num_samples::Int)
-    weights = zeros(Float64, num_samples)
-    temps = range(0, 1; length=num_samples + 1)
-    acceptance = zeros(Float64, num_samples)
+function annealed_importance_sampling(initial, system::StochasticSystem, subsample::Int, num_temps::Int)
+    weights = zeros(Float64, num_temps)
+    temps = range(0, 1; length=num_temps + 1)
+    acceptance = zeros(Float64, num_temps)
     acceptance[1] = 1.0
 
     e_prev = energy(initial, system, θ=temps[1])
@@ -70,7 +70,7 @@ function annealed_importance_sampling(initial, system::StochasticSystem, subsamp
 
     system.θ = temps[2]
     sampler = MetropolisSampler(0, subsample, e_cur, initial, system)
-    for (i, acc) in zip(2:num_samples, sampler)
+    for (i, acc) in zip(2:num_temps, sampler)
         e_prev = sampler.current_energy
         e_cur = energy(sampler.state, system, θ=temps[i + 1])
 
