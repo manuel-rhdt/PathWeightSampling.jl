@@ -5,10 +5,10 @@ using FileIO
 
 my_args = Dict(
     "algorithm" => "annealing",
-    "run_name" => "2020-11-03_stationary_sweep",
+    "run_name" => "2020-11-04_stationary_sweep",
     "duration" => 2 .^ range(log2(20), log2(200), length=6),
-    "num_responses" => 1000,
-    "mean_s" => [20, 40, 70, 100],
+    "num_responses" => 8_000,
+    "mean_s" => [20, 60, 100],
     "corr_time_s" => 100,
     "corr_time_ratio" => 5,
 )
@@ -60,7 +60,7 @@ function submit_job_array(filename, njobs, runtime)
         """
     
     result = ""
-    open(`qsub -N Annealing -l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime -t 1-$njobs -j oe -o $out_dir`, "r+") do io
+    open(`qsub -N AnnealNov4 -l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime -t 1-$njobs -j oe -o $out_dir`, "r+") do io
         print(io, jobscript)
         close(io.in)
         result *= read(io, String)
@@ -71,7 +71,7 @@ end
 
 function estimate_runtime(dict)
     if dict["algorithm"] == "annealing"
-        factor = 0.0005 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+        factor = 0.0007 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     elseif dict["algorithm"] == "thermodynamic_integration"
         factor = 0.002 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     else

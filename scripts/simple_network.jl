@@ -33,7 +33,7 @@ using Catalyst
 if dict["algorithm"] == "thermodynamic_integration"
     algorithm = TIEstimate(1024, 6, 2^14)
 elseif dict["algorithm"] == "annealing"
-    algorithm = AnnealingEstimate(5, 100, 100)
+    algorithm = AnnealingEstimate(15, 50, 100)
 else
     error("Unsupported algorithm " * dict["algorithm"])
 end
