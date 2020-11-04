@@ -97,6 +97,7 @@ struct AnnealingEstimationResult <: SimulationResult
     inv_temps::Vector{Float64}
     weights::Array{Float64,2}
     acceptance::Array{Float64,2}
+    initial_conditionals::Vector{Float64}
 end
 
 log_marginal(result::AnnealingEstimationResult) =  -(logsumexp(result.weights[end, :]) - log(size(result.weights, 2)))
@@ -114,6 +115,7 @@ function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
     group["theta"] = inv_temps[:, 1]
     group["weights"] = weights[end, :, :]
     group["acceptance"] = mean(acceptance, dims=2)
+    group["initial_conditional"] = hcat((r.initial_conditionals for r in res_array)...)
 
     weight_attrs = attrs(group["weights"])
     acceptance_attrs = attrs(group["acceptance"])
@@ -129,15 +131,17 @@ function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::Sto
     all_weights = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
     acc = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
     inv_temps = nothing
+    initial_conditionals = zeros(algorithm.num_samples)
     for i in 1:algorithm.num_samples
         signal = new_signal(initial, system)
+        initial_conditionals[i] = energy(signal, system, θ=1.0)
         (temps, weights, acceptance) = annealed_importance_sampling(signal, system, algorithm.subsample, algorithm.num_temps)
         inv_temps = temps
         all_weights[:, i] = weights
         acc[:, i] = acceptance
     end
 
-    AnnealingEstimationResult(algorithm, collect(inv_temps), all_weights, acc)
+    AnnealingEstimationResult(algorithm, collect(inv_temps), all_weights, acc, initial_conditionals)
 end
 
 struct TIEstimate
