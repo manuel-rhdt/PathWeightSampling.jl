@@ -80,7 +80,7 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem
 
     empty!(new_traj.u)
     empty!(new_traj.t)
-    append!(new_traj.u, @view old_traj[begin:branch_point - 1])
+    append!(new_traj.u, @view old_traj.u[begin:branch_point - 1])
     append!(new_traj.t, @view old_traj.t[begin:branch_point - 1])
 
 

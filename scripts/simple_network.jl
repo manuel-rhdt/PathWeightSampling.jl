@@ -6,7 +6,12 @@ dict = JSON.parsefile(projectdir("_research", "tmp", f))
 @info "Read file" file = projectdir("_research", "tmp", f)
 
 duration = dict["duration"]
-N = dict["N"]
+
+N = 0
+if haskey(ENV, "PBS_ARRAYID")
+    global N = parse(Int, ENV["PBS_ARRAYID"])
+end
+
 num_responses = dict["num_responses"]
 run_name = dict["run_name"]
 
