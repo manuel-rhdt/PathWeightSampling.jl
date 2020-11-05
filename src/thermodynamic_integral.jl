@@ -11,7 +11,7 @@ mutable struct MetropolisSampler{S,Sys}
     subsample::Int
     current_energy::Float64
     state::S
-    system::Sys
+    chain::Sys
 end
 
 Base.iterate(sampler::MetropolisSampler) = iterate(sampler, deepcopy(sampler.state))
@@ -21,12 +21,12 @@ function Base.iterate(sampler::MetropolisSampler{S,Sys}, new_state::S) where {S,
     rejected = 0
 
     while true
-        propose!(new_state, sampler.state, sampler.system)
-        new_energy = energy(new_state, sampler.system)
+        propose!(new_state, sampler.state, sampler.chain)
+        new_energy = energy(new_state, sampler.chain)
         
         # metropolis acceptance criterion
         if rand() < exp(sampler.current_energy - new_energy)
-            accept(sampler.system)
+            accept(sampler.chain)
             accepted += 1
             sampler.current_energy = new_energy
             # simple variable swap (sampler.state <--> new_state)
@@ -34,7 +34,7 @@ function Base.iterate(sampler::MetropolisSampler{S,Sys}, new_state::S) where {S,
             new_state = sampler.state
             sampler.state = tmp
         else
-            reject(sampler.system)
+            reject(sampler.chain)
             rejected += 1
         end
         
@@ -45,8 +45,8 @@ function Base.iterate(sampler::MetropolisSampler{S,Sys}, new_state::S) where {S,
     end
 end
 
-function generate_mcmc_samples(initial::State, system, burn_in::Int, num_samples::Int) where State
-    sampler = MetropolisSampler(burn_in, 0, energy(initial, system), initial, system)
+function generate_mcmc_samples(initial::State, chain::SignalChain, burn_in::Int, num_samples::Int) where State
+    sampler = MetropolisSampler(burn_in, 0, energy(initial, chain), initial, chain)
 
     samples = Vector{State}(undef, num_samples)
     acceptance = zeros(Int16, num_samples)
@@ -58,27 +58,27 @@ function generate_mcmc_samples(initial::State, system, burn_in::Int, num_samples
     samples, acceptance
 end
 
-function annealed_importance_sampling(initial, system::StochasticSystem, subsample::Int, num_temps::Int)
+function annealed_importance_sampling(initial, chain::SignalChain, subsample::Int, num_temps::Int)
     weights = zeros(Float64, num_temps)
     temps = range(0, 1; length=num_temps + 1)
     acceptance = zeros(Float64, num_temps)
     acceptance[1] = 1.0
 
-    e_prev = energy(initial, system, θ=temps[1])
-    e_cur = energy(initial, system, θ=temps[2])
+    e_prev = energy(initial, chain.system, temps[1])
+    e_cur = energy(initial, chain.system, temps[2])
     weights[1] = e_prev - e_cur
 
-    system.θ = temps[2]
-    sampler = MetropolisSampler(0, subsample, e_cur, initial, system)
+    chain.θ = temps[2]
+    sampler = MetropolisSampler(0, subsample, e_cur, initial, chain)
     for (i, acc) in zip(2:num_temps, sampler)
         e_prev = sampler.current_energy
-        e_cur = energy(sampler.state, system, θ=temps[i + 1])
+        e_cur = energy(sampler.state, chain.system, temps[i + 1])
 
         weights[i] = weights[i - 1] + e_prev - e_cur
         acceptance[i] = acc / (subsample + 1)
 
         # change the temperature for the next iteration
-        sampler.system.θ = temps[i + 1]
+        sampler.chain.θ = temps[i + 1]
         sampler.current_energy = e_cur
     end
     temps, weights, acceptance
@@ -128,14 +128,16 @@ function write_hdf5!(group, res_array::Vector{AnnealingEstimationResult})
 end
 
 function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::StochasticSystem)
+    chain = SignalChain(system, 1.0, 0.0, Float64[], Float64[])
+
     all_weights = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
     acc = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
     inv_temps = nothing
     initial_conditionals = zeros(algorithm.num_samples)
     for i in 1:algorithm.num_samples
         signal = new_signal(initial, system)
-        initial_conditionals[i] = energy(signal, system, θ=1.0)
-        (temps, weights, acceptance) = annealed_importance_sampling(signal, system, algorithm.subsample, algorithm.num_temps)
+        initial_conditionals[i] = energy(signal, system, 1.0)
+        (temps, weights, acceptance) = annealed_importance_sampling(signal, chain, algorithm.subsample, algorithm.num_temps)
         inv_temps = temps
         all_weights[:, i] = weights
         acc[:, i] = acceptance
@@ -219,6 +221,8 @@ end
 
 # Monte-Carlo computation of the marginal probability for the given configuration
 function simulate(algorithm::TIEstimate, initial::Trajectory, system::StochasticSystem)
+    chain = SignalChain(system, 1.0, 0.0, Float64[], Float64[])
+    
     # Generate the array of θ values for which we want to simulate the system.
     # We use Gauss-Legendre quadrature which predetermines the choice of θ.
     nodes, weights = gausslegendre(algorithm.integration_nodes)
@@ -229,10 +233,10 @@ function simulate(algorithm::TIEstimate, initial::Trajectory, system::Stochastic
     energies = Array{Float64}(undef, algorithm.num_samples, length(θrange))
     accept = Array{Bool}(undef, algorithm.num_samples, length(θrange))
     for i in eachindex(θrange)
-        system.θ = θrange[i]
-        sampler = MetropolisSampler(algorithm.burn_in, 0, energy(initial, system), initial, system)
+        chain.θ = θrange[i]
+        sampler = MetropolisSampler(algorithm.burn_in, 0, energy(initial, chain), deepcopy(initial), chain)
         for (j, was_accepted) in Iterators.enumerate(Iterators.take(sampler, algorithm.num_samples))
-            energies[j, i] = energy(sampler.state, system, θ=1.0)
+            energies[j, i] = energy(sampler.state, system, 1.0)
             accept[j, i] = was_accepted != 0
         end
     end
@@ -276,7 +280,7 @@ function conditional_entropy(gen::ConfigurationGenerator;  num_responses::Int=1,
     result = zeros(Float64, num_responses)
     for i in 1:num_responses
         (system, initial) = generate_configuration(gen, duration=duration)
-        result[i] = energy(initial, system, θ=1.0)
+        result[i] = energy(initial, system, 1.0)
     end
 
     Dict("conditional_entropy" => DataFrame(

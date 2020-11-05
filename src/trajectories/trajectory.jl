@@ -23,7 +23,7 @@ function Base.copyto!(to::Trajectory, from::Trajectory)
 end
 
 function (t::Trajectory)(time::Real)
-    index = searchsortedfirst(t.t, time)
+    index = clamp(searchsortedfirst(t.t, time), 2, length(t) + 1)
     t.u[index - 1]
 end
 
@@ -36,7 +36,7 @@ function (t::Trajectory)(times::AbstractArray{<:Real})
                 j += 1
                 continue
             else
-                val = t.u[j-1]
+                val = t.u[j - 1]
                 break
             end
         end
@@ -88,6 +88,9 @@ function Base.convert(::Type{Trajectory}, partial::PartialTrajectory{uType,tType
 end
 
 function duration(traj::AbstractTrajectory)
+    if length(traj) == 0
+        return 0.0
+    end
     traj.t[end] - traj.t[begin]
 end
 
@@ -131,22 +134,28 @@ end
 
 Base.eltype(::Type{T}) where {uType,tType,N,T <: AbstractTrajectory{uType,tType,N}} = Tuple{SVector{N,uType},tType}
 
-struct MergeTrajectory{uType,tType,T1<:Trajectory{uType,tType},T2<:Trajectory{uType,tType},Syms}
+struct MergeTrajectory{uType,tType,T1 <: Trajectory{uType,tType},T2 <: Trajectory{uType,tType},Syms}
     syms::Syms
     first::T1
     second::T2
 end
 
-Base.merge(traj1::T1, traj2::T2) where {uType, tType, T1<:Trajectory{uType,tType}, T2<:Trajectory{uType,tType}} = MergeTrajectory{uType,tType,T1,T2,typeof(vcat(traj1.syms, traj2.syms))}(vcat(traj1.syms, traj2.syms), traj1, traj2)
+Base.merge(traj1::T1, traj2::T2) where {uType,tType,T1 <: Trajectory{uType,tType},T2 <: Trajectory{uType,tType}} = MergeTrajectory{uType,tType,T1,T2,typeof(vcat(traj1.syms, traj2.syms))}(vcat(traj1.syms, traj2.syms), traj1, traj2)
 Base.IteratorSize(::Type{MergeTrajectory{uType,tType,T1,T2,N}}) where {uType,tType,T1,T2,N} = Base.SizeUnknown()
-Base.iterate(iter::MergeTrajectory) = iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin])))
 
-function Base.iterate(iter::MergeTrajectory{uType,tType}, (i, j, t)::Tuple{Int,Int,tType}) where {uType,tType}
-    if i > length(iter.first) && j > length(iter.second)
+function Base.iterate(iter::MergeTrajectory)
+    if length(iter.first) == 0 || length(iter.second) == 0
         return nothing
     end
+    iterate(iter, (1, 1, min(iter.first.t[begin], iter.second.t[begin]), vcat(iter.first.u[begin], iter.second.u[begin])))
+end
 
+function Base.iterate(iter::MergeTrajectory{uType,tType}, (i, j, t, u)::Tuple{Int,Int,tType,<:AbstractVector{uType}}) where {uType,tType}
     current_t = t
+
+    if t == Inf
+        return nothing
+    end
 
     if (i + 1) > length(iter.first)
         t_i = Inf
@@ -160,21 +169,34 @@ function Base.iterate(iter::MergeTrajectory{uType,tType}, (i, j, t)::Tuple{Int,I
         @inbounds t_j = iter.second.t[j + 1]
     end
 
-    u = @inbounds vcat(iter.first[min(i, length(iter.first))], iter.second[min(j, length(iter.second))])
+    if t_i == t_j == Inf
+        return (u, current_t), (i, j, Inf, u)
+    end
+
+    next_u = u
 
     if t_i < t_j
         t = t_i
         i = i + 1
+        u_i = iter.first.u[i]
+        for (i, x) in enumerate(u_i)
+            next_u = setindex(next_u, x, i)
+        end
     elseif t_j < t_i
         t = t_j
         j = j + 1
+        u_j = iter.second.u[j]
+        for (i, x) in enumerate(u_j)
+            next_u = setindex(next_u, x, length(next_u) - length(u_j) + i)
+        end
     else
         t = t_i
         i = i + 1
         j = j + 1
+        next_u = vcat(iter.first[i], iter.second[j])
     end
 
-    (u, current_t), (i, j, t)
+    (u, current_t), (i, j, t, next_u)
 end
 
 @recipe function f(traj::AbstractTrajectory{uType,tType,N}) where {uType,tType,N}
