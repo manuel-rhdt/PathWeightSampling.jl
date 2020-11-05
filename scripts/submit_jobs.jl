@@ -94,5 +94,5 @@ end
 array_before = nothing
 for (d, f) in zip(dicts, filenames)
     runtime = estimate_runtime(d)
-    array_before = submit_job_array(f, 144, runtime, array_before=array_before)
+    global array_before = submit_job_array(f, 144, runtime, array_before=array_before)
 end
