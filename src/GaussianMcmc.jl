@@ -12,7 +12,7 @@ include("fast_mvnormal.jl")
 import Base.similar
 
 function time_matrix(n::Integer, delta_t::Real)
-    t_range = range(0.0, length = n, step = delta_t)
+    t_range = range(0.0, length=n, step=delta_t)
     transpose(t_range) .- t_range
 end
 
@@ -27,7 +27,7 @@ end
 Base.broadcastable(system::System) = Ref(system)
 
 function corr_ss(system::System)
-    (t)->system.κ / system.λ * exp(-abs(t) * system.λ)
+    (t) -> system.κ / system.λ * exp(-abs(t) * system.λ)
 end
 
 function corr_xs(system::System)
@@ -161,7 +161,7 @@ struct Mcmc{Conf <: SystemConfiguration,Prior,Joint}
     initial::Conf
 end
 
-function Base.iterate(iter::Mcmc, state = iter.initial)
+function Base.iterate(iter::Mcmc, state=iter.initial)
     current_energy = energy(state, iter.prior, iter.joint, iter.theta)
     
     accepted = 0
@@ -220,7 +220,7 @@ function propose_conf!(new_conf::GaussianProposal{T}, previous_conf::GaussianPro
 end
 
 
-function generate_mcmc_samples(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, subsample::Integer, θ::Real = 1.0)
+function generate_mcmc_samples(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, subsample::Integer, θ::Real=1.0)
     prior_distr = FastMvNormal(corr_ss(system).(t))
     joint_distr = FastMvNormal(corr_z(system, t))
     
@@ -260,12 +260,12 @@ function perform(integral::ThermodynamicIntegral, num_samples::Integer, θ::Abst
     samples = []
     acceptance = []
     for θ in θ
-        s, a = generate_mcmc_samples(integral.initial, num_samples, integral.system, integral.t, scale = integral.scale, subsample = integral.subsample, θ = θ)
+        s, a = generate_mcmc_samples(integral.initial, num_samples, integral.system, integral.t, scale=integral.scale, subsample=integral.subsample, θ=θ)
         push!(samples, s)
         push!(acceptance, a)
     end
-    integral.samples = cat(samples..., dims = 3)
-    integral.acceptance_rates = cat(acceptance..., dims = 2)
+    integral.samples = cat(samples..., dims=3)
+    integral.acceptance_rates = cat(acceptance..., dims=2)
     integral.θ = collect(θ)
     nothing
 end
@@ -275,20 +275,20 @@ function potential(integral::ThermodynamicIntegral)
     signal = @view integral.samples[1:n_dim,:,:]
     response = @view integral.samples[n_dim + 1:end, 1,:]
 
-    ll = map(integral.θ, eachslice(signal, dims = 3), eachcol(response)) do θ, sig, res
-        log_likelihood(integral.system, integral.t, signal = sig, response = res)
+    ll = map(integral.θ, eachslice(signal, dims=3), eachcol(response)) do θ, sig, res
+        log_likelihood(integral.system, integral.t, signal=sig, response=res)
     end
 
     hcat(ll...)
 end
 
 
-function estimate_marginal_density(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, subsample::Integer, θ::Real = 1.0)
-    samples, acceptance = generate_mcmc_samples(initial, num_samples, system, t, scale = scale, subsample = subsample, θ = θ)
+function estimate_marginal_density(initial::SystemConfiguration, num_samples::Integer, system::System, t::Matrix; scale::Real, subsample::Integer, θ::Real=1.0)
+    samples, acceptance = generate_mcmc_samples(initial, num_samples, system, t, scale=scale, subsample=subsample, θ=θ)
     n_dim = Int(size(t, 1))
     signal = @view samples[1:n_dim,:]
     response = @view initial.state[n_dim + 1:end]
-    log_likelihood(system, t, signal = signal, response = response), acceptance
+    log_likelihood(system, t, signal=signal, response=response), acceptance
 end
 
 
