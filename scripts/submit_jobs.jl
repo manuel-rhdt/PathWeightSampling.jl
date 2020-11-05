@@ -13,27 +13,6 @@ my_args = Dict(
     "corr_time_ratio" => 5,
 )
 
-function runsave(dicts, tmp=projectdir("_research", "tmp"), prefix="", suffix="json", l=8)
-    mkpath(tmp)
-    n = length(dicts)
-    indices = map(string, 1:n)
-    existing = readdir(tmp)
-    filename = prefix * randstring(l)
-    r = filename .* "." .* indices .* "." .* suffix
-    while !isdisjoint(existing, r)
-        filename = prefix * randstring(l)
-        r = filename .* "." .* indices .* "." .* suffix
-    end
-
-    for (i, path) ∈ enumerate(r)
-        open(joinpath(tmp, path), "w") do io
-            JSON.print(io, copy(dicts[i]))
-        end
-    end
-
-    filename
-end
-
 dicts = dict_list(my_args)
 
 function DrWatson._wsave(filename, d::Dict)
