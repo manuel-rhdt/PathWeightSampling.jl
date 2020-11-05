@@ -146,6 +146,25 @@ function simulate(algorithm::AnnealingEstimate, initial::Trajectory, system::Sto
     AnnealingEstimationResult(algorithm, collect(inv_temps), all_weights, acc, initial_conditionals)
 end
 
+struct DirectMCEstimate
+    num_samples::Int
+end
+
+struct DirectMCResult
+    samples::Vector{Float64}
+end
+
+log_marginal(result::DirectMCResult) = -(logsumexp(result.samples) - log(length(result.samples)))
+
+function simulate(algorithm::DirectMCEstimate, initial::Trajectory, system::StochasticSystem)
+    samples = zeros(Float64, algorithm.num_samples)
+    for i in 1:algorithm.num_samples
+        signal = new_signal(initial, system)
+        samples[i] = -energy(signal, system, 1.0)
+    end
+    DirectMCResult(samples)
+end
+
 struct TIEstimate
     burn_in::Int
     integration_nodes::Int

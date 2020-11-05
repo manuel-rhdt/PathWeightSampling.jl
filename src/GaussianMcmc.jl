@@ -311,7 +311,7 @@ using StaticArrays
 include("trajectory_moves.jl")
 include("thermodynamic_integral.jl")
 
-export Trajectory, TIEstimate, AnnealingEstimate, log_marginal
+export Trajectory, TIEstimate, AnnealingEstimate, DirectMCEstimate, simulate, log_marginal
 
 end
 
