@@ -177,6 +177,7 @@ end
 
 function write_hdf5!(group, dict::AbstractDict)
     for (name, value) in dict
+        name = String(name)
         if typeof(value) <: String || typeof(value) <: Number
             attrs(group)[name] = value
         elseif typeof(value) <: AbstractArray{<:Number}
