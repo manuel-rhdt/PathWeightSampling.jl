@@ -69,7 +69,7 @@ function submit_job_array(filename, njobs, runtime; array_before = nothing)
     end
 
     result = ""
-    open(`qsub -h -N $name $resources $dependency -t 1-$njobs -j oe -o $out_dir`, "r+") do io
+    open(`qsub -N $name $resources $dependency -t 1-$njobs -j oe -o $out_dir`, "r+") do io
         print(io, jobscript)
         close(io.in)
         result *= read(io, String)
