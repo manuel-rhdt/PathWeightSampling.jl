@@ -3,7 +3,7 @@ using Catalyst
 using DrWatson
 using LinearAlgebra
 
-import Distributions: MvNormal
+import Distributions: MvNormal, Poisson
 
 sn = @reaction_network begin
     κ, ∅ --> S
@@ -28,7 +28,7 @@ sigma_squared_sx = ρ * mean_s / (λ + μ)
 sigma_squared_xx = mean_x * (1 + ρ / (λ + μ))
 
 joint_stationary = MvNormal([mean_s, mean_x], [sigma_squared_ss sigma_squared_sx; sigma_squared_sx sigma_squared_xx])
-signal_stationary = MvNormal([mean_s], sigma_squared_ss .* Matrix{Float64}(I, 1, 1))
+signal_stationary = Poisson(mean_s)
 
 gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], signal_stationary, joint_stationary)
 
