@@ -5,9 +5,9 @@ using FileIO
 
 my_args = Dict(
     "algorithm" => "annealing",
-    "run_name" => "2020-11-04_stationary_sweep",
+    "run_name" => "2020-11-05_stationary_sweep",
     "duration" => 2 .^ range(log2(20), log2(200), length=6),
-    "num_responses" => 8_000,
+    "num_responses" => 5_000,
     "mean_s" => [20, 60, 100],
     "corr_time_s" => 100,
     "corr_time_ratio" => 5,
@@ -51,22 +51,32 @@ filenames = tmpsave(dicts, suffix="json")
 out_dir = projectdir("data", "output")
 mkpath(out_dir)
 
-function submit_job_array(filename, njobs, runtime)
+function submit_job_array(filename, njobs, runtime; array_before = nothing)
     jobscript = """
         export JULIA_PROJECT=$(projectdir())
 
         julia -e "using InteractiveUtils; versioninfo(verbose=true)"
         julia -O3 $(projectdir("scripts", "simple_network.jl")) $(filename)
         """
-    
+
+    name = "AnnealNov5"
+    resources = `-l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime`
+
+    if array_before !== nothing
+        dependency = `-W depend=afterokarray:$array_before`
+    else
+        dependency = ``
+    end
+
     result = ""
-    open(`qsub -N AnnealNov4 -l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime -t 1-$njobs -j oe -o $out_dir`, "r+") do io
+    open(`qsub -h -N $name $resources $dependency -t 1-$njobs -j oe -o $out_dir`, "r+") do io
         print(io, jobscript)
         close(io.in)
         result *= read(io, String)
     end
     
     print(result)
+    strip(result)
 end
 
 function estimate_runtime(dict)
@@ -81,7 +91,8 @@ function estimate_runtime(dict)
     round(Int, factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] + constant)
 end
 
+array_before = nothing
 for (d, f) in zip(dicts, filenames)
     runtime = estimate_runtime(d)
-    submit_job_array(f, 100, runtime)
+    array_before = submit_job_array(f, 144, runtime, array_before=array_before)
 end
