@@ -788,9 +788,9 @@ version = "0.14.3"
 
 [[LatinHypercubeSampling]]
 deps = ["Random", "StableRNGs", "StatsBase", "Test"]
-git-tree-sha1 = "491fadafc336ce0f85c0768cc884b28b871929f7"
+git-tree-sha1 = "cf0b0026bf06a096873742f550f14b71cf866400"
 uuid = "a5e1c1ea-c99a-51d3-a14d-a9a37257b02d"
-version = "1.7.2"
+version = "1.7.3"
 
 [[Lazy]]
 deps = ["MacroTools"]
