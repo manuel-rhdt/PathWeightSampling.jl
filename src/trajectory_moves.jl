@@ -155,7 +155,7 @@ struct ConfigurationGenerator
 end
 
 function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s_mean::Real, x_mean::Real)
-    u0 = SVector(s_mean, x_mean)
+    u0 = SVector{2,Float64}(s_mean, x_mean)
 
     joint_network = Base.merge(sn, rn)
     tspan = (0., 1.)
