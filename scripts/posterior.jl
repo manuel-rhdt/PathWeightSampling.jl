@@ -8,12 +8,28 @@ grid_size = 100
 num_samples = 2^18
 θs = range(0,1,length=3)
 
+t_s = 100
+t_x = 10
+
+κ = mean_s / t_s
+λ = 1 / t_s
+ρ = 1 / t_x
+μ = 1 / t_x
+mean_x = mean_s * ρ / μ
+
+gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], mean_s, mean_x)
+
+system, initial = Trajectories.generate_configuration(gen, duration=100.0)
+
+p = plot(initial)
+plot!(p, system.response)
+
 resampled_samples = zeros((grid_size, num_samples, length(θs)))
 for (i, θ) in enumerate(θs)
     println("θ=$θ")
-    system.θ = θ
-    samples, acceptance = Trajectories.generate_mcmc_samples(initial, system, 2^8, num_samples)
-    grid = range(0.0, 500.0, length=grid_size)
+    chain = Trajectories.chain(system, θ)
+    samples, acceptance = Trajectories.generate_mcmc_samples(initial, chain, 2^8, num_samples)
+    grid = range(0.0, 100.0, length=grid_size)
 
     for (j, s) in enumerate(samples)
         for (k, x) in enumerate(s(grid))
@@ -22,7 +38,7 @@ for (i, θ) in enumerate(θs)
     end
 end
 
-x = range(0.0, 500.0, length=grid_size)
+x = range(0.0, 100.0, length=grid_size)
 y = reshape(mean(resampled_samples, dims=2), (length(x), :))
 yerror = reshape(std(resampled_samples, dims=2), (length(x), :))
 
@@ -43,7 +59,6 @@ plot!(p1, x, y,
     line_z=θs', 
     fill_z=θs', 
     label=hcat(("θ=$θ" for θ in θs)...), 
-    ylim=(35,65),
     linewidth=2.5,
     ylabel=L"S_t",
     xlabel=L"t",

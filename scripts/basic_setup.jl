@@ -27,10 +27,12 @@ sigma_squared_ss = mean_s
 sigma_squared_sx = ρ * mean_s / (λ + μ)
 sigma_squared_xx = mean_x * (1 + ρ / (λ + μ))
 
-joint_stationary = MvNormal([mean_s, mean_x], [sigma_squared_ss sigma_squared_sx; sigma_squared_sx sigma_squared_xx])
-signal_stationary = Poisson(mean_s)
+# joint_stationary = MvNormal([mean_s, mean_x], [sigma_squared_ss sigma_squared_sx; sigma_squared_sx sigma_squared_xx])
+# signal_stationary = Poisson(mean_s)
 
-gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], signal_stationary, joint_stationary)
+gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], mean_s, mean_x)
+
+gen.distribution.log_p0(50.0, 52.0)
 
 (system, initial) = Trajectories.generate_configuration(gen; duration=500.0)
 

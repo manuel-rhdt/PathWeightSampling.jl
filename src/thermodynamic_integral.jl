@@ -90,6 +90,8 @@ struct AnnealingEstimate
     num_samples::Int
 end
 
+name(x::AnnealingEstimate) = "AIS"
+
 abstract type SimulationResult end
 
 struct AnnealingEstimationResult <: SimulationResult
@@ -150,6 +152,8 @@ struct DirectMCEstimate
     num_samples::Int
 end
 
+name(x::DirectMCEstimate) = "Direct MC"
+
 struct DirectMCResult
     samples::Vector{Float64}
 end
@@ -170,6 +174,8 @@ struct TIEstimate
     integration_nodes::Int
     num_samples::Int
 end
+
+name(x::TIEstimate) = "TI"
 
 struct ThermodynamicIntegrationResult <: SimulationResult
     integration_weights::Vector{Float64}

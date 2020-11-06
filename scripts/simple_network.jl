@@ -53,15 +53,9 @@ end ρ μ
 using Distributions
 using LinearAlgebra
 
-# see Tostevin, ten Wolde, eq. 27
-sigma_squared_ss = mean_s
-sigma_squared_sx = ρ * mean_s / (λ + μ)
-sigma_squared_xx = mean_x * (1 + ρ / (λ + μ))
+mean_x = mean_s
 
-joint_stationary = MvNormal([mean_s, mean_x], [sigma_squared_ss sigma_squared_sx; sigma_squared_sx sigma_squared_xx])
-signal_stationary = Poisson(mean_s)
-
-gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], signal_stationary, joint_stationary)
+gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], mean_s, mean_x)
 marginal_entropy = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses, duration=duration)
 @info "Finished marginal entropy"
 conditional_entropy = Trajectories.conditional_entropy(gen, num_responses=10_000, duration=duration)

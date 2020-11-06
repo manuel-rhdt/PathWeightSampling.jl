@@ -6,6 +6,7 @@ import Distributions: logpdf
 
 include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
+include("histogram_dist.jl")
 
 struct StochasticSystem{uType,tType,R <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J},S <: UnivariateDistribution}
     jump_problem::P
@@ -13,7 +14,8 @@ struct StochasticSystem{uType,tType,R <: AbstractTrajectory{uType,tType},DP,J,P 
     distribution::TrajectoryDistribution
     response::R
 
-    params::Vector{Float64}
+    sparams::Vector{Float64}
+    rparams::Vector{Float64}
 end
 
 mutable struct SignalChain{uType,tType,R <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J},S <: UnivariateDistribution}
@@ -26,6 +28,8 @@ mutable struct SignalChain{uType,tType,R <: AbstractTrajectory{uType,tType},DP,J
     accepted_list::Vector{Float64}
     rejected_list::Vector{Float64}
 end
+
+chain(system::StochasticSystem, θ::Real) = SignalChain(system, θ, 0.0, Float64[], Float64[])
 
 # reset statistics
 function reset(pot::SignalChain)
@@ -137,7 +141,7 @@ function energy(signal::Trajectory, system::StochasticSystem, θ::Real)
     response = system.response
     joint = merge(signal, response)
 
-    -θ * logpdf(system.distribution, joint, params=system.params)
+    -θ * logpdf(system.distribution, joint, params=system.rparams)
 end
 
 struct ConfigurationGenerator
@@ -148,6 +152,27 @@ struct ConfigurationGenerator
     joint_j_problem::JumpProblem
     s0_dist
     p0_dist
+end
+
+function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s_mean::Real, x_mean::Real)
+    u0 = SVector(s_mean, x_mean)
+
+    joint_network = Base.merge(sn, rn)
+    tspan = (0., 1.)
+    discrete_prob = DiscreteProblem(joint_network, u0, tspan, vcat(sparams, rparams))
+    discrete_prob = remake(discrete_prob, u0=u0)
+    joint_p = JumpProblem(joint_network, discrete_prob, Direct())
+
+    s0_dist, p0_dist = generate_stationary_distributions(joint_p, u0, 100 * 1000)
+
+    log_p0 = (s, x) -> if isinf(begin v = logpdf(p0_dist, [s, x]) end) v else v - logpdf(s0_dist, s) end
+
+    u0s = SVector(s_mean)
+    dprob_s = DiscreteProblem(sn, u0s, tspan, sparams)
+    dprob_s = remake(dprob_s, u0=u0s)
+    signal_p = JumpProblem(sn, dprob_s, Direct())
+
+    ConfigurationGenerator(sparams, rparams, distribution(rn, log_p0), signal_p, joint_p, s0_dist, p0_dist)
 end
 
 function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s0_dist, p0_dist)
@@ -181,10 +206,25 @@ function generate_configuration(gen::ConfigurationGenerator; duration::Real=500.
     response = convert(Trajectory, trajectory(sol, SA[:X], SA[2]))
     signal = convert(Trajectory, trajectory(sol, SA[:S], SA[1]))
 
-    (StochasticSystem(gen.signal_j_problem, gen.s0_dist, gen.distribution, response, gen.rparams), signal)
+    (StochasticSystem(gen.signal_j_problem, gen.s0_dist, gen.distribution, response, gen.sparams, gen.rparams), signal)
 end
 
 function generate_configuration(sn::ReactionSystem, rn::ReactionSystem, sparams=[], rparams=[]; duration::Real=500.0)
     cg = configuration_generator(sn, rn, sparams, rparams)
     generate_configuration(cg, duration=duration)
+end
+
+
+function generate_stationary_distributions(jump_problem, u0, duration::Real)
+    jump_problem = myremake(jump_problem, u0=u0, tspan=(0.0, duration))
+    sol = solve(jump_problem, SSAStepper())
+
+    weights = diff(sol.t)
+    copy_numbers = sol.u[begin:end - 1]
+    signal_copy_numbers = getindex.(copy_numbers, 1)
+
+    joint_dist = mv_histogram_dist(copy_numbers, weights)
+    signal_dist = histogram_dist(signal_copy_numbers, weights)
+
+    signal_dist, joint_dist
 end
