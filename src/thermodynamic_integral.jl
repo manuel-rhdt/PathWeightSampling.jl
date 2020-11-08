@@ -6,6 +6,8 @@ using StatsFuns
 using HDF5
 using Statistics
 
+import Random
+
 mutable struct MetropolisSampler{S,Sys}
     burn_in::Int
     subsample::Int
@@ -25,7 +27,7 @@ function Base.iterate(sampler::MetropolisSampler{S,Sys}, new_state::S) where {S,
         new_energy = energy(new_state, sampler.chain)
         
         # metropolis acceptance criterion
-        if rand() < exp(sampler.current_energy - new_energy)
+        if Random.randexp() >= new_energy - sampler.current_energy
             accept(sampler.chain)
             accepted += 1
             sampler.current_energy = new_energy
