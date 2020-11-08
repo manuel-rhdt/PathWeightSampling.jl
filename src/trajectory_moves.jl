@@ -134,7 +134,7 @@ end
 energy(signal::Trajectory, chain::SignalChain) = energy(signal, chain.system, chain.θ)
 
 function energy(signal::Trajectory, system::StochasticSystem, θ::Real)
-    if θ == 0.0
+    if θ == zero(θ)
         return 0.0
     end
 
