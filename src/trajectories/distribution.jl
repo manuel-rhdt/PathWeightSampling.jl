@@ -15,6 +15,9 @@ distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemica
 @fastmath function logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory; params=[])::Float64
     ((uprev, tprev), state) = iterate(trajectory)
     result = dist.log_p0(uprev...)::Float64
+    if !isfinite(result)
+        return -Inf
+    end
 
     for (u, t) in Iterators.rest(trajectory, state)
         dt = t - tprev
