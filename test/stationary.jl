@@ -22,7 +22,9 @@ sigma_squared_sx = ρ * mean_s / (λ + μ)
 sigma_squared_xx = mean_x * (1 + ρ / (λ + μ))
 
 joint_stationary = MvNormal([mean_s, mean_x], [sigma_squared_ss sigma_squared_sx; sigma_squared_sx sigma_squared_xx])
-signal_stationary = MvNormal([mean_s], sigma_squared_ss .* Matrix{Float64}(I, 1, 1))
+
+signal_stationary = Normal(mean_s, sqrt(sigma_squared_ss))
+response_stationary = Normal(mean_x, sqrt(sigma_squared_xx))
 
 sn = @reaction_network begin
     κ, ∅ --> S
@@ -36,12 +38,6 @@ end ρ μ
 
 gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], signal_stationary, joint_stationary)
 
-
-
-
-
-signal_stationary = Normal(mean_s, sqrt(sigma_squared_ss))
-response_stationary = Normal(mean_x, sqrt(sigma_squared_xx))
 
 joint_samples = round.(rand(joint_stationary, 1_000_000))
 
