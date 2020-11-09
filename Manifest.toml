@@ -170,9 +170,9 @@ version = "0.8.3"
 
 [[Catlab]]
 deps = ["AutoHashEquals", "Compat", "Compose", "DataStructures", "FunctionWrappers", "GeneralizedGenerated", "JSON", "LightGraphs", "LightXML", "LinearAlgebra", "Logging", "MLStyle", "Parameters", "Pkg", "PrettyTables", "Random", "Reexport", "Requires", "SparseArrays", "StaticArrays", "Statistics", "StructArrays"]
-git-tree-sha1 = "4503d0ec30bdea6ea1a49ad6e4cbf8e6a38be5cf"
+git-tree-sha1 = "b0a95b51857fe39ffabaf7f6b1520c1763edc6ad"
 uuid = "134e5e36-593f-5add-ad60-77f754baafbe"
-version = "0.9.2"
+version = "0.9.3"
 
 [[ChainRules]]
 deps = ["ChainRulesCore", "ChainRulesTestUtils", "Compat", "LinearAlgebra", "Random", "Reexport", "Requires", "Statistics"]
@@ -771,9 +771,9 @@ version = "0.14.3"
 
 [[LatinHypercubeSampling]]
 deps = ["Random", "StableRNGs", "StatsBase", "Test"]
-git-tree-sha1 = "491fadafc336ce0f85c0768cc884b28b871929f7"
+git-tree-sha1 = "cf0b0026bf06a096873742f550f14b71cf866400"
 uuid = "a5e1c1ea-c99a-51d3-a14d-a9a37257b02d"
-version = "1.7.2"
+version = "1.7.3"
 
 [[Lazy]]
 deps = ["MacroTools"]
@@ -922,9 +922,9 @@ version = "0.7.1"
 
 [[ModelingToolkit]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DiffEqJump", "DiffRules", "Distributed", "DocStringExtensions", "IfElse", "LabelledArrays", "Latexify", "Libdl", "LightGraphs", "LinearAlgebra", "MacroTools", "NaNMath", "RecursiveArrayTools", "Requires", "RuntimeGeneratedFunctions", "SafeTestsets", "SparseArrays", "SpecialFunctions", "StaticArrays", "SymbolicUtils", "TreeViews", "UnPack", "Unitful"]
-git-tree-sha1 = "77ebf555fb5bc7f00dca5ee65cd72c8afcc1cda2"
+git-tree-sha1 = "ef7636b0fd2c551d55f480d69772981de02d0957"
 uuid = "961ee093-0014-501f-94e3-6117800e7a78"
-version = "4.0.1"
+version = "4.0.2"
 
 [[MuladdMacro]]
 git-tree-sha1 = "c6190f9a7fc5d9d5915ab29f2134421b12d24a68"
@@ -1141,10 +1141,10 @@ uuid = "8162dcfd-2161-5ef2-ae6c-7681170c5f98"
 version = "0.2.0"
 
 [[PrettyTables]]
-deps = ["Crayons", "Formatting", "Parameters", "Reexport", "Tables"]
-git-tree-sha1 = "8458dc04a493ae5c2fed3796c1d3117972c69694"
+deps = ["Crayons", "Formatting", "Markdown", "Reexport", "Tables"]
+git-tree-sha1 = "59046964d94dd12ae1e5c15ce460e21ba4f7ec7f"
 uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
-version = "0.9.1"
+version = "0.10.0"
 
 [[Printf]]
 deps = ["Unicode"]
