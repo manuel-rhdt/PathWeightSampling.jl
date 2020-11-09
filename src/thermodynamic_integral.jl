@@ -70,6 +70,11 @@ function annealed_importance_sampling(initial, chain::SignalChain, subsample::In
     e_cur = energy(initial, chain.system, temps[2])
     weights[1] = e_prev - e_cur
 
+    if isinf(weights[1])
+        weights[:] .= -Inf
+        return temps, weights, acceptance
+    end
+
     chain.θ = temps[2]
     sampler = MetropolisSampler(0, subsample, e_cur, initial, chain)
     for (i, acc) in zip(2:num_temps, sampler)

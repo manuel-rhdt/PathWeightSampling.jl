@@ -68,7 +68,7 @@ end
 end
 
 @inline function evalrxrate(speciesvec::AbstractVector, du::AbstractVector; params=[])::Float64
-    1.0
+    1.0 # return 1.0 in this case since log(1) = 0.
 end
 
 @inline @fastmath function evalrxrate(speciesvec::AbstractVector, du::AbstractVector, r1::ChemicalReaction, rs::ChemicalReaction...; params=[])::Float64
