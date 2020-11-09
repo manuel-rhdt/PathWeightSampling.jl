@@ -1,3 +1,3 @@
 # GMcmc
 
-[![Build Status](https://travis-ci.com/manuel-rhdt/GaussianMcmc.jl.svg?branch=master)](https://travis-ci.com/manuel-rhdt/GaussianMcmc.jl)
+![CI](https://github.com/manuel-rhdt/GaussianMcmc.jl/workflows/CI/badge.svg)
