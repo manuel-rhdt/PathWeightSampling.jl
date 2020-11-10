@@ -7,10 +7,10 @@ using Dates
 
 my_args = Dict(
     "algorithm" => "thermodynamic_integration",
-    "run_name" => "2020-11-06_stationary_sweep",
+    "run_name" => "2020-11-10_S=100",
     "duration" => 2 .^ range(log2(20), log2(200), length=5),
-    "num_responses" => 800,
-    "mean_s" => [20, 60, 100],
+    "num_responses" => 1200,
+    "mean_s" => 100,
     "corr_time_s" => 100,
     "corr_time_ratio" => 5,
 )
@@ -46,7 +46,7 @@ function submit_job_array(out_dir, filename, njobs, runtime; array_before = noth
         julia -O3 $(projectdir("scripts", "simple_network.jl")) $(filename)
         """
 
-    name = "TI_NOV_6"
+    name = "TI_NOV_10"
     resources = `-l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime`
 
     if array_before !== nothing
@@ -98,7 +98,7 @@ function submit_sims(; array_before=nothing, dry_run=false)
 
     for (d, f) in zip(dicts, filenames)
         runtime = estimate_runtime(d)
-        array_before = submit_job_array(out_dir, f, 144, runtime, array_before=array_before, dry_run=dry_run)
+        array_before = submit_job_array(out_dir, f, 36*6, runtime, array_before=array_before, dry_run=dry_run)
     end
 end
 
