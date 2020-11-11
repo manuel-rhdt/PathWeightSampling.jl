@@ -42,3 +42,10 @@ Base.eltype(::MvHistogramDistribution{<:AbstractVector{T}}) where T = T
 Distributions._rand!(rng::AbstractRNG, dist::MvHistogramDistribution{<:AbstractVector{T}}, x::AbstractArray{T,1}) where T = x[:] = StatsBase.sample(rng, dist.values, dist.weights)
 Distributions._pdf(dist::MvHistogramDistribution{<:AbstractVector{T}}, val::AbstractVector{T}) where T = get(dist.dict, val, 0.0)
 Distributions._logpdf(dist::MvHistogramDistribution{<:AbstractVector{T}}, val::AbstractVector{T}) where T = log(get(dist.dict, val, 0.0))
+
+function StatsBase.entropy(d::Union{HistogramDistribution,MvHistogramDistribution})
+    -sum(d.weights.values) do w
+        p = w / d.weights.sum
+        p * log(p)
+    end
+end
