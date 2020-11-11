@@ -2,8 +2,11 @@ include("basic_setup.jl")
 using Plots
 using Statistics
 using StatsBase
+using LaTeXStrings
 
-system.θ = 1.0
+gen = get_gen(100.0, 100.0, 1.0, 0.1)
+system, initial = Trajectories.generate_configuration(gen, duration=2.0)
+
 block(arr) = 0.5 .* (arr[begin:2:end-1] .+ arr[begin+1:2:end])
 
 function plot_block_averages!(p, values; kwargs...)
@@ -30,8 +33,9 @@ end
 signal = Trajectories.new_signal(initial, system)
 energies_list = []
 for num_samples ∈ [14, 16, 18]
-    samples, acceptance = Trajectories.generate_mcmc_samples(signal, system, 2^10, 2^num_samples)
-    push!(energies_list, Trajectories.energy.(samples, Ref(system)))
+    chain = Trajectories.chain(system, 1.0)
+    samples, acceptance = Trajectories.generate_mcmc_samples(signal, chain, 2^10, 2^num_samples)
+    push!(energies_list, Trajectories.energy.(samples, Ref(chain)))
 end
 
 pgfplotsx()
