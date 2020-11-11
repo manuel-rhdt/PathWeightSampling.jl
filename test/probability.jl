@@ -9,7 +9,7 @@ sn = @reaction_network begin
     λ, S --> ∅
 end κ λ
 
-s0_dist = MvNormal([50.0], 50.0 * ones((1,1)))
+s0_dist = MvNormal([50.0], 50.0 * ones((1, 1)))
 log_p0 = (s) -> logpdf(s0_dist, [s])
 
 dist = Trajectories.distribution(sn, log_p0)
@@ -19,10 +19,12 @@ traj = Trajectory(SA[:S], [0.0, 1.0, 2.0, 3.0], [SA[50.0], SA[51.0], SA[50.0], S
 κ = 0.25
 λ = 0.005
 
+p_wait(s, dt) = exp(- (κ + s * λ) * dt)
+
 p0    = log_p0(50.0)
-wait1 = - 1.0 * (κ + 50 * λ) 
-wait2 = - 1.0 * (κ + 51 * λ)
-wait3 = - 1.0 * (κ + 50 * λ)
+wait1 = log(p_wait(50, 1.0))
+wait2 = log(p_wait(51, 1.0))
+wait3 = log(p_wait(50, 1.0)) - log(κ + 50 * λ)
 reac1 = log(κ)
 reac2 = log(51 * λ)
 
