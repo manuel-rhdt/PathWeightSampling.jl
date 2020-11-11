@@ -197,7 +197,7 @@ function write_hdf5!(group, res_array::Vector{ThermodynamicIntegrationResult})
     # energies = cat((r.energies for r in res_array)...; dims=3)
     acceptance = cat((r.acceptance for r in res_array)...; dims=3)
 
-    block_size = 512
+    block_size = 2^11
 
     group["inv_temps"] = inv_temps[:, 1]
     group["integration_weights"] = integration_weights
@@ -231,7 +231,7 @@ end
 
 # perform the quadrature integral
 log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
-function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^9)
+function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^11)
     b = blocks(result, block_size)
     σ² = var(b, dims=1) ./ size(b, 1)
     dot(result.integration_weights.^2, σ²)
@@ -246,7 +246,7 @@ function Statistics.var(result::AnnealingEstimationResult)
     exp(-2log_mean_weight + log_var)
 end
 
-function blocks(result::ThermodynamicIntegrationResult, block_size=2^9)
+function blocks(result::ThermodynamicIntegrationResult, block_size=2^11)
     block_averages(array) = map(mean, Iterators.partition(array, block_size))
     mapreduce(block_averages, hcat, eachcol(result.energies))
 end
