@@ -143,6 +143,10 @@ end
 Base.merge(traj1::T1, traj2::T2) where {uType,tType,T1 <: Trajectory{uType,tType},T2 <: Trajectory{uType,tType}} = MergeTrajectory{uType,tType,T1,T2,typeof(vcat(traj1.syms, traj2.syms))}(vcat(traj1.syms, traj2.syms), traj1, traj2)
 Base.IteratorSize(::Type{MergeTrajectory{uType,tType,T1,T2,N}}) where {uType,tType,T1,T2,N} = Base.SizeUnknown()
 
+function duration(traj::MergeTrajectory)
+    max(traj.first.t[end], traj.second.t[end]) - min(traj.first.t[begin], traj.second.t[begin])
+end
+
 function Base.iterate(iter::MergeTrajectory)
     if length(iter.first) == 0 || length(iter.second) == 0
         return nothing
