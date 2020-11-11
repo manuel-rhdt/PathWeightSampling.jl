@@ -163,7 +163,7 @@ function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams
     discrete_prob = remake(discrete_prob, u0=u0)
     joint_p = JumpProblem(joint_network, discrete_prob, Direct())
 
-    s0_dist, p0_dist = generate_stationary_distributions(joint_p, u0, 100 * 100_000)
+    s0_dist, p0_dist = generate_stationary_distributions(joint_p, u0, 100_000.0)
 
     log_p0 = (s, x) -> if isinf(begin v = logpdf(p0_dist, [s, x]) end) v else v - logpdf(s0_dist, s) end
 
