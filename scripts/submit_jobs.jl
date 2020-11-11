@@ -6,13 +6,13 @@ using ArgParse
 using Dates
 
 my_args = Dict(
-    "algorithm" => "thermodynamic_integration",
-    "run_name" => "2020-11-10_S=100",
-    "duration" => 2 .^ range(log2(20), log2(200), length=5),
-    "num_responses" => 1200,
-    "mean_s" => 100,
-    "corr_time_s" => 100,
-    "corr_time_ratio" => 5,
+    "algorithm" => "annealing",
+    "run_name" => "2020-11-11",
+    "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
+    "num_responses" => 600,
+    "mean_s" => [5, 10, 30, 50],
+    "corr_time_s" => 1,
+    "corr_time_ratio" => 10,
 )
 
 function parse_commandline()
@@ -46,7 +46,7 @@ function submit_job_array(out_dir, filename, njobs, runtime; array_before = noth
         julia -O3 $(projectdir("scripts", "simple_network.jl")) $(filename)
         """
 
-    name = "TI_NOV_10"
+    name = "AN_NOV_11"
     resources = `-l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime`
 
     if array_before !== nothing
@@ -75,14 +75,14 @@ end
 
 function estimate_runtime(dict)
     if dict["algorithm"] == "annealing"
-        factor = 0.0007 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+        factor = 0.07 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     elseif dict["algorithm"] == "thermodynamic_integration"
-        factor = 0.002 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+        factor = 0.2 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     else
         error("unknown algorithm $(dict["algorithm"])")
     end
     constant = 20 * 60 # just make sure we have an extra buffer of 20 minutes
-    round(Int, factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] + constant)
+    round(Int, factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] / dict["corr_time_s"] + constant)
 end
 
 function submit_sims(; array_before=nothing, dry_run=false)
@@ -98,7 +98,7 @@ function submit_sims(; array_before=nothing, dry_run=false)
 
     for (d, f) in zip(dicts, filenames)
         runtime = estimate_runtime(d)
-        array_before = submit_job_array(out_dir, f, 36*6, runtime, array_before=array_before, dry_run=dry_run)
+        array_before = submit_job_array(out_dir, f, 36*8, runtime, array_before=array_before, dry_run=dry_run)
     end
 end
 
