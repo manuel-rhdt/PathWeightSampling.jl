@@ -84,7 +84,7 @@ function estimate_runtime(dict)
     else
         error("unknown algorithm $(dict["algorithm"])")
     end
-    constant = 10 * 60 # just make sure we have an extra buffer of 10 minutes
+    constant = 10 * 60 + (NODES * PPN) * 5 # just make sure we have an extra buffer of 10 minutes
     val = factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] / dict["corr_time_s"]
     round(Int, val / (NODES * PPN) + constant)
 end

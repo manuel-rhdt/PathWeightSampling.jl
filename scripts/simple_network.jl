@@ -49,8 +49,6 @@ end ρ μ
 using Distributions
 using LinearAlgebra
 
-mean_x = mean_s
-
 @everywhere function reduce_results(res1, res2)
     new_res = copy(res1)
     for k in keys(res1)
