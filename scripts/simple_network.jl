@@ -13,11 +13,11 @@ if haskey(ENV, "PBS_ARRAYID")
     global N = parse(Int, ENV["PBS_ARRAYID"])
 end
 
-if haskey(ENV, "PBS_NODEFILE") && haskey(ENV, "NEW")
+if haskey(ENV, "PBS_NODEFILE")
     nodes = readlines(ENV["PBS_NODEFILE"])
-    Distributed.addprocs(nodes)
-    @everywhere println(gethostname())
-    exit()
+    if length(nodes) > 1
+        Distributed.addprocs(nodes, dir=pwd(), exeflags=`--project=@.`)
+    end
 end
 
 num_responses = dict["num_responses"]
@@ -63,7 +63,7 @@ using LinearAlgebra
 
 mean_x = mean_s
 
-function reduce_results(res1, res2)
+@everywhere function reduce_results(res1, res2)
     new_res = copy(res1)
     for k in keys(res1)
         new_res[k] = vcat(res1[k], res2[k])
@@ -71,14 +71,19 @@ function reduce_results(res1, res2)
     new_res
 end
 
-gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], mean_s, mean_x)
+@everywhere gen = Trajectories.configuration_generator($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x)
 
-marginal_entropy = @distributed reduce_results for i=1:10
-    Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses, duration=duration)
+num_responses_per_worker = 10
+njobs = div(num_responses, num_responses_per_worker, RoundUp)
+
+marginal_entropy = @distributed reduce_results for i = 1:njobs
+    Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses_per_worker, duration=duration)
 end
 
 @info "Finished marginal entropy"
-conditional_entropy = Trajectories.conditional_entropy(gen, num_responses=10_000, duration=duration)
+conditional_entropy = @distributed reduce_results for i = 1:nworkers()
+    Trajectories.conditional_entropy(gen, num_responses=10_000, duration=duration)
+end
 @info "Finished conditional entropy"
 
 function DrWatson._wsave(filename, result::Dict)
