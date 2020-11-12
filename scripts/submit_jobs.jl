@@ -75,13 +75,13 @@ end
 
 function estimate_runtime(dict)
     if dict["algorithm"] == "annealing"
-        factor = 0.07 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+        factor = 0.14 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     elseif dict["algorithm"] == "thermodynamic_integration"
         factor = 0.2 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     else
         error("unknown algorithm $(dict["algorithm"])")
     end
-    constant = 20 * 60 # just make sure we have an extra buffer of 20 minutes
+    constant = 10 * 60 # just make sure we have an extra buffer of 10 minutes
     round(Int, factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] / dict["corr_time_s"] + constant)
 end
 
