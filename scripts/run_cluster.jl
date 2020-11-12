@@ -6,6 +6,7 @@ end
 
 using MPIClusterManagers
 using Logging
+using Distributed
 
 manager = MPIManager(master_tcp_interface=gethostname())
 addprocs(manager)
