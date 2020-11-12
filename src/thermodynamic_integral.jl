@@ -304,7 +304,7 @@ function marginal_entropy(
         timed_result.value
     end
 
-    Dict("marginal_entropy" => stats, "marginal_entropy_estimate" => results)
+    Dict("marginal_entropy" => stats)#, "marginal_entropy_estimate" => results)
 end
 
 
