@@ -9,18 +9,16 @@ dict = JSON.parsefile(projectdir("_research", "tmp", f))
 duration = dict["duration"]
 
 N = 0
-# if haskey(ENV, "PBS_ARRAYID")
-#     global N = parse(Int, ENV["PBS_ARRAYID"])
-# end
-
-if haskey(ENV, "PBS_NODEFILE")
-    nodes = readlines(ENV["PBS_NODEFILE"])
-    Distributed.addprocs(nodes)
+if haskey(ENV, "PBS_ARRAYID")
+    global N = parse(Int, ENV["PBS_ARRAYID"])
 end
 
-@everywhere println(myid())
-
-exit()
+if haskey(ENV, "PBS_NODEFILE") && haskey(ENV, "NEW")
+    nodes = readlines(ENV["PBS_NODEFILE"])
+    Distributed.addprocs(nodes)
+    @everywhere println(myid())
+    exit()
+end
 
 num_responses = dict["num_responses"]
 run_name = dict["run_name"]
