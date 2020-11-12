@@ -1,5 +1,6 @@
 using DrWatson
 import JSON
+using Distributed
 
 f = ARGS[1]
 dict = JSON.parsefile(projectdir("_research", "tmp", f))
@@ -8,9 +9,18 @@ dict = JSON.parsefile(projectdir("_research", "tmp", f))
 duration = dict["duration"]
 
 N = 0
-if haskey(ENV, "PBS_ARRAYID")
-    global N = parse(Int, ENV["PBS_ARRAYID"])
+# if haskey(ENV, "PBS_ARRAYID")
+#     global N = parse(Int, ENV["PBS_ARRAYID"])
+# end
+
+if haskey(ENV, "PBS_NODEFILE")
+    nodes = readlines(ENV["PBS_NODEFILE"])
+    Distributed.addprocs(nodes)
 end
+
+@everywhere println(myid())
+
+exit()
 
 num_responses = dict["num_responses"]
 run_name = dict["run_name"]
@@ -25,7 +35,7 @@ corr_time_ratio = dict["corr_time_ratio"]
 ρ = μ
 mean_x = mean_s
 
-using GaussianMcmc.Trajectories
+@everywhere using GaussianMcmc.Trajectories
 using HDF5
 using Logging
 using Catalyst
@@ -55,8 +65,20 @@ using LinearAlgebra
 
 mean_x = mean_s
 
+function reduce_results(res1, res2)
+    new_res = copy(res1)
+    for k in keys(res1)
+        new_res[k] = vcat(res1[k], res2[k])
+    end
+    new_res
+end
+
 gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], mean_s, mean_x)
-marginal_entropy = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses, duration=duration)
+
+marginal_entropy = @distributed reduce_results for i=1:10
+    Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses, duration=duration)
+end
+
 @info "Finished marginal entropy"
 conditional_entropy = Trajectories.conditional_entropy(gen, num_responses=10_000, duration=duration)
 @info "Finished conditional entropy"
