@@ -16,7 +16,7 @@ end
 if haskey(ENV, "PBS_NODEFILE") && haskey(ENV, "NEW")
     nodes = readlines(ENV["PBS_NODEFILE"])
     Distributed.addprocs(nodes)
-    @everywhere println(myid())
+    @everywhere println(gethostname())
     exit()
 end
 
