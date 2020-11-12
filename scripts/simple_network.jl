@@ -8,18 +8,6 @@ dict = JSON.parsefile(projectdir("_research", "tmp", f))
 
 duration = dict["duration"]
 
-N = 0
-if haskey(ENV, "PBS_ARRAYID")
-    global N = parse(Int, ENV["PBS_ARRAYID"])
-end
-
-if haskey(ENV, "PBS_NODEFILE")
-    nodes = readlines(ENV["PBS_NODEFILE"])
-    if length(nodes) > 1
-        Distributed.addprocs(nodes, dir=pwd(), exeflags=`--project=@.`)
-    end
-end
-
 num_responses = dict["num_responses"]
 run_name = dict["run_name"]
 
@@ -46,7 +34,7 @@ else
     error("Unsupported algorithm " * dict["algorithm"])
 end
 
-@info "Parameters" run_name duration N num_responses algorithm mean_s corr_time_s corr_time_ratio
+@info "Parameters" run_name duration num_responses algorithm mean_s corr_time_s corr_time_ratio
 
 sn = @reaction_network begin
     κ, ∅ --> S
@@ -93,7 +81,7 @@ function DrWatson._wsave(filename, result::Dict)
 end
 
 
-filename = savename((@dict duration N mean_s), "hdf5")
+filename = savename((@dict duration mean_s), "hdf5")
 local_path = datadir(dict["algorithm"], run_name, filename)
 tagsave(local_path, merge(dict, marginal_entropy, conditional_entropy), storepatch=false)
 @info "Saved to" filename
