@@ -7,7 +7,7 @@ using Dates
 
 my_args = Dict(
     "algorithm" => "annealing",
-    "run_name" => "2020-11-11",
+    "run_name" => "2020-11-12",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
     "num_responses" => 600,
     "mean_s" => [5, 10, 30, 50],
@@ -46,7 +46,7 @@ function submit_job_array(out_dir, filename, njobs, runtime; array_before = noth
         julia -O3 $(projectdir("scripts", "simple_network.jl")) $(filename)
         """
 
-    name = "AN_NOV_11"
+    name = "AN_NOV_12"
     resources = `-l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime`
 
     if array_before !== nothing
@@ -98,7 +98,7 @@ function submit_sims(; array_before=nothing, dry_run=false)
 
     for (d, f) in zip(dicts, filenames)
         runtime = estimate_runtime(d)
-        array_before = submit_job_array(out_dir, f, 36*8, runtime, array_before=array_before, dry_run=dry_run)
+        array_before = submit_job_array(out_dir, f, 36*6, runtime, array_before=array_before, dry_run=dry_run)
     end
 end
 
