@@ -7,13 +7,16 @@ using Dates
 
 my_args = Dict(
     "algorithm" => "annealing",
-    "run_name" => "2020-11-12",
+    "run_name" => "2020-11-12_2",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
-    "num_responses" => 600,
+    "num_responses" => 100_000,
     "mean_s" => [5, 10, 30, 50],
     "corr_time_s" => 1,
     "corr_time_ratio" => 10,
 )
+
+const NODES = 4
+const PPN = 36
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -38,28 +41,28 @@ function DrWatson._wsave(filename, d::Dict)
     end
 end
 
-function submit_job_array(out_dir, filename, njobs, runtime; array_before = nothing, dry_run=false)
+function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=false)
     jobscript = """
         export JULIA_PROJECT=$(projectdir())
 
         julia -e "using InteractiveUtils; versioninfo(verbose=true)"
-        julia -O3 $(projectdir("scripts", "simple_network.jl")) $(filename)
+        julia $(projectdir("scripts", "run_cluster.jl")) $(filename)
         """
 
-    name = "AN_NOV_12"
-    resources = `-l nodes=1:ppn=1:highcore,mem=4gb,walltime=$runtime`
+    name = "AN_NOV_12_2"
+    resources = `-l nodes=$NODES:ppn=$PPN:highcore,mem=150gb,walltime=$runtime`
 
-    if array_before !== nothing
-        dependency = `-W depend=afterokarray:$array_before`
+    if job_before !== nothing
+        dependency = `-W depend=afterok:$job_before`
     else
         dependency = ``
     end
 
-    cmd = `qsub -N $name $resources $dependency -t 1-$njobs -j oe -o $out_dir`
+    cmd = `qsub -N $name $resources $dependency -j oe -o $out_dir`
 
     if dry_run
         println(cmd)
-        return "$(rand(1:1000))[].head.hollandia.amolf.nl"
+        return "$(rand(1:1000)).head.hollandia.amolf.nl"
     end
 
     result = ""
@@ -77,15 +80,16 @@ function estimate_runtime(dict)
     if dict["algorithm"] == "annealing"
         factor = 0.14 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     elseif dict["algorithm"] == "thermodynamic_integration"
-        factor = 0.2 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+        factor = 0.4 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     else
         error("unknown algorithm $(dict["algorithm"])")
     end
     constant = 10 * 60 # just make sure we have an extra buffer of 10 minutes
-    round(Int, factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] / dict["corr_time_s"] + constant)
+    val = factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] / dict["corr_time_s"]
+    round(Int, val / (NODES * PPN) + constant)
 end
 
-function submit_sims(; array_before=nothing, dry_run=false)
+function submit_sims(; job_before=nothing, dry_run=false)
     dicts = dict_list(my_args)
 
     out_dir = projectdir("data", "output")
@@ -98,7 +102,7 @@ function submit_sims(; array_before=nothing, dry_run=false)
 
     for (d, f) in zip(dicts, filenames)
         runtime = estimate_runtime(d)
-        array_before = submit_job_array(out_dir, f, 36*6, runtime, array_before=array_before, dry_run=dry_run)
+        job_before = submit_job(out_dir, f, runtime, job_before=job_before, dry_run=dry_run)
     end
 end
 

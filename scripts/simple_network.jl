@@ -61,16 +61,13 @@ end
 
 @everywhere gen = Trajectories.configuration_generator($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x)
 
-num_responses_per_worker = 10
-njobs = div(num_responses, num_responses_per_worker, RoundUp)
-
-marginal_entropy = @distributed reduce_results for i = 1:njobs
-    Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses_per_worker, duration=duration)
+marginal_entropy = @distributed reduce_results for i = 1:num_responses
+    Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=1, duration=duration)
 end
 
 @info "Finished marginal entropy"
-conditional_entropy = @distributed reduce_results for i = 1:nworkers()
-    Trajectories.conditional_entropy(gen, num_responses=10_000, duration=duration)
+conditional_entropy = @distributed reduce_results for i = 1:num_responses
+    Trajectories.conditional_entropy(gen, num_responses=1, duration=duration)
 end
 @info "Finished conditional entropy"
 
