@@ -51,6 +51,7 @@ using LinearAlgebra
 
 @everywhere function reduce_results(res1, res2)
     new_res = copy(res1)
+    println(stderr, "reduction on $(myid())")
     for k in keys(res1)
         new_res[k] = vcat(res1[k], res2[k])
     end
