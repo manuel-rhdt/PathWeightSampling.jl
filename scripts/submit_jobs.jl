@@ -50,7 +50,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         """
 
     name = "TI_NOV_13"
-    resources = `-l nodes=$NODES:ppn=$PPN:highcore,mem=150gb,walltime=$runtime`
+    resources = `-l nodes=$NODES:ppn=$PPN:highcore,mem=$(NODES * PPN * 4)gb,walltime=$runtime`
 
     if job_before !== nothing
         dependency = `-W depend=afterok:$job_before`
