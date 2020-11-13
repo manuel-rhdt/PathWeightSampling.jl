@@ -27,7 +27,7 @@ using Logging
 using Catalyst
 
 if dict["algorithm"] == "thermodynamic_integration"
-    algorithm = TIEstimate(1024, 6, 2^14)
+    algorithm = TIEstimate(1024, 6, 2^15)
 elseif dict["algorithm"] == "annealing"
     algorithm = AnnealingEstimate(15, 50, 100)
 else

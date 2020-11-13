@@ -6,11 +6,11 @@ using ArgParse
 using Dates
 
 my_args = Dict(
-    "algorithm" => "annealing",
-    "run_name" => "2020-11-12_2",
+    "algorithm" => "thermodynamic_integration",
+    "run_name" => "2020-11-13",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
     "num_responses" => 100_000,
-    "mean_s" => [5, 10, 30, 50],
+    "mean_s" => [5, 20, 50],
     "corr_time_s" => 1,
     "corr_time_ratio" => 10,
 )
@@ -80,7 +80,7 @@ function estimate_runtime(dict)
     if dict["algorithm"] == "annealing"
         factor = 0.14 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     elseif dict["algorithm"] == "thermodynamic_integration"
-        factor = 0.4 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+        factor = 0.4 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
     else
         error("unknown algorithm $(dict["algorithm"])")
     end
