@@ -57,7 +57,9 @@ using LinearAlgebra
     new_res
 end
 
-@everywhere gen = Trajectories.configuration_generator($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x)
+@everywhere workers() gen = Trajectories.configuration_generator($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x)
+
+@info "Generated initial configuration"
 
 marginal_entropy = @distributed reduce_results for i = 1:num_responses
     Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=1, duration=duration)
