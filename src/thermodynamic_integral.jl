@@ -286,11 +286,14 @@ function marginal_entropy(
         Sample=zeros(Float64, num_responses), 
         Variance=zeros(Float64, num_responses), 
         TimeElapsed=zeros(Float64, num_responses), 
-        GcTime=zeros(Float64, num_responses)
+        GcTime=zeros(Float64, num_responses),
+        InitialEnergy=zeros(Float64, num_responses)
     )
 
     results = map(1:num_responses) do i
         (system, initial) = generate_configuration(gen; duration=duration)
+        stats.InitialEnergy[i] = energy(initial, system, 1.0)
+
         timed_result = @timed simulate(algorithm, initial, system)
 
         sample = log_marginal(timed_result.value)
@@ -304,7 +307,7 @@ function marginal_entropy(
         timed_result.value
     end
 
-    Dict("marginal_entropy" => stats)#, "marginal_entropy_estimate" => results)
+    Dict("marginal_entropy" => stats)# , "marginal_entropy_estimate" => results)
 end
 
 
