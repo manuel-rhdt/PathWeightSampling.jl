@@ -11,7 +11,7 @@ using Distributed
 manager = MPIManager(master_tcp_interface=gethostname())
 addprocs(manager)
 
-@assert nworkers() == 144
+@assert nworkers() >= 2
 @info "Successfully launched MPI processes"
 
 include("simple_network.jl")
