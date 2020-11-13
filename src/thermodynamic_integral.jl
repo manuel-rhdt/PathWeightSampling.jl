@@ -191,13 +191,23 @@ struct ThermodynamicIntegrationResult <: SimulationResult
     acceptance::Array{Bool,2}
 end
 
+function summary(res_array::AbstractVector{<:ThermodynamicIntegrationResult})
+    block_size = 2^10
+    energy_blocks = [blocks(r, block_size) for r in res_array]
+    acceptance = [mean(r.acceptance, dims=1) for r in res_array]
+    inv_temps = [r.inv_temps for r in res_array]
+    integration_weights = [r.integration_weights for r in res_array]
+
+    DataFrame(EnergyBlocks=energy_blocks, Acceptance=acceptance, Theta=inv_temps, IntegrationWeights=integration_weights)
+end
+
 function write_hdf5!(group, res_array::Vector{ThermodynamicIntegrationResult})
     inv_temps = cat((r.inv_temps for r in res_array)...; dims=2)
     integration_weights = cat((r.integration_weights for r in res_array)...; dims=2)
     # energies = cat((r.energies for r in res_array)...; dims=3)
     acceptance = cat((r.acceptance for r in res_array)...; dims=3)
 
-    block_size = 2^11
+    block_size = 2^10
 
     group["inv_temps"] = inv_temps[:, 1]
     group["integration_weights"] = integration_weights
@@ -212,26 +222,39 @@ end
 function write_hdf5!(group, dict::AbstractDict)
     for (name, value) in dict
         name = String(name)
-        if typeof(value) <: String || typeof(value) <: Number
-            attrs(group)[name] = value
-        elseif typeof(value) <: AbstractArray{<:Number}
-            group[name] = value
-        else
-            newgroup = g_create(group, String(name))
-            write_hdf5!(newgroup, value)
-        end
+        write_value_hdf5!(group, String(name), value)
     end
 end
 
 function write_hdf5!(group, df::AbstractDataFrame)
     for (name, value) in zip(names(df), eachcol(df))
-        group[name] = value
+        write_value_hdf5!(group, String(name), value)
     end
+end
+
+function write_value_hdf5!(group, name::String, value)
+    # if we can't write the value directly as a dataset we fall back
+    # to creating a new group
+    newgroup = g_create(group, name)
+    write_hdf5!(newgroup, value)
+end
+
+# non array values are written as arguments
+function write_value_hdf5!(group, name::String, value::Union{String,Number})
+    attrs(group)[name] = value
+end
+
+function write_value_hdf5!(group, name::String, value::AbstractArray{<:Number})
+    group[name] = value
+end
+
+function write_value_hdf5!(group, name::String, value::AbstractVector{<:Array{T,N}}) where {T,N}
+    group[name] = cat(value..., dims=N + 1)
 end
 
 # perform the quadrature integral
 log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
-function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^11)
+function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^10)
     b = blocks(result, block_size)
     σ² = var(b, dims=1) ./ size(b, 1)
     dot(result.integration_weights.^2, σ²)
@@ -246,7 +269,7 @@ function Statistics.var(result::AnnealingEstimationResult)
     exp(-2log_mean_weight + log_var)
 end
 
-function blocks(result::ThermodynamicIntegrationResult, block_size=2^11)
+function blocks(result::ThermodynamicIntegrationResult, block_size=2^10)
     block_averages(array) = map(mean, Iterators.partition(array, block_size))
     mapreduce(block_averages, hcat, eachcol(result.energies))
 end
@@ -307,7 +330,7 @@ function marginal_entropy(
         timed_result.value
     end
 
-    Dict("marginal_entropy" => stats)# , "marginal_entropy_estimate" => results)
+    Dict("marginal_entropy" => stats, "marginal_entropy_estimate" => summary(results))
 end
 
 
