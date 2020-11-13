@@ -21,7 +21,7 @@ corr_time_ratio = dict["corr_time_ratio"]
 ρ = μ
 mean_x = mean_s
 
-@everywhere using GaussianMcmc.Trajectories
+@everywhere workers() using GaussianMcmc.Trajectories
 using HDF5
 using Logging
 using Catalyst
@@ -50,11 +50,10 @@ using Distributions
 using LinearAlgebra
 @everywhere workers() import Distributed
 
-@everywhere function reduce_results(res1, res2)
+function reduce_results(res1, results...)
     new_res = copy(res1)
-    println(stderr, "reduction on $(Distributed.myid())")
     for k in keys(res1)
-        new_res[k] = vcat(res1[k], res2[k])
+        new_res[k] = vcat(res1[k], (r[k] for r in results)...)
     end
     new_res
 end
@@ -63,14 +62,14 @@ end
 
 @info "Generated initial configuration"
 
-marginal_entropy = @distributed reduce_results for i = 1:num_responses
-    Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=1, duration=duration)
-end
+marginal_entropy = pmap(x -> Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=5, duration=duration), 1:div(num_responses, 5, RoundUp))
+marginal_entropy = reduce_results(marginal_entropy...)
 
 @info "Finished marginal entropy"
-conditional_entropy = @distributed reduce_results for i = 1:num_responses
-    Trajectories.conditional_entropy(gen, num_responses=1, duration=duration)
-end
+
+conditional_entropy = pmap(x -> Trajectories.conditional_entropy(gen, num_responses=5, duration=duration), 1:div(num_responses, 5, RoundUp))
+conditional_entropy = reduce_results(conditional_entropy...)
+
 @info "Finished conditional entropy"
 
 function DrWatson._wsave(filename, result::Dict)
