@@ -49,7 +49,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         julia $(projectdir("scripts", "run_cluster.jl")) $(filename)
         """
 
-    name = "AN_NOV_12_2"
+    name = "TI_NOV_13"
     resources = `-l nodes=$NODES:ppn=$PPN:highcore,mem=150gb,walltime=$runtime`
 
     if job_before !== nothing
