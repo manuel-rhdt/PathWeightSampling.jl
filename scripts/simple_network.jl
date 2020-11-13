@@ -48,10 +48,11 @@ end ρ μ
 
 using Distributions
 using LinearAlgebra
+@everywhere workers() import Distributed
 
 @everywhere function reduce_results(res1, res2)
     new_res = copy(res1)
-    println(stderr, "reduction on $(myid())")
+    println(stderr, "reduction on $(Distributed.myid())")
     for k in keys(res1)
         new_res[k] = vcat(res1[k], res2[k])
     end
