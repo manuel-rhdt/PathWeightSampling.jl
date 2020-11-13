@@ -58,7 +58,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         dependency = ``
     end
 
-    cmd = `qsub -N $name $resources $dependency -j oe -o $out_dir`
+    cmd = `qsub -q highcore -N $name $resources $dependency -j oe -o $out_dir`
 
     if dry_run
         println(cmd)
