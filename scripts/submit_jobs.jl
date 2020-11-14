@@ -7,7 +7,7 @@ using Dates
 
 my_args = Dict(
     "algorithm" => "thermodynamic_integration",
-    "run_name" => "2020-11-13",
+    "run_name" => "2020-11-14",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
     "num_responses" => 100_000,
     "mean_s" => [5, 20, 50],
@@ -17,6 +17,7 @@ my_args = Dict(
 
 const NODES = 4
 const PPN = 36
+const NAME = "TI_NOV_14"
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -49,7 +50,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         julia $(projectdir("scripts", "run_cluster.jl")) $(filename)
         """
 
-    name = "TI_NOV_13"
+    name = NAME
     resources = `-l nodes=$NODES:ppn=$PPN:highcore,mem=$(NODES * PPN * 4)gb,walltime=$runtime`
 
     if job_before !== nothing

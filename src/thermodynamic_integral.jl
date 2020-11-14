@@ -249,7 +249,16 @@ function write_value_hdf5!(group, name::String, value::AbstractArray{<:Number})
 end
 
 function write_value_hdf5!(group, name::String, value::AbstractVector{<:Array{T,N}}) where {T,N}
-    group[name] = cat(value..., dims=N + 1)
+    outer_len = length(value)
+    if outer_len < 1
+        group[name] = zeros(T, 0)
+        return
+    end
+    inner_size = size(value[1])
+    dset = create_dataset(group, name, datatype(T), dataspace(inner_size..., outer_len), chunk=(inner_size...,1))
+    for (i, subarray) in enumerate(value)
+        dset[axes(value)..., i] = subarray
+    end
 end
 
 # perform the quadrature integral

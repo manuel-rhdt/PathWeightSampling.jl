@@ -48,10 +48,9 @@ end ρ μ
 
 using Distributions
 using LinearAlgebra
-@everywhere workers() import Distributed
 
 function reduce_results(res1, results...)
-    new_res = copy(res1)
+    new_res = typeof(res1)()
     for k in keys(res1)
         new_res[k] = vcat(res1[k], (r[k] for r in results)...)
     end
@@ -62,12 +61,12 @@ end
 
 @info "Generated initial configuration"
 
-marginal_entropy = pmap(x -> Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=5, duration=duration), 1:div(num_responses, 5, RoundUp))
+marginal_entropy = pmap(x -> Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=20, duration=duration), 1:div(num_responses, 20, RoundUp))
 marginal_entropy = reduce_results(marginal_entropy...)
 
 @info "Finished marginal entropy"
 
-conditional_entropy = pmap(x -> Trajectories.conditional_entropy(gen, num_responses=5, duration=duration), 1:div(num_responses, 5, RoundUp))
+conditional_entropy = pmap(x -> Trajectories.conditional_entropy(gen, num_responses=20, duration=duration), 1:div(num_responses, 20, RoundUp))
 conditional_entropy = reduce_results(conditional_entropy...)
 
 @info "Finished conditional entropy"
