@@ -257,7 +257,7 @@ function write_value_hdf5!(group, name::String, value::AbstractVector{<:Array{T,
     inner_size = size(value[1])
     dset = create_dataset(group, name, datatype(T), dataspace(inner_size..., outer_len), chunk=(inner_size...,1))
     for (i, subarray) in enumerate(value)
-        dset[axes(value)..., i] = subarray
+        dset[axes(subarray)..., i] = subarray
     end
 end
 
