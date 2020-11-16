@@ -7,15 +7,15 @@ using Dates
 
 my_args = Dict(
     "algorithm" => "thermodynamic_integration",
-    "run_name" => "2020-11-14",
+    "run_name" => "2020-11-16",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
-    "num_responses" => 100_000,
-    "mean_s" => [5, 20, 50],
+    "num_responses" => 200_000,
+    "mean_s" => 5,
     "corr_time_s" => 1,
     "corr_time_ratio" => 10,
 )
 
-const NODES = 4
+const NODES = 8
 const PPN = 36
 const NAME = "TI_NOV_14"
 
