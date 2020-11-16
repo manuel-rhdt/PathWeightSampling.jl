@@ -29,7 +29,9 @@ distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemica
         totalrate = evaltotalrate(u, dist.reactions..., params=params)
     end
 
-    result -= log(totalrate)
+    if totalrate != zero(totalrate)
+        result -= log(totalrate)
+    end
 
     result
 end
