@@ -255,7 +255,7 @@ function write_value_hdf5!(group, name::String, value::AbstractVector{<:Array{T,
         return
     end
     inner_size = size(value[1])
-    dset = create_dataset(group, name, datatype(T), dataspace(inner_size..., outer_len), chunk=(inner_size...,1))
+    dset = create_dataset(group, name, datatype(T), dataspace(inner_size..., outer_len), chunk=(inner_size..., 1))
     for (i, subarray) in enumerate(value)
         dset[axes(subarray)..., i] = subarray
     end
@@ -294,7 +294,7 @@ function simulate(algorithm::TIEstimate, initial::Trajectory, system::Stochastic
     # The factor 0.5 comes from rescaling the integration limits from [-1,1] to [0,1].
     weights = 0.5 .* weights
 
-    energies = Array{Float64}(undef, algorithm.num_samples, length(θrange))
+    energies = zeros(Float64, algorithm.num_samples, length(θrange))
     accept = Array{Bool}(undef, algorithm.num_samples, length(θrange))
     for i in eachindex(θrange)
         chain.θ = θrange[i]
