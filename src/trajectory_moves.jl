@@ -134,14 +134,16 @@ end
 energy(signal::Trajectory, chain::SignalChain) = energy(signal, chain.system, chain.θ)
 
 function energy(signal::Trajectory, system::StochasticSystem, θ::Real)
-    if θ == zero(θ)
-        return 0.0
-    end
-
     response = system.response
     joint = merge(signal, response)
 
-    -θ * logpdf(system.distribution, joint, params=system.rparams)
+    pot = logpdf(system.distribution, joint, params=system.rparams)
+    if pot == -Inf
+        # if we sample an impossible trajectory, return infinite energy, even at θ=0
+        return -pot
+    end
+
+    -θ * pot
 end
 
 struct ConfigurationGenerator

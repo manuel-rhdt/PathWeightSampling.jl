@@ -70,11 +70,6 @@ function annealed_importance_sampling(initial, chain::SignalChain, subsample::In
     e_cur = energy(initial, chain.system, temps[2])
     weights[1] = e_prev - e_cur
 
-    if isinf(weights[1])
-        weights[:] .= -Inf
-        return temps, weights, acceptance
-    end
-
     chain.θ = temps[2]
     sampler = MetropolisSampler(0, subsample, e_cur, initial, chain)
     for (i, acc) in zip(2:num_temps, sampler)
@@ -285,8 +280,6 @@ end
 
 # Monte-Carlo computation of the marginal probability for the given configuration
 function simulate(algorithm::TIEstimate, initial::Trajectory, system::StochasticSystem)
-    chain = SignalChain(system, 1.0, 0.0, Float64[], Float64[])
-    
     # Generate the array of θ values for which we want to simulate the system.
     # We use Gauss-Legendre quadrature which predetermines the choice of θ.
     nodes, weights = gausslegendre(algorithm.integration_nodes)
@@ -297,8 +290,8 @@ function simulate(algorithm::TIEstimate, initial::Trajectory, system::Stochastic
     energies = Array{Float64}(undef, algorithm.num_samples, length(θrange))
     accept = Array{Bool}(undef, algorithm.num_samples, length(θrange))
     for i in eachindex(θrange)
-        chain.θ = θrange[i]
-        sampler = MetropolisSampler(algorithm.burn_in, 0, energy(initial, chain), deepcopy(initial), chain)
+        chn = chain(system, θrange[i])
+        sampler = MetropolisSampler(algorithm.burn_in, 0, energy(initial, chn), deepcopy(initial), chn)
         for (j, was_accepted) in Iterators.enumerate(Iterators.take(sampler, algorithm.num_samples))
             energies[j, i] = energy(sampler.state, system, 1.0)
             accept[j, i] = was_accepted != 0
