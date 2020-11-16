@@ -17,7 +17,7 @@ my_args = Dict(
 
 const NODES = 8
 const PPN = 36
-const NAME = "TI_NOV_14"
+const NAME = "TI_NOV_16"
 
 function parse_commandline()
     s = ArgParseSettings()
