@@ -22,7 +22,11 @@ distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemica
         du = u - uprev
 
         result += - dt * totalrate
-        result += log(evalrxrate(uprev, du, dist.reactions..., params=params))
+        reaction_rate = evalrxrate(uprev, du, dist.reactions..., params=params)
+        if reaction_rate == zero(reaction_rate)
+            error("impossible reaction encountered")
+        end
+        result += log(reaction_rate)
 
         tprev = t
         uprev = copy(u)
