@@ -16,18 +16,17 @@ distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemica
     ((uprev, tprev), state) = iterate(trajectory)
     result = dist.log_p0(uprev...)::Float64
 
-    totalrate = 0.0    
+    totalrate = evaltotalrate(uprev, dist.reactions..., params=params)    
     for (u, t) in Iterators.rest(trajectory, state)
         dt = t - tprev
         du = u - uprev
-
-        totalrate = evaltotalrate(uprev, dist.reactions..., params=params)
 
         result += - dt * totalrate
         result += log(evalrxrate(uprev, du, dist.reactions..., params=params))
 
         tprev = t
         uprev = copy(u)
+        totalrate = evaltotalrate(u, dist.reactions..., params=params)
     end
 
     result -= log(totalrate)

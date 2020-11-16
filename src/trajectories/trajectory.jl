@@ -179,25 +179,20 @@ function Base.iterate(iter::MergeTrajectory{uType,tType}, (i, j, t, u)::Tuple{In
 
     next_u = u
 
-    if t_i < t_j
+    if t_i <= t_j
         t = t_i
         i = i + 1
         u_i = iter.first.u[i]
         for (i, x) in enumerate(u_i)
             next_u = setindex(next_u, x, i)
         end
-    elseif t_j < t_i
+    else
         t = t_j
         j = j + 1
         u_j = iter.second.u[j]
         for (i, x) in enumerate(u_j)
             next_u = setindex(next_u, x, length(next_u) - length(u_j) + i)
         end
-    else
-        t = t_i
-        i = i + 1
-        j = j + 1
-        next_u = vcat(iter.first[i], iter.second[j])
     end
 
     (u, current_t), (i, j, t, next_u)
