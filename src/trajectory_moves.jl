@@ -48,7 +48,7 @@ end
 function new_signal(old_signal::Trajectory, system::StochasticSystem)
     jump_problem = system.jump_problem
     s0_dist = system.s0_dist
-    sample = max(round(rand(s0_dist)), 0.0)
+    sample = rand(s0_dist)
     u0 = SVector{1,Float64}(sample)
 
     tspan = (old_signal.t[begin], old_signal.t[end])
@@ -182,7 +182,7 @@ function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams
 
     joint_network = Base.merge(sn, rn)
 
-    sample = max.(round.(rand(p0_dist)), 0.0)
+    sample = rand(p0_dist)
     u0 = SVector(sample...)
     tspan = (0., 1.)
     discrete_prob = DiscreteProblem(joint_network, u0, tspan, vcat(sparams, rparams))
@@ -199,7 +199,7 @@ end
 
 function generate_configuration(gen::ConfigurationGenerator; duration::Real=500.0)
     p0_dist = gen.p0_dist
-    sample = max.(round.(rand(p0_dist)), 0.0)
+    sample = rand(p0_dist)
     u0 = SVector(sample...)
 
     jump_prob = myremake(gen.joint_j_problem, u0=u0, tspan=(0.0, duration))    
