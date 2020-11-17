@@ -15,26 +15,22 @@ distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemica
 @fastmath function logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory; params=[])::Float64
     ((uprev, tprev), state) = iterate(trajectory)
     result = dist.log_p0(uprev...)::Float64
-
-    totalrate = evaltotalrate(uprev, dist.reactions..., params=params)    
+    
     for (u, t) in Iterators.rest(trajectory, state)
         dt = t - tprev
         du = u - uprev
 
-        result += - dt * totalrate
+        totalrate = evaltotalrate(uprev, dist.reactions..., params=params)
+
+        result -= dt * totalrate
         reaction_rate = evalrxrate(uprev, du, dist.reactions..., params=params)
         if reaction_rate == zero(reaction_rate)
-            error("impossible reaction encountered")
+            return -Inf
         end
         result += log(reaction_rate)
 
         tprev = t
         uprev = copy(u)
-        totalrate = evaltotalrate(u, dist.reactions..., params=params)
-    end
-
-    if totalrate != zero(totalrate)
-        result -= log(totalrate)
     end
 
     result
