@@ -7,17 +7,17 @@ using Dates
 
 my_args = Dict(
     "algorithm" => "thermodynamic_integration",
-    "run_name" => "2020-11-16",
+    "run_name" => "2020-11-17",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
     "num_responses" => 200_000,
-    "mean_s" => 5,
+    "mean_s" => [20, 40],
     "corr_time_s" => 1,
     "corr_time_ratio" => 10,
 )
 
 const NODES = 8
 const PPN = 36
-const NAME = "TI_NOV_16"
+const NAME = "TI_NOV_17"
 
 function parse_commandline()
     s = ArgParseSettings()

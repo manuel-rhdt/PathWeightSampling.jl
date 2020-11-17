@@ -66,7 +66,7 @@ marginal_entropy = reduce_results(marginal_entropy...)
 
 @info "Finished marginal entropy"
 
-conditional_entropy = pmap(x -> Trajectories.conditional_entropy(gen, num_responses=20, duration=duration), 1:div(num_responses, 20, RoundUp))
+conditional_entropy = pmap(x -> Trajectories.conditional_entropy(gen, num_responses=10, duration=duration), 1:num_responses)
 conditional_entropy = reduce_results(conditional_entropy...)
 
 @info "Finished conditional entropy"
