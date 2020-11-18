@@ -24,7 +24,7 @@ p_wait(s, dt) = exp(- (κ + s * λ) * dt)
 p0    = log_p0(50.0)
 wait1 = log(p_wait(50, 1.0))
 wait2 = log(p_wait(51, 1.0))
-wait3 = log(p_wait(50, 1.0)) - log(κ + 50 * λ)
+wait3 = log(p_wait(50, 1.0))
 reac1 = log(κ)
 reac2 = log(51 * λ)
 
