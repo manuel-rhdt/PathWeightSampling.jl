@@ -9,7 +9,7 @@ num_samples = 2^18
 θs = range(0,1,length=3)
 grid = range(0.0, 2.0, length=grid_size)
 
-gen = get_gen(100.0, 100.0, 1.0, 0.1)
+gen = get_gen(5.0, 5.0, 1.0, 0.1)
 system, initial = Trajectories.generate_configuration(gen, duration=2.0)
 
 p = plot(initial)
@@ -38,7 +38,7 @@ p1 = plot(x, y[:,end],
     ribbon=yerror[:,end], 
     fillalpha=0.2, 
     fill_z=1.0, 
-    ylim=(70,130),
+    # ylim=(70,130),
     linewidth=0,
     label=nothing,
     c=:viridis,
@@ -59,7 +59,13 @@ plot!(p1, x, y,
 )
 
 
-p2 = plot(system.response, c=:blue, title="response", legend=:false, ylabel=L"X_t",ylim=(70,130))
+p2 = plot(system.response, 
+    c=:blue, 
+    title="response", 
+    legend=:false, 
+    ylabel=L"X_t",
+    # ylim=(70,130)
+)
 
 p = plot(p2, p1, layout=Plots.grid(2,1), size=(600,600))
 pos = p.o.axes[3].get_position()
