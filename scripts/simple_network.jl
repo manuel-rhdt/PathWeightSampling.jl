@@ -78,7 +78,7 @@ function DrWatson._wsave(filename, result::Dict)
 end
 
 
-filename = savename((@dict duration mean_s), "hdf5")
+filename = savename((@dict duration mean_s corr_time_ratio), "hdf5")
 local_path = datadir(dict["algorithm"], run_name, filename)
 tagsave(local_path, merge(dict, marginal_entropy, conditional_entropy), storepatch=false)
 @info "Saved to" filename

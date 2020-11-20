@@ -7,17 +7,17 @@ using Dates
 
 my_args = Dict(
     "algorithm" => "thermodynamic_integration",
-    "run_name" => "2020-11-17",
+    "run_name" => "2020-11-20",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
-    "num_responses" => 200_000,
+    "num_responses" => 100_000,
     "mean_s" => [20, 40],
     "corr_time_s" => 1,
-    "corr_time_ratio" => 10,
+    "corr_time_ratio" => [1, 5, 10],
 )
 
-const NODES = 8
+const NODES = 4
 const PPN = 36
-const NAME = "TI_NOV_17"
+const NAME = "TI_NOV_20"
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -81,12 +81,15 @@ function estimate_runtime(dict)
     if dict["algorithm"] == "annealing"
         factor = 0.14 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     elseif dict["algorithm"] == "thermodynamic_integration"
-        factor = 0.8 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
+        factor = 0.05 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
     else
         error("unknown algorithm $(dict["algorithm"])")
     end
-    constant = 20 * 60 + (NODES * PPN) * 5 # just make sure we have an extra buffere
-    val = factor * dict["mean_s"] * dict["duration"] * dict["num_responses"] / dict["corr_time_s"]
+    constant = 20 * 60 + (NODES * PPN) * 5 # just make sure we have an extra buffer
+
+    num_reactions = dict["duration"] * dict["mean_s"] * (1 / dict["corr_time_s"]) * (1 + dict["corr_time_ratio"])
+
+    val = factor * (num_reactions + 10) * dict["num_responses"]
     round(Int, val / (NODES * PPN) + constant)
 end
 
