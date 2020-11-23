@@ -160,7 +160,23 @@ struct DirectMCResult
     samples::Vector{Float64}
 end
 
+function summary(res_array::AbstractVector{<:DirectMCResult})
+    block_size = 2^14
+    logmeanexp(x) = log(mean(exp.(x .- maximum(x)))) + maximum(x)
+    blocks = [logmeanexp.(Iterators.partition(est.samples, block_size)) for est in res_array]
+    DataFrame(Blocks=blocks)
+end
+
 log_marginal(result::DirectMCResult) = -(logsumexp(result.samples) - log(length(result.samples)))
+function Statistics.var(result::DirectMCResult)
+    max_weight = maximum(result.samples)
+    log_mean_weight = max_weight + log(mean(exp.(result.samples .- max_weight)))
+    log_var = log(var(exp.(result.samples .- max_weight))) + 2 * max_weight
+    log_var -= log(length(result.samples))
+
+    exp(-2log_mean_weight + log_var)
+end
+
 
 function simulate(algorithm::DirectMCEstimate, initial::Trajectory, system::StochasticSystem)
     samples = zeros(Float64, algorithm.num_samples)

@@ -6,8 +6,8 @@ using ArgParse
 using Dates
 
 my_args = Dict(
-    "algorithm" => "thermodynamic_integration",
-    "run_name" => "2020-11-20",
+    "algorithm" => "directmc",
+    "run_name" => "2020-11-23",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
     "num_responses" => 100_000,
     "mean_s" => [20, 40],
@@ -17,7 +17,7 @@ my_args = Dict(
 
 const NODES = 4
 const PPN = 36
-const NAME = "TI_NOV_20"
+const NAME = "DIRECTMC_NOV_23"
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -82,6 +82,8 @@ function estimate_runtime(dict)
         factor = 0.14 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     elseif dict["algorithm"] == "thermodynamic_integration"
         factor = 0.05 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
+    elseif dict["algorithm"] == "directmc"
+        factor = 0.03 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
     else
         error("unknown algorithm $(dict["algorithm"])")
     end
