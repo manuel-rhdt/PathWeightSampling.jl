@@ -195,23 +195,18 @@ function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s0
     JumpSystem(sparams, rparams, distribution(rn, log_p0), signal_p, joint_p, s0_dist, p0_dist, duration)
 end
 
-function generate_configuration(gen::JumpSystem; duration::Real=1.0)
+function generate_configuration(gen::JumpSystem)
     p0_dist = gen.p0_dist
     sample = rand(p0_dist)
     u0 = SVector(sample...)
 
-    jump_prob = myremake(gen.joint_j_problem, u0=u0, tspan=(0.0, duration))    
+    jump_prob = myremake(gen.joint_j_problem, u0=u0, tspan=(0.0, gen.duration))    
     sol = solve(jump_prob, SSAStepper())
 
     response = convert(Trajectory, trajectory(sol, SA[:X], SA[2]))
     signal = convert(Trajectory, trajectory(sol, SA[:S], SA[1]))
 
     JumpSystemConfiguration(signal, response)
-end
-
-function generate_configuration(sn::ReactionSystem, rn::ReactionSystem, sparams=[], rparams=[]; duration::Real=1.0)
-    cg = configuration_generator(sn, rn, sparams, rparams)
-    generate_configuration(cg, duration=duration)
 end
 
 
