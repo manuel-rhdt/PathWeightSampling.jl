@@ -109,15 +109,8 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem
     append!(new_traj.u, @view old_traj.u[begin:branch_point - 1])
     append!(new_traj.t, @view old_traj.t[begin:branch_point - 1])
 
-
     jump_problem = myremake(jump_problem; u0=branch_value, tspan=tspan)
     new_branch = solve(jump_problem, SSAStepper())
-
-    # integrator = init(jump_problem, SSAStepper())
-    # for (u, t) in tuples(integrator)
-    #    
-    # end
-
     
     append!(new_traj.t, new_branch.t)
     append!(new_traj.u, new_branch.u)
@@ -214,10 +207,6 @@ function generate_configuration(gen::JumpSystem; duration::Real=1.0)
     signal = convert(Trajectory, trajectory(sol, SA[:S], SA[1]))
 
     JumpSystemConfiguration(signal, response)
-end
-
-function generate_response(gen::JumpSystem, signal::Trajectory)
-    
 end
 
 function generate_configuration(sn::ReactionSystem, rn::ReactionSystem, sparams=[], rparams=[]; duration::Real=1.0)
