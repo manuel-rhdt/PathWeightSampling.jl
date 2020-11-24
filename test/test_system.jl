@@ -1,4 +1,4 @@
-using GaussianMcmc.Trajectories
+using GaussianMcmc
 using Catalyst
 import Statistics: var
 import LinearAlgebra: I
@@ -14,19 +14,11 @@ rn = @reaction_network begin
     μ, X --> ∅ 
 end ρ μ
 
-κ = 0.25
-λ = 0.005
-ρ = 0.01
-μ = 0.01
+κ = 10.0
+λ = 1.0
+ρ = 5.0
+μ = 5.0
 mean_s = κ / λ
 mean_x = mean_s * ρ / μ
 
-# see Tostevin, ten Wolde, eq. 27
-sigma_squared_ss = mean_s
-sigma_squared_sx = ρ * mean_s / (λ + μ)
-sigma_squared_xx = mean_x * (1 + ρ / (λ + μ))
-
-joint_stationary = MvNormal([mean_s, mean_x], [sigma_squared_ss sigma_squared_sx; sigma_squared_sx sigma_squared_xx])
-signal_stationary = Poisson(mean_s)
-
-gen = Trajectories.configuration_generator(sn, rn, [κ, λ], [ρ, μ], signal_stationary, joint_stationary)
+system = GaussianMcmc.JumpSystem(sn, rn, [κ, λ], [ρ, μ], mean_s, mean_x, 1.0)

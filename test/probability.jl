@@ -1,5 +1,5 @@
 using Catalyst
-using GaussianMcmc.Trajectories
+using GaussianMcmc
 using Test
 using StaticArrays
 using Distributions
@@ -12,9 +12,9 @@ end κ λ
 s0_dist = MvNormal([50.0], 50.0 * ones((1, 1)))
 log_p0 = (s) -> logpdf(s0_dist, [s])
 
-dist = Trajectories.distribution(sn, log_p0)
+dist = GaussianMcmc.distribution(sn, log_p0)
 
-traj = Trajectory(SA[:S], [0.0, 1.0, 2.0, 3.0], [SA[50.0], SA[51.0], SA[50.0], SA[50.0]])
+traj = GaussianMcmc.Trajectory(SA[:S], [0.0, 1.0, 2.0, 3.0], [SA[50.0], SA[51.0], SA[50.0], SA[50.0]])
 
 κ = 0.25
 λ = 0.005
@@ -28,4 +28,4 @@ wait3 = log(p_wait(50, 1.0))
 reac1 = log(κ)
 reac2 = log(51 * λ)
 
-@test Trajectories.logpdf(dist, traj, params=[κ, λ]) ≈ sum((p0, wait1, wait2, wait3, reac1, reac2))
+@test GaussianMcmc.logpdf(dist, traj, params=[κ, λ]) ≈ sum((p0, wait1, wait2, wait3, reac1, reac2))

@@ -2,6 +2,7 @@ using Plots
 using DifferentialEquations
 using Catalyst
 using ModelingToolkit
+using GaussianMcmc.Trajectories
 
 sn = @reaction_network begin
     0.005, S --> ∅
@@ -9,13 +10,15 @@ sn = @reaction_network begin
 end
 
 u0 = [50]
-tspan = (0., 500.)
+tspan = (0., 10.)
 discrete_prob = DiscreteProblem(sn, u0, tspan)
 jump_prob = JumpProblem(sn, discrete_prob, Direct())
 sol = solve(jump_prob, SSAStepper())
+signal = Trajectories.trajectory(sol)
 
-plot(sol)
-
+plot(signal)
+signal.u[3:end] .= [SVector{1}(0)]
+signal.u
 
 rn = @reaction_network begin
     0.01 * θ, S --> X + S
@@ -23,16 +26,30 @@ rn = @reaction_network begin
     0.01, X --> ∅ 
 end θ
 
-signal_cb = PresetTimeCallback(sol.t, (integrator) -> integrator.u[1] = sol(integrator.t)[1])
+mutable struct SignalStepper
+    signal::Trajectory
+    index::Int
+end
+
+function (signal_stepper::SignalStepper)(integrator)
+    if integrator.t == zero(integrator.t)
+        signal_stepper.index = 1
+    end
+    integrator.u[1] = signal_stepper.signal.u[signal_stepper.index][1]
+    signal_stepper.index += 1
+end
+stepper = SignalStepper(signal, 1)
+
+signal_cb = PresetTimeCallback(sol.t, stepper)
 
 u0r = [50, 50]
 p = [1.0]
 response_prob = DiscreteProblem(rn, u0r, tspan, p)
 jump_prob_r = JumpProblem(rn, response_prob, Direct())
 sol_r = solve(jump_prob_r, SSAStepper(), callback=signal_cb, tstops=sol.t)
-
 plot(sol_r)
 
+Trajectories.trajectory(sol_r)
 
 react = reactions(rn)[1]
 ratelaw = jumpratelaw(react)
@@ -127,4 +144,4 @@ end
 
 histogram([ll_vals_cond, ll_vals], alpha=0.5)
 
-mean(ll_vals) - mean(ll_vals_cond)
+mean(ll_vals) - mean(ll_vals_cond)S

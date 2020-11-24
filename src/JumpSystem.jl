@@ -1,25 +1,32 @@
-using DiffEqJump
-using Catalyst
-using Statistics
-using Distributions
-import Distributions: logpdf
+using StaticArrays
 
 include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
 include("histogram_dist.jl")
 
-struct StochasticSystem{uType,tType,R <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J},S <: UnivariateDistribution}
-    jump_problem::P
-    s0_dist::S
-    distribution::TrajectoryDistribution
-    response::R
+import DiffEqBase
+import DiffEqJump: Direct, SSAStepper, JumpProblem
 
+struct JumpSystem{TD <: TrajectoryDistribution,SP <: DiffEqBase.AbstractJumpProblem,RP <: DiffEqBase.AbstractJumpProblem,S <: UnivariateDistribution,P0 <: MultivariateDistribution}
     sparams::Vector{Float64}
     rparams::Vector{Float64}
+    distribution::TD
+    signal_j_problem::SP
+    joint_j_problem::RP
+    s0_dist::S
+    p0_dist::P0
+    duration::Float64
 end
 
-mutable struct SignalChain{uType,tType,R <: AbstractTrajectory{uType,tType},DP,J,P <: DiffEqBase.AbstractJumpProblem{DP,J},S <: UnivariateDistribution}
-    system::StochasticSystem{uType,tType,R,DP,J,P,S}
+struct JumpSystemConfiguration{Signal <: Trajectory,Response <: Trajectory}
+    signal::Signal
+    response::Response
+end
+
+Base.copy(conf::JumpSystemConfiguration) = JumpSystemConfiguration(copy(conf.signal), copy(conf.response))
+
+mutable struct SignalChain{Sys <: JumpSystem} <: MarkovChain
+    system::Sys
     # interaction parameter
     θ::Float64
 
@@ -29,7 +36,7 @@ mutable struct SignalChain{uType,tType,R <: AbstractTrajectory{uType,tType},DP,J
     rejected_list::Vector{Float64}
 end
 
-chain(system::StochasticSystem, θ::Real) = SignalChain(system, θ, 0.0, Float64[], Float64[])
+chain(system::JumpSystem; θ::Real=1.0) = SignalChain(system, θ, 0.0, Float64[], Float64[])
 
 # reset statistics
 function reset(pot::SignalChain)
@@ -45,8 +52,10 @@ function reject(pot::SignalChain)
     push!(pot.rejected_list, pot.last_regrowth)
 end
 
-function new_signal(old_signal::Trajectory, system::StochasticSystem)
-    jump_problem = system.jump_problem
+new_signal(old::JumpSystemConfiguration, system::JumpSystem) = JumpSystemConfiguration(new_signal(old.signal, system), old.response)
+
+function new_signal(old_signal::Trajectory, system::JumpSystem)
+    jump_problem = system.signal_j_problem
     s0_dist = system.s0_dist
     sample = rand(s0_dist)
     u0 = SVector{1,Float64}(sample)
@@ -57,13 +66,18 @@ function new_signal(old_signal::Trajectory, system::StochasticSystem)
     Trajectory(SA[:S], new.t, new.u)
 end
 
+function propose!(new_conf::JumpSystemConfiguration, old_conf::JumpSystemConfiguration, chain::SignalChain)
+    new_signal = propose!(new_conf.signal, old_conf.signal, chain)
+    new_conf
+end
+
 function propose!(new_signal::Trajectory, old_signal::Trajectory, chain::SignalChain)
     chain.last_regrowth = propose!(new_signal, old_signal, chain.system)
     new_signal
 end
 
-function propose!(new_signal::Trajectory, old_signal::Trajectory, system::StochasticSystem)
-    jump_problem = system.jump_problem
+function propose!(new_signal::Trajectory, old_signal::Trajectory, system::JumpSystem)
+    jump_problem = system.signal_j_problem
 
     regrow_duration = rand() * duration(old_signal)
 
@@ -76,7 +90,7 @@ function propose!(new_signal::Trajectory, old_signal::Trajectory, system::Stocha
     regrow_duration
 end
 
-function myremake(jprob::JumpProblem; u0, tspan)
+function myremake(jprob::DiffEqBase.AbstractJumpProblem; u0, tspan)
     dprob = jprob.prob
     new_dprob = remake(dprob, u0=u0, tspan=tspan)
     JumpProblem(new_dprob, 
@@ -85,7 +99,7 @@ function myremake(jprob::JumpProblem; u0, tspan)
     )
 end
 
-function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem, branch_time::Real)
+function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::DiffEqBase.AbstractJumpProblem, branch_time::Real)
     branch_value = old_traj(branch_time)
     branch_point = searchsortedfirst(old_traj.t, branch_time)
     tspan = (branch_time, old_traj.t[end])
@@ -110,7 +124,7 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem
     nothing
 end
 
-function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::JumpProblem, branch_time::Real)
+function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::DiffEqBase.AbstractJumpProblem, branch_time::Real)
     branch_value = old_traj(branch_time)
     branch_point = searchsortedfirst(old_traj.t, branch_time)
     tspan = (old_traj.t[begin], branch_time)
@@ -131,10 +145,11 @@ function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_proble
     nothing
 end
 
-energy(signal::Trajectory, chain::SignalChain) = energy(signal, chain.system, chain.θ)
+energy(configuration::JumpSystemConfiguration, chain::SignalChain) = energy(configuration, chain.system, chain.θ)
 
-function energy(signal::Trajectory, system::StochasticSystem, θ::Real)
-    response = system.response
+function energy(configuration::JumpSystemConfiguration, system::JumpSystem, θ::Real)
+    signal = configuration.signal
+    response = configuration.response
     joint = merge(signal, response)
 
     pot = logpdf(system.distribution, joint, params=system.rparams)
@@ -146,17 +161,7 @@ function energy(signal::Trajectory, system::StochasticSystem, θ::Real)
     -θ * pot
 end
 
-struct ConfigurationGenerator
-    sparams::Vector{Float64}
-    rparams::Vector{Float64}
-    distribution::TrajectoryDistribution
-    signal_j_problem::JumpProblem
-    joint_j_problem::JumpProblem
-    s0_dist
-    p0_dist
-end
-
-function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s_mean::Real, x_mean::Real)
+function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s_mean::Real, x_mean::Real, duration::Real)
     u0 = SVector{2,Float64}(s_mean, x_mean)
 
     joint_network = Base.merge(sn, rn)
@@ -174,10 +179,10 @@ function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams
     dprob_s = remake(dprob_s, u0=u0s)
     signal_p = JumpProblem(sn, dprob_s, Direct())
 
-    ConfigurationGenerator(sparams, rparams, distribution(rn, log_p0), signal_p, joint_p, s0_dist, p0_dist)
+    JumpSystem(sparams, rparams, distribution(rn, log_p0), signal_p, joint_p, s0_dist, p0_dist, duration)
 end
 
-function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s0_dist, p0_dist)
+function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s0_dist::UnivariateDistribution, p0_dist::MultivariateDistribution, duration::Real)
     log_p0 = (s, x) -> logpdf(p0_dist, [s, x]) - logpdf(s0_dist, s)
 
     joint_network = Base.merge(sn, rn)
@@ -194,10 +199,10 @@ function configuration_generator(sn::ReactionSystem, rn::ReactionSystem, sparams
     dprob_s = remake(dprob_s, u0=u0s)
     signal_p = JumpProblem(sn, dprob_s, Direct())
 
-    ConfigurationGenerator(sparams, rparams, distribution(rn, log_p0), signal_p, joint_p, s0_dist, p0_dist)
+    JumpSystem(sparams, rparams, distribution(rn, log_p0), signal_p, joint_p, s0_dist, p0_dist, duration)
 end
 
-function generate_configuration(gen::ConfigurationGenerator; duration::Real=500.0)
+function generate_configuration(gen::JumpSystem; duration::Real=1.0)
     p0_dist = gen.p0_dist
     sample = rand(p0_dist)
     u0 = SVector(sample...)
@@ -208,10 +213,14 @@ function generate_configuration(gen::ConfigurationGenerator; duration::Real=500.
     response = convert(Trajectory, trajectory(sol, SA[:X], SA[2]))
     signal = convert(Trajectory, trajectory(sol, SA[:S], SA[1]))
 
-    (StochasticSystem(gen.signal_j_problem, gen.s0_dist, gen.distribution, response, gen.sparams, gen.rparams), signal)
+    JumpSystemConfiguration(signal, response)
 end
 
-function generate_configuration(sn::ReactionSystem, rn::ReactionSystem, sparams=[], rparams=[]; duration::Real=500.0)
+function generate_response(gen::JumpSystem, signal::Trajectory)
+    
+end
+
+function generate_configuration(sn::ReactionSystem, rn::ReactionSystem, sparams=[], rparams=[]; duration::Real=1.0)
     cg = configuration_generator(sn, rn, sparams, rparams)
     generate_configuration(cg, duration=duration)
 end

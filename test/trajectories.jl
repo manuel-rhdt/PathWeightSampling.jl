@@ -1,10 +1,10 @@
 using Test
-using GaussianMcmc.Trajectories
+using GaussianMcmc
 using DiffEqJump
 using Catalyst
 using StaticArrays
 
-traj = Trajectory(SA[:S, :X], [0.0, 1.0, 2.0], [SA[1,4], SA[2,5], SA[3,6]])
+traj = GaussianMcmc.Trajectory(SA[:S, :X], [0.0, 1.0, 2.0], [SA[1,4], SA[2,5], SA[3,6]])
 
 @test length(traj) == 3 == length(traj.t)
 @test collect(traj) == [([1, 4], 0.0), ([2,5], 1.0), ([3, 6], 2.0)]
@@ -20,14 +20,14 @@ discrete_prob = DiscreteProblem(u0, tspan)
 jump_prob = JumpProblem(sn, discrete_prob, Direct())
 sol = solve(jump_prob, SSAStepper())
 
-traj_sol = convert(Trajectory, Trajectories.trajectory(sol, SA[:S], SA[1]))
+traj_sol = convert(GaussianMcmc.Trajectory, GaussianMcmc.trajectory(sol, SA[:S], SA[1]))
 
 for i in eachindex(sol)
     @test sol.t[i] == traj_sol.t[i]
     @test sol[i] == traj_sol.u[i]
 end
 
-traj2 = Trajectory(SA[:Y, :Z], [0.5, 1.5, 2.5], [SA[1,4], SA[2,5], SA[3,6]])
+traj2 = GaussianMcmc.Trajectory(SA[:Y, :Z], [0.5, 1.5, 2.5], [SA[1,4], SA[2,5], SA[3,6]])
 
 joint = merge(traj, traj2)
 
@@ -52,9 +52,8 @@ discrete_prob = DiscreteProblem(u0, tspan)
 jump_prob = JumpProblem(network, discrete_prob, Direct())
 sol = solve(jump_prob, SSAStepper())
 
-partial = Trajectories.trajectory(sol, SA[:S], SA[1])
+partial = GaussianMcmc.trajectory(sol, SA[:S], SA[1])
 for i in eachindex(sol)
     @test sol.t[i] == partial.t[i]
     @test sol[[1],i] == partial[i]
 end
-ptraj = convert(Trajectory, partial)

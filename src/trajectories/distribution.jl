@@ -1,4 +1,6 @@
-import ModelingToolkit:build_function
+import ModelingToolkit
+import ModelingToolkit: build_function, ReactionSystem, substitute
+import Catalyst
 
 struct ChemicalReaction{Rate,N}
     rate::Rate
@@ -12,7 +14,7 @@ end
 
 distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemical_reactions(rn), log_p0)
 
-@fastmath function logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory; params=[])::Float64
+@fastmath function Distributions.logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory; params=[])::Float64
     ((uprev, tprev), state) = iterate(trajectory)
     result = dist.log_p0(uprev...)::Float64
     
@@ -37,24 +39,24 @@ distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemica
 end
 
 function create_chemical_reactions(reaction_system::ReactionSystem)
-    _create_chemical_reactions(reaction_system, reactions(reaction_system)...)
+    _create_chemical_reactions(reaction_system, Catalyst.reactions(reaction_system)...)
 end
 
 function var2name(var)
     ModelingToolkit.operation(var).name
 end
 
-function _create_chemical_reactions(rn::ReactionSystem, r1::Reaction)
-    smap = speciesmap(rn)
+function _create_chemical_reactions(rn::ReactionSystem, r1::Catalyst.Reaction)
+    smap = Catalyst.speciesmap(rn)
     spec = var2name.(Catalyst.species(rn))
-    ratelaw = substitute(jumpratelaw(r1), Dict(Catalyst.species(rn) .=> spec))
+    ratelaw = substitute(Catalyst.jumpratelaw(r1), Dict(Catalyst.species(rn) .=> spec))
 
     rate_fun = build_function(ratelaw, spec, Catalyst.params(rn))
     rate_fun = eval(rate_fun)
 
     netstoich = [(smap[sub], stoich) for (sub, stoich) in r1.netstoich]
 
-    du = zero(SVector{numspecies(rn),Int})
+    du = zero(SVector{Catalyst.numspecies(rn),Int})
     for (index, netstoich) in netstoich
         du = setindex(du, netstoich, index)
     end
@@ -62,7 +64,7 @@ function _create_chemical_reactions(rn::ReactionSystem, r1::Reaction)
     (ChemicalReaction(rate_fun, du),)
 end
 
-function _create_chemical_reactions(rn::ReactionSystem, r1::Reaction, rs::Reaction...)
+function _create_chemical_reactions(rn::ReactionSystem, r1::Catalyst.Reaction, rs::Catalyst.Reaction...)
     (_create_chemical_reactions(rn, r1)..., _create_chemical_reactions(rn, rs...)...)
 end
 

@@ -1,5 +1,6 @@
 using RecipesBase
 using DiffEqBase
+import StaticArrays: SVector
 
 abstract type AbstractTrajectory{uType,tType,N} end
 
@@ -10,6 +11,7 @@ mutable struct Trajectory{uType,tType,N} <: AbstractTrajectory{uType,tType,N}
 end
 
 Base.copy(traj::Trajectory) = Trajectory(copy(traj.syms), copy(traj.t), copy(traj.u))
+
 Base.getindex(traj::Trajectory, i::Int) = traj.u[i]
 Base.getindex(traj::Trajectory, i::AbstractRange) = traj.u[i]
 Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.syms == traj2.syms) && (traj1.t == traj2.t) && (traj1.u == traj2.u)
@@ -52,10 +54,22 @@ function clip!(t::Trajectory, time::Real)
     t
 end
 
-function trajectory(sol::ODESolution{T,N,Vector{SVector{M,T}}}) where {T,N,M}
-    variables = species(sol.prob.f.f)
-    symbols = SVector{M}([v.name for v in variables]::Vector{Symbol})
-    Trajectory(symbols, sol.t, sol.u)
+function get_u(sol::ODESolution{T,N,Vector{SVector{M,T}}}) where {T,N,M}
+    sol.u
+end
+
+function get_u(sol::ODESolution{T,N,Vector{Vector{T}}}) where {T,N}
+    num_components = length(get(sol.u, 1, T[]))
+    if num_components > 0
+        [SVector{num_components}(u) for u in sol.u]
+    else
+        SVector{0,T}[]
+    end
+end
+
+function trajectory(sol::ODESolution{T,N}) where {T,N}
+    symbols = SVector{length(sol.prob.f.syms)}(sol.prob.f.syms)
+    Trajectory(symbols, sol.t, get_u(sol))
 end
 
 mutable struct PartialTrajectory{uType,tType,N,NPart} <: AbstractTrajectory{uType,tType,NPart}

@@ -21,10 +21,23 @@ corr_time_ratio = dict["corr_time_ratio"]
 ρ = μ
 mean_x = mean_s
 
-@everywhere workers() using GaussianMcmc.Trajectories
+@info "Loading packages"
 using HDF5
 using Logging
-using Catalyst
+import Catalyst: @reaction_network
+
+sn = @reaction_network begin
+    κ, ∅ --> S
+    λ, S --> ∅
+end κ λ
+
+rn = @reaction_network begin
+    ρ, S --> X + S
+    μ, X --> ∅ 
+end ρ μ
+
+@info "Loading GaussianMcmc"
+@everywhere using GaussianMcmc
 
 if dict["algorithm"] == "thermodynamic_integration"
     algorithm = TIEstimate(1024, 6, 2^15)
@@ -38,16 +51,6 @@ end
 
 @info "Parameters" run_name duration num_responses algorithm mean_s corr_time_s corr_time_ratio
 
-sn = @reaction_network begin
-    κ, ∅ --> S
-    λ, S --> ∅
-end κ λ
-
-rn = @reaction_network begin
-    ρ, S --> X + S
-    μ, X --> ∅ 
-end ρ μ
-
 using Distributions
 using LinearAlgebra
 
@@ -59,30 +62,30 @@ function reduce_results(res1, results...)
     new_res
 end
 
-@everywhere workers() gen = Trajectories.configuration_generator($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x)
+@everywhere workers() system = JumpSystem($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x, $duration)
 
 @info "Generated initial configuration"
 
-marginal_entropy = pmap(x -> Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=20, duration=duration), 1:div(num_responses, 20, RoundUp))
-marginal_entropy = reduce_results(marginal_entropy...)
+me = pmap(x -> marginal_entropy(system, algorithm=algorithm; num_responses=20), 1:div(num_responses, 20, RoundUp))
+me = reduce_results(me...)
 
 @info "Finished marginal entropy"
 
-conditional_entropy = pmap(x -> Trajectories.conditional_entropy(gen, num_responses=200, duration=duration), 1:num_responses)
-conditional_entropy = reduce_results(conditional_entropy...)
+ce = pmap(x -> conditional_entropy(system, num_responses=1000), 1:num_responses)
+ce = reduce_results(ce...)
 
 @info "Finished conditional entropy"
 
 function DrWatson._wsave(filename, result::Dict)
     h5open(filename, "w") do file
-        Trajectories.write_hdf5!(file, result)
+        GaussianMcmc.write_hdf5!(file, result)
     end
 end
 
 
 filename = savename((@dict duration mean_s corr_time_ratio), "hdf5")
 local_path = datadir(dict["algorithm"], run_name, filename)
-tagsave(local_path, merge(dict, marginal_entropy, conditional_entropy), storepatch=false)
+tagsave(local_path, merge(dict, me, ce), storepatch=false)
 @info "Saved to" filename
 
 # upload to SUN storage

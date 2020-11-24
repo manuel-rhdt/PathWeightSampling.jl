@@ -3,23 +3,23 @@ using Test
 
 include("test_system.jl")
 
-(system, s1) = Trajectories.generate_configuration(gen, duration=20.0)
+s1 = GaussianMcmc.generate_configuration(system).signal
 s2 = deepcopy(s1)
 scopy = deepcopy(s1)
 
-branch_time = 10.0
+branch_time = 0.5
 
-Trajectories.shoot_forward!(s2, s1, system.jump_problem, branch_time)
+GaussianMcmc.shoot_forward!(s2, s1, system.signal_j_problem, branch_time)
 @test issorted(s2.t)
 @test s1.t != s2.t
 @test s1.u != s2.u
-@test s1(10.0) == s2(10.0)
+@test s1(0.5) == s2(0.5)
 @test scopy == s1
 
-Trajectories.shoot_backward!(s2, s1, system.jump_problem, branch_time)
+GaussianMcmc.shoot_backward!(s2, s1, system.signal_j_problem, branch_time)
 @test issorted(s2.t)
 @test all(diff(s2.t) .!= 0.0)
 @test s1.t != s2.t
 @test s1.u != s2.u
-@test s1(10.0) == s2(10.0)
+@test s1(0.5) == s2(0.5)
 @test scopy == s1
