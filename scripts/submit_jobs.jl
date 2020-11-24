@@ -7,9 +7,9 @@ using Dates
 
 my_args = Dict(
     "algorithm" => "directmc",
-    "run_name" => "2020-11-24",
+    "run_name" => "2020-11-24_2",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
-    "num_responses" => 100_000,
+    "num_responses" => 150_000,
     "mean_s" => [20, 40],
     "corr_time_s" => 1,
     "corr_time_ratio" => [1, 5, 10],
@@ -17,7 +17,7 @@ my_args = Dict(
 
 const NODES = 4
 const PPN = 36
-const NAME = "DIRECTMC_NOV_24"
+const NAME = "DIRECTMCNOV24.2"
 
 function parse_commandline()
     s = ArgParseSettings()
