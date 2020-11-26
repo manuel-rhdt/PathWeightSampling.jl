@@ -168,6 +168,13 @@ function generate_configuration(system::GaussianSystem)
     rand(system.joint)
 end
 
+function new_signal(old_conf::Vector{Float64}, system::GaussianSystem)
+    n_dim = length(old_conf) ÷ 2
+    new_conf = copy(old_conf)
+    new_conf[1:n_dim] .= rand(system.prior)
+    new_conf
+end
+
 function propose!(new_state::Vector{Float64}, old_state::Vector{Float64}, kernel::GaussianChain)
     n_dim = length(old_state) ÷ 2
     new_state .= old_state

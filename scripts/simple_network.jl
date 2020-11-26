@@ -21,20 +21,8 @@ corr_time_ratio = dict["corr_time_ratio"]
 ρ = μ
 mean_x = mean_s
 
-@info "Loading packages"
 using HDF5
 using Logging
-import Catalyst: @reaction_network
-
-sn = @reaction_network begin
-    κ, ∅ --> S
-    λ, S --> ∅
-end κ λ
-
-rn = @reaction_network begin
-    ρ, S --> X + S
-    μ, X --> ∅ 
-end ρ μ
 
 @info "Loading GaussianMcmc"
 @everywhere using GaussianMcmc
@@ -51,6 +39,29 @@ end
 
 @info "Parameters" run_name duration num_responses algorithm mean_s corr_time_s corr_time_ratio
 
+import Catalyst: @reaction_network
+
+extra_kwargs = Dict{Symbol,Any}()
+if dict["system"] == "JumpSystem"
+    sn = @reaction_network begin
+        κ, ∅ --> S
+        λ, S --> ∅
+    end κ λ
+
+    rn = @reaction_network begin
+        ρ, S --> X + S
+        μ, X --> ∅ 
+    end ρ μ
+
+    @everywhere workers() system = JumpSystem($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x, $duration)
+elseif dict["system"] == "GaussianSystem"
+    extra_kwargs[:scale] = 0.08
+    @everywhere workers() system = GaussianSystem(delta_t=0.01, duration=$duration)
+else
+    error("unknown system $(dict["system"])")
+end
+
+
 using Distributions
 using LinearAlgebra
 
@@ -62,11 +73,9 @@ function reduce_results(res1, results...)
     new_res
 end
 
-@everywhere workers() system = JumpSystem($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x, $duration)
-
 @info "Generated initial configuration"
 
-me = pmap(x -> marginal_entropy(system, algorithm=algorithm; num_responses=20), 1:div(num_responses, 20, RoundUp))
+me = pmap(x -> marginal_entropy(system, algorithm=algorithm; num_responses=20, extra_kwargs...), 1:div(num_responses, 20, RoundUp))
 me = reduce_results(me...)
 
 @info "Finished marginal entropy"

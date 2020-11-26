@@ -10,6 +10,7 @@ function marginal_entropy(
     system;
     algorithm,
     num_responses::Int=1,
+    kwargs...
 )
     stats = DataFrame(
         Sample=zeros(Float64, num_responses), 
@@ -23,7 +24,7 @@ function marginal_entropy(
         initial = generate_configuration(system)
         stats.InitialEnergy[i] = energy(initial, system, 1.0)
 
-        timed_result = @timed simulate(algorithm, initial, system)
+        timed_result = @timed simulate(algorithm, initial, system; kwargs...)
 
         sample = log_marginal(timed_result.value)
         variance = var(timed_result.value)
