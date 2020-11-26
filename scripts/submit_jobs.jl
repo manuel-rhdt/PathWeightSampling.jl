@@ -17,7 +17,7 @@ my_args = Dict(
     "corr_time_ratio" => [1, 5, 10],
 )
 
-const NODES = 4
+const NODES = 2
 const PPN = 36
 const NAME = "GAUSSIAN"
 
