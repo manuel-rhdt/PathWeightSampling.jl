@@ -6,18 +6,20 @@ using ArgParse
 using Dates
 
 my_args = Dict(
+    "system" => "GaussianSystem",
+    "scale" => "0.08",
     "algorithm" => "directmc",
-    "run_name" => "2020-11-24_3",
+    "run_name" => "2020-11-26_gaussian",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
-    "num_responses" => 150_000,
-    "mean_s" => [20, 40],
+    "num_responses" => 100_000,
+    "mean_s" => [50],
     "corr_time_s" => 1,
     "corr_time_ratio" => [1, 5, 10],
 )
 
 const NODES = 4
 const PPN = 36
-const NAME = "DIRECTMCNOV24.3"
+const NAME = "GAUSSIAN"
 
 function parse_commandline()
     s = ArgParseSettings()
