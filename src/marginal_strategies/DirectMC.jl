@@ -26,7 +26,7 @@ function Statistics.var(result::DirectMCResult)
 end
 
 
-function simulate(algorithm::DirectMCEstimate, initial, system)
+function simulate(algorithm::DirectMCEstimate, initial, system; kwargs...)
     samples = zeros(Float64, algorithm.num_samples)
     for i in 1:algorithm.num_samples
         signal = new_signal(initial, system)

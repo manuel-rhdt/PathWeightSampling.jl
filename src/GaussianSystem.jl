@@ -94,7 +94,7 @@ end
 
 function time_matrix(; duration::Real, delta_t::Real)
     n = round(Int, duration / delta_t, RoundUp)
-    time_matrix(n, delta_t)
+    time_matrix(n, duration / n)
 end
 
 
@@ -154,12 +154,6 @@ function log_prior(system::GaussianSystem, t; signal::AbstractArray)
     distr = prior(system)
     logpdf(distr, signal)
 end
-
-function generate_state(system::GaussianSystem, t)
-    j = joint(system, t)
-    rand(j)
-end
-
 
 struct GaussianChain{System <: GaussianSystem} <: MarkovChain
     scale::Float64

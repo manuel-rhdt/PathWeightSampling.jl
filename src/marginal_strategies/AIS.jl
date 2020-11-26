@@ -44,8 +44,8 @@ end
 
 log_marginal(result::AnnealingEstimationResult) =  -(logsumexp(result.weights[end, :]) - log(size(result.weights, 2)))
 
-function simulate(algorithm::AnnealingEstimate, initial, system)
-    chain = SignalChain(system, 1.0, 0.0, Float64[], Float64[])
+function simulate(algorithm::AnnealingEstimate, initial, system; kwargs...)
+    ch = chain(system; kwargs...)
 
     all_weights = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
     acc = zeros(Float64, algorithm.num_temps, algorithm.num_samples)
@@ -60,7 +60,7 @@ function simulate(algorithm::AnnealingEstimate, initial, system)
         end
 
         initial_conditionals[i] = initial_energy
-        (temps, weights, acceptance) = annealed_importance_sampling(signal, chain, algorithm.subsample, algorithm.num_temps)
+        (temps, weights, acceptance) = annealed_importance_sampling(signal, ch, algorithm.subsample, algorithm.num_temps)
         inv_temps = temps
         all_weights[:, i] = weights
         acc[:, i] = acceptance

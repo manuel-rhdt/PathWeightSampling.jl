@@ -41,7 +41,7 @@ end
 
 
 # Monte-Carlo computation of the marginal probability for the given configuration
-function simulate(algorithm::TIEstimate, initial, system)
+function simulate(algorithm::TIEstimate, initial, system; kwargs...)
     # Generate the array of θ values for which we want to simulate the system.
     # We use Gauss-Legendre quadrature which predetermines the choice of θ.
     nodes, weights = gausslegendre(algorithm.integration_nodes)
@@ -52,7 +52,7 @@ function simulate(algorithm::TIEstimate, initial, system)
     energies = zeros(Float64, algorithm.num_samples, length(θrange))
     accept = Array{Bool}(undef, algorithm.num_samples, length(θrange))
     for i in eachindex(θrange)
-        chn = chain(system, θ=θrange[i])
+        chn = chain(system; θ=θrange[i], kwargs...)
         sampler = MetropolisSampler(algorithm.burn_in, 0, energy(initial, chn), copy(initial), chn)
         for (j, was_accepted) in Iterators.enumerate(Iterators.take(sampler, algorithm.num_samples))
             energies[j, i] = energy(sampler.state, system, 1.0)
