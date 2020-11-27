@@ -4,3 +4,4 @@ using Test
 @testset "TrajectoryProbability" begin include("probability.jl") end
 @testset "Moves" begin include("moves.jl") end
 @testset "Annealing" begin include("annealing.jl") end
+@testset "Gaussian" begin include("gaussian.jl") end

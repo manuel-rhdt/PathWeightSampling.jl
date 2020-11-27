@@ -155,7 +155,7 @@ function log_prior(system::GaussianSystem, t; signal::AbstractArray)
     logpdf(distr, signal)
 end
 
-struct GaussianChain{System <: GaussianSystem} <: MarkovChain
+mutable struct GaussianChain{System <: GaussianSystem} <: MarkovChain
     scale::Float64
     θ::Float64
     system::System

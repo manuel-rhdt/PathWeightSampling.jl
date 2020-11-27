@@ -8,21 +8,21 @@ end
 
 name(x::AnnealingEstimate) = "AIS"
 
-function annealed_importance_sampling(initial, chain::MarkovChain, subsample::Int, num_temps::Int)
+function annealed_importance_sampling(initial, ch::MarkovChain, subsample::Int, num_temps::Int)
     weights = zeros(Float64, num_temps)
     temps = range(0, 1; length=num_temps + 1)
     acceptance = zeros(Float64, num_temps)
     acceptance[1] = 1.0
 
-    e_prev = energy(initial, chain.system, temps[1])
-    e_cur = energy(initial, chain.system, temps[2])
+    e_prev = energy(initial, ch.system, temps[1])
+    e_cur = energy(initial, ch.system, temps[2])
     weights[1] = e_prev - e_cur
 
-    chain.θ = temps[2]
-    sampler = MetropolisSampler(0, subsample, e_cur, initial, chain)
+    ch.θ = temps[2]
+    sampler = MetropolisSampler(0, subsample, e_cur, initial, ch)
     for (i, acc) in zip(2:num_temps, sampler)
         e_prev = sampler.current_energy
-        e_cur = energy(sampler.state, chain.system, temps[i + 1])
+        e_cur = energy(sampler.state, ch.system, temps[i + 1])
 
         weights[i] = weights[i - 1] + e_prev - e_cur
         acceptance[i] = acc / (subsample + 1)
@@ -42,7 +42,8 @@ struct AnnealingEstimationResult <: SimulationResult
     initial_conditionals::Vector{Float64}
 end
 
-log_marginal(result::AnnealingEstimationResult) =  -(logsumexp(result.weights[end, :]) - log(size(result.weights, 2)))
+logmeanexp(x) = log(mean(exp.(x .- maximum(x)))) + maximum(x)
+log_marginal(result::AnnealingEstimationResult) =  logmeanexp(result.weights[end, :])
 
 function simulate(algorithm::AnnealingEstimate, initial, system; kwargs...)
     ch = chain(system; kwargs...)

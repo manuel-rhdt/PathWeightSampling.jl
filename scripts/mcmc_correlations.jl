@@ -1,11 +1,11 @@
-include("basic_setup.jl")
 using Plots
 using Statistics
 using StatsBase
 using LaTeXStrings
+using GaussianMcmc
 
-gen = get_gen(100.0, 100.0, 1.0, 0.1)
-system, initial = Trajectories.generate_configuration(gen, duration=2.0)
+system = GaussianSystem(delta_t=0.05, duration=2.0)
+initial = generate_configuration(system)
 
 block(arr) = 0.5 .* (arr[begin:2:end-1] .+ arr[begin+1:2:end])
 
@@ -30,17 +30,19 @@ function plot_block_averages!(p, values; kwargs...)
     plot!(p, block_size, y_vals, yerror=y_err; kwargs...)
 end
 
-signal = Trajectories.new_signal(initial, system)
+signal = GaussianMcmc.new_signal(initial, system)
 energies_list = []
-for num_samples ∈ [14, 16, 18]
-    chain = Trajectories.chain(system, 1.0)
-    samples, acceptance = Trajectories.generate_mcmc_samples(signal, chain, 2^10, 2^num_samples)
-    push!(energies_list, Trajectories.energy.(samples, Ref(chain)))
+num_samples_list = [16, 20, 22]
+for num_samples ∈ num_samples_list
+    chain = GaussianMcmc.chain(system, θ=1.0, scale=0.1)
+    sampler = GaussianMcmc.MetropolisSampler(signal, chain, burn_in=2^14)
+    samples = GaussianMcmc.sample(x->GaussianMcmc.energy(x, chain), sampler, 2^num_samples)
+    push!(energies_list, samples)
 end
 
-pgfplotsx()
+pyplot()
 p = plot()
-for (e, num_samples) ∈ zip(energies_list, [14, 16, 18])
+for (e, num_samples) ∈ zip(energies_list, num_samples_list)
     plot_block_averages!(p, e, label=L"N = 2^ {%$num_samples}", xscale=:log2, size=(400, 200))
 end
 xlabel!(p, L"block size $= N/N_\mathrm{blocks}$")
