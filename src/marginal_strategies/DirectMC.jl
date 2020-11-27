@@ -8,8 +8,6 @@ struct DirectMCResult
     samples::Vector{Float64}
 end
 
-logmeanexp(x) = log(mean(exp.(x .- maximum(x)))) + maximum(x)
-
 function summary(results::DirectMCResult...)
     block_size = 2^14
     blocks = [logmeanexp.(Iterators.partition(-est.samples, block_size)) for est in results]

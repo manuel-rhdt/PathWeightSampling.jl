@@ -20,9 +20,9 @@ algorithms = [
 for algorithm in algorithms
     result = GaussianMcmc.simulate(algorithm, initial, system, scale=0.6)
     val2 = GaussianMcmc.log_marginal(result)
-    @show algorithm (val2/val1 - 1)
+    @show algorithm (val2 / val1 - 1)
     if :acceptance in fieldnames(typeof(result))
         @show mean(result.acceptance)
     end
-    @test isapprox(val1, val2, rtol=1e-3)
+    @test isapprox(val1, val2, rtol=1e-2)
 end

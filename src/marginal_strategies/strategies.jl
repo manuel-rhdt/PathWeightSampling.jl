@@ -2,6 +2,8 @@ using DataFrames
 
 abstract type SimulationResult end
 
+logmeanexp(x) = log(mean(exp.(x .- maximum(x)))) + maximum(x)
+
 include("ThermodynamicIntegration.jl")
 include("AIS.jl")
 include("DirectMC.jl")

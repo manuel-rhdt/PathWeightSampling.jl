@@ -41,8 +41,6 @@ struct AnnealingEstimationResult <: SimulationResult
     acceptance::Array{Float64,2}
     initial_conditionals::Vector{Float64}
 end
-
-logmeanexp(x) = log(mean(exp.(x .- maximum(x)))) + maximum(x)
 log_marginal(result::AnnealingEstimationResult) =  logmeanexp(result.weights[end, :])
 
 function simulate(algorithm::AnnealingEstimate, initial, system; kwargs...)
