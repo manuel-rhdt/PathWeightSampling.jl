@@ -30,7 +30,7 @@ using Logging
 if dict["algorithm"] == "thermodynamic_integration"
     algorithm = TIEstimate(1024, 6, 2^15)
 elseif dict["algorithm"] == "annealing"
-    algorithm = AnnealingEstimate(15, 50, 100)
+    algorithm = AnnealingEstimate(5, 100, 100)
 elseif dict["algorithm"] == "directmc"
     algorithm = DirectMCEstimate(2^16)
 else
