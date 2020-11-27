@@ -9,7 +9,7 @@ my_args = Dict(
     "system" => "GaussianSystem",
     "scale" => "0.08",
     "algorithm" => "directmc",
-    "run_name" => "2020-11-26_gaussian",
+    "run_name" => "2020-11-27_gaussian",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
     "num_responses" => 100_000,
     "mean_s" => [50],
@@ -17,9 +17,9 @@ my_args = Dict(
     "corr_time_ratio" => [1, 5, 10],
 )
 
-const NODES = 2
+const NODES = 3
 const PPN = 36
-const NAME = "GAUSSIAN"
+const NAME = "gauss-27-11"
 
 function parse_commandline()
     s = ArgParseSettings()
