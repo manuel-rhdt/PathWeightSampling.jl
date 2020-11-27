@@ -9,7 +9,7 @@ my_args = Dict(
     "system" => "GaussianSystem",
     "scale" => "0.08",
     "algorithm" => "directmc",
-    "run_name" => "2020-11-27_gaussian",
+    "run_name" => "2020-11-27_gaussian_2",
     "duration" => 2 .^ range(log2(0.05), log2(2.0), length=6),
     "num_responses" => 100_000,
     "mean_s" => [50],
