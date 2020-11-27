@@ -30,7 +30,7 @@ function simulate(algorithm::DirectMCEstimate, initial, system; kwargs...)
     samples = zeros(Float64, algorithm.num_samples)
     for i in 1:algorithm.num_samples
         signal = new_signal(initial, system)
-        samples[i] = -energy(signal, system, 1.0)
+        samples[i] = -energy_difference(signal, system)
     end
     DirectMCResult(samples)
 end

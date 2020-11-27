@@ -198,3 +198,7 @@ function energy(state::Array{Float64,1}, system::GaussianSystem, θ=1.0)
     end
     -result
 end
+
+function energy_difference(state::Array{Float64,1}, system::GaussianSystem)
+    energy(state, system, 1.0) - energy(state, system, 0.0)
+end

@@ -56,7 +56,7 @@ if dict["system"] == "JumpSystem"
     @everywhere workers() system = JumpSystem($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x, $duration)
 elseif dict["system"] == "GaussianSystem"
     extra_kwargs[:scale] = 0.08
-    @everywhere workers() system = GaussianSystem(delta_t=0.01, duration=$duration)
+    @everywhere workers() system = GaussianSystem(delta_t=0.05, duration=$duration)
 else
     error("unknown system $(dict["system"])")
 end

@@ -154,6 +154,8 @@ function energy(configuration::JumpSystemConfiguration, system::JumpSystem, θ::
     -θ * pot
 end
 
+energy_difference(configuration::JumpSystemConfiguration, system::JumpSystem) = energy(configuration, system, 1.0)
+
 function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s_mean::Real, x_mean::Real, duration::Real)
     u0 = SVector{2,Float64}(s_mean, x_mean)
 

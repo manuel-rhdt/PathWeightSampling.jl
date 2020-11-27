@@ -22,7 +22,7 @@ function marginal_entropy(
 
     results = map(1:num_responses) do i
         initial = generate_configuration(system)
-        stats.InitialEnergy[i] = energy(initial, system, 1.0)
+        stats.InitialEnergy[i] = energy_difference(initial, system)
 
         timed_result = @timed simulate(algorithm, initial, system; kwargs...)
 
@@ -45,7 +45,7 @@ function conditional_entropy(system;  num_responses::Int=1)
     result = zeros(Float64, num_responses)
     for i in 1:num_responses
         conf = generate_configuration(system)
-        result[i] = energy(conf, system, 1.0)
+        result[i] = energy_difference(conf, system)
     end
 
     Dict("conditional_entropy" => DataFrame(Sample=[mean(result)], NumSamples=[num_responses]))
