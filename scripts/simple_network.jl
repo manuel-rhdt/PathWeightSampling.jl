@@ -53,7 +53,7 @@ if dict["system"] == "JumpSystem"
         μ, X --> ∅ 
     end ρ μ
 
-    @everywhere workers() system = JumpSystem($sn, $rn, [$κ, $λ], [$ρ, $μ], $mean_s, $mean_x, $duration)
+    @everywhere workers() system = JumpSystem($sn, $rn, [$κ, $λ], [$ρ, $μ], s0=$mean_s, x0=$mean_x, duration=$duration)
 elseif dict["system"] == "GaussianSystem"
     extra_kwargs[:scale] = 0.08
     @everywhere workers() system = GaussianSystem($κ, $λ, $ρ, $μ, delta_t=0.05, duration=$duration)

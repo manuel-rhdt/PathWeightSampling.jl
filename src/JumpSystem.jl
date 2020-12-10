@@ -6,6 +6,7 @@ include("histogram_dist.jl")
 
 import DiffEqBase
 import DiffEqJump: Direct, SSAStepper, JumpProblem
+import Distributions: DiscreteUniform, product_distribution
 
 struct JumpSystem{TD <: TrajectoryDistribution,SP <: DiffEqBase.AbstractJumpProblem,RP <: DiffEqBase.AbstractJumpProblem,S <: UnivariateDistribution,P0 <: MultivariateDistribution}
     sparams::Vector{Float64}
@@ -148,6 +149,7 @@ function energy(configuration::JumpSystemConfiguration, system::JumpSystem, θ::
     pot = logpdf(system.distribution, joint, params=system.rparams)
     if pot == -Inf
         # if we sample an impossible trajectory, return infinite energy, even at θ=0
+        # that way we never accidentally accept an impossible trajectory.
         return -pot
     end
 
@@ -156,7 +158,7 @@ end
 
 energy_difference(configuration::JumpSystemConfiguration, system::JumpSystem) = energy(configuration, system, 1.0)
 
-function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s_mean::Real, x_mean::Real, duration::Real)
+function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams; s_mean::Real, x_mean::Real, duration::Real)
     u0 = SVector{2,Float64}(s_mean, x_mean)
 
     joint_network = Base.merge(sn, rn)
@@ -170,6 +172,29 @@ function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams, s_
     log_p0 = (s, x) -> if isinf(begin v = logpdf(p0_dist, [s, x]) end) v else v - logpdf(s0_dist, s) end
 
     u0s = SVector(s_mean)
+    dprob_s = DiscreteProblem(sn, u0s, tspan, sparams)
+    dprob_s = remake(dprob_s, u0=u0s)
+    signal_p = JumpProblem(sn, dprob_s, Direct())
+
+    JumpSystem(sparams, rparams, distribution(rn, log_p0), signal_p, joint_p, s0_dist, p0_dist, duration)
+end
+
+function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams; s0::Real, x0::Real, duration::Real)
+    u0 = SVector{2,Float64}(s0, x0)
+
+    joint_network = Base.merge(sn, rn)
+    tspan = (0., 1.)
+    discrete_prob = DiscreteProblem(joint_network, u0, tspan, vcat(sparams, rparams))
+    discrete_prob = remake(discrete_prob, u0=u0)
+    joint_p = JumpProblem(joint_network, discrete_prob, Direct())
+
+    s0_dist = DiscreteUniform(s0, s0)
+    x0_dist = DiscreteUniform(x0, x0)
+    p0_dist = product_distribution([s0_dist, x0_dist])
+
+    log_p0 = (s, x) -> logpdf(p0_dist, SA[s, x])
+
+    u0s = SVector(s0)
     dprob_s = DiscreteProblem(sn, u0s, tspan, sparams)
     dprob_s = remake(dprob_s, u0=u0s)
     signal_p = JumpProblem(sn, dprob_s, Direct())
