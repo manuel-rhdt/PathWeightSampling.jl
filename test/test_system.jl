@@ -21,4 +21,4 @@ end ρ μ
 mean_s = κ / λ
 mean_x = mean_s * ρ / μ
 
-system = GaussianMcmc.JumpSystem(sn, rn, [κ, λ], [ρ, μ], mean_s, mean_x, 1.0)
+system = GaussianMcmc.JumpSystem(sn, rn, [κ, λ], [ρ, μ], s_mean=mean_s, x_mean=mean_x, duration=1.0)
