@@ -179,7 +179,7 @@ function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams; s_
     JumpSystem(sparams, rparams, distribution(rn, log_p0), signal_p, joint_p, s0_dist, p0_dist, duration)
 end
 
-function JumpSystem(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams; s0::Real, x0::Real, duration::Real)
+function JumpSystem2(sn::ReactionSystem, rn::ReactionSystem, sparams, rparams; s0::Real, x0::Real, duration::Real)
     u0 = SVector{2,Float64}(s0, x0)
 
     joint_network = Base.merge(sn, rn)
