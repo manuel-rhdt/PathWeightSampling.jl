@@ -63,7 +63,7 @@ function new_signal(old_signal::Trajectory, system::JumpSystem)
     tspan = (old_signal.t[begin], old_signal.t[end])
     jump_problem = myremake(jump_problem; u0=u0, tspan=tspan)
     new = solve(jump_problem, SSAStepper())
-    Trajectory(SA[:S], new.t, new.u)
+    Trajectory(new.t, new.u)
 end
 
 function propose!(new_conf::JumpSystemConfiguration, old_conf::JumpSystemConfiguration, chain::SignalChain)
@@ -229,8 +229,8 @@ function generate_configuration(gen::JumpSystem)
     jump_prob = myremake(gen.joint_j_problem, u0=u0, tspan=(0.0, gen.duration))    
     sol = solve(jump_prob, SSAStepper())
 
-    response = convert(Trajectory, trajectory(sol, SA[:X], SA[2]))
-    signal = convert(Trajectory, trajectory(sol, SA[:S], SA[1]))
+    response = convert(Trajectory, trajectory(sol, SA[2]))
+    signal = convert(Trajectory, trajectory(sol, SA[1]))
 
     JumpSystemConfiguration(signal, response)
 end
