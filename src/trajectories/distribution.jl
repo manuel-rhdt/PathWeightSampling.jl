@@ -16,7 +16,11 @@ distribution(rn::ReactionSystem) = distribution(rn, (x...) -> 0.0)
 distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemical_reactions(rn), log_p0)
 
 @fastmath function Distributions.logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory; params=[])::Float64
-    ((uprev, tprev), state) = iterate(trajectory)
+    first = iterate(trajectory)
+    if first === nothing
+        return 0.0
+    end
+    ((uprev, tprev), state) = first
     result = dist.log_p0(uprev...)::Float64
     
     for (u, t) in Iterators.rest(trajectory, state)
