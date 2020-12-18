@@ -1,5 +1,6 @@
 module GaussianMcmc
 
+include("EventIter.jl")
 include("MetropolisSampler.jl")
 include("GaussianSystem.jl")
 include("JumpSystem.jl")

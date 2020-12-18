@@ -12,6 +12,7 @@ struct TrajectoryDistribution{Reactions,Dist}
     log_p0::Dist
 end
 
+distribution(rn::ReactionSystem) = distribution(rn, (x...) -> 0.0)
 distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemical_reactions(rn), log_p0)
 
 @fastmath function Distributions.logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory; params=[])::Float64

@@ -5,16 +5,15 @@ import StaticArrays: SVector
 abstract type AbstractTrajectory{uType,tType,N} end
 
 mutable struct Trajectory{uType,tType,N} <: AbstractTrajectory{uType,tType,N}
-    syms::SVector{N,Symbol}
     t::Vector{tType}
     u::Vector{SVector{N,uType}}
 end
 
-Base.copy(traj::Trajectory) = Trajectory(copy(traj.syms), copy(traj.t), copy(traj.u))
+Base.copy(traj::Trajectory) = Trajectory(copy(traj.t), copy(traj.u))
 
 Base.getindex(traj::Trajectory, i::Int) = traj.u[i]
 Base.getindex(traj::Trajectory, i::AbstractRange) = traj.u[i]
-Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.syms == traj2.syms) && (traj1.t == traj2.t) && (traj1.u == traj2.u)
+Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.t == traj2.t) && (traj1.u == traj2.u)
 
 function Base.copyto!(to::Trajectory, from::Trajectory)
     resize!(to.t, length(from.t))
@@ -67,21 +66,34 @@ function get_u(sol::ODESolution{T,N,Vector{Vector{T}}}) where {T,N}
     end
 end
 
+Trajectory(sol::ODESolution) = trajectory(sol)
+
+function Trajectory(t::AbstractVector{tType}, u::AbstractMatrix{T}) where {tType <: Real,T <: Real}
+    num_components = size(u, 1)
+    if num_components > 0
+        u_vec = [SVector{num_components}(c) for c in eachcol(u)]
+    else
+        u_vec = SVector{0,T}[]
+    end
+
+    Trajectory(convert(Vector{tType}, t), u_vec)
+end
+
 function trajectory(sol::ODESolution{T,N}) where {T,N}
-    symbols = SVector{length(sol.prob.f.syms)}(sol.prob.f.syms)
-    Trajectory(symbols, sol.t, get_u(sol))
+    Trajectory(sol.t, get_u(sol))
 end
 
 mutable struct PartialTrajectory{uType,tType,N,NPart} <: AbstractTrajectory{uType,tType,NPart}
-    syms::SVector{NPart,Symbol}
     idxs::SVector{NPart,Int}
     t::Vector{tType}
     u::Vector{SVector{N,uType}}
 end
 
-Base.copy(traj::PartialTrajectory) = PartialTrajectory(traj.syms, traj.idxs, copy(traj.t), copy(traj.u))
+Base.copy(traj::PartialTrajectory) = PartialTrajectory(traj.idxs, copy(traj.t), copy(traj.u))
 Base.getindex(traj::PartialTrajectory, i::Int) = traj.u[i][traj.idxs]
 Base.getindex(traj::PartialTrajectory, i::AbstractRange) = [v[traj.idxs] for v in traj.u[i]]
+
+Trajectory(partial::PartialTrajectory) = convert(Trajectory, partial)
 
 function Base.convert(::Type{Trajectory}, partial::PartialTrajectory{uType,tType,M,N}) where {uType,tType,M,N}
     t = copy(partial.t)
@@ -98,7 +110,7 @@ function Base.convert(::Type{Trajectory}, partial::PartialTrajectory{uType,tType
         end
     end
 
-    Trajectory(partial.syms, t, u)
+    Trajectory(t, u)
 end
 
 function duration(traj::AbstractTrajectory)
@@ -108,22 +120,9 @@ function duration(traj::AbstractTrajectory)
     traj.t[end] - traj.t[begin]
 end
 
-function trajectory(sol::ODESolution{T,N,Vector{SVector{M,T}}}, syms::SVector{NPart,Symbol}) where {T,N,M,NPart}
-    idxs = Int[]
-
-    variables = species(sol.prob.f.f)
-    symbols = SVector{M}([v.name for v in variables]::Vector{Symbol})
-    for (j, sym) in enumerate(syms)
-        i = findfirst(isequal(sym), symbols)
-        push!(idxs, i)
-    end
-
-    idxs = SVector{NPart,Int}(idxs)
-    PartialTrajectory(syms, idxs, sol.t, sol.u)
-end
-
-function trajectory(sol::ODESolution{T,N,Vector{SVector{M,T}}}, syms::SVector{NPart,Symbol}, idxs::SVector{NPart,Int}) where {T,N,M,NPart}
-    PartialTrajectory(syms, idxs, sol.t, sol.u)
+function trajectory(sol::ODESolution{T,N}, idxs::AbstractVector{Int}) where {T,N}
+    idxs = SVector{length(idxs),Int}(idxs)
+    PartialTrajectory(idxs, sol.t, get_u(sol))
 end
 
 Base.length(traj::AbstractTrajectory) = length(traj.u)
@@ -148,14 +147,13 @@ end
 
 Base.eltype(::Type{T}) where {uType,tType,N,T <: AbstractTrajectory{uType,tType,N}} = Tuple{SVector{N,uType},tType}
 
-struct MergeTrajectory{uType,tType,T1 <: Trajectory{uType,tType},T2 <: Trajectory{uType,tType},Syms}
-    syms::Syms
+struct MergeTrajectory{uType,tType,T1 <: Trajectory{uType,tType},T2 <: Trajectory{uType,tType}}
     first::T1
     second::T2
 end
 
-Base.merge(traj1::T1, traj2::T2) where {uType,tType,T1 <: Trajectory{uType,tType},T2 <: Trajectory{uType,tType}} = MergeTrajectory{uType,tType,T1,T2,typeof(vcat(traj1.syms, traj2.syms))}(vcat(traj1.syms, traj2.syms), traj1, traj2)
-Base.IteratorSize(::Type{MergeTrajectory{uType,tType,T1,T2,N}}) where {uType,tType,T1,T2,N} = Base.SizeUnknown()
+Base.merge(traj1::T1, traj2::T2) where {uType,tType,T1 <: Trajectory{uType,tType},T2 <: Trajectory{uType,tType}} = MergeTrajectory{uType,tType,T1,T2}(traj1, traj2)
+Base.IteratorSize(::Type{MergeTrajectory{uType,tType,T1,T2}}) where {uType,tType,T1,T2} = Base.SizeUnknown()
 
 function duration(traj::MergeTrajectory)
     max(traj.first.t[end], traj.second.t[end]) - min(traj.first.t[begin], traj.second.t[begin])
@@ -214,7 +212,7 @@ end
 
 @recipe function f(traj::AbstractTrajectory{uType,tType,N}) where {uType,tType,N}
     seriestype --> :steppost
-    label --> hcat([String(sym) for sym in traj.syms]...)
+    # label --> hcat([String(sym) for sym in traj.syms]...)
 
     uvec = zeros(uType, length(traj), N)
     tvec = zeros(tType, length(traj))
