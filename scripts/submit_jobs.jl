@@ -21,10 +21,11 @@ using Dates
 my_args = Dict(
     "script" => "chemotaxis.jl",
     "run_name" => "2020-12-24",
+    "num_responses" => 50_000,
     "duration" => 2 .^ range(log2(0.1), log2(10.0), length=6)
 )
 
-const NODES = 4
+const NODES = 6
 const PPN = 36
 const NAME = "CHEMOTAXIS"
 

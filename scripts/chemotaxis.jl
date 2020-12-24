@@ -8,6 +8,7 @@ dict = JSON.parsefile(projectdir("_research", "tmp", f))
 
 run_name = dict["run_name"]
 duration = dict["duration"]
+num_responses = dict["num_responses"]
 
 using HDF5
 using Logging
