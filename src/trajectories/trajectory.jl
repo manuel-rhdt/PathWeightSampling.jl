@@ -120,7 +120,7 @@ function duration(traj::AbstractTrajectory)
     traj.t[end] - traj.t[begin]
 end
 
-function trajectory(sol::ODESolution{T,N}, idxs::AbstractVector{Int}) where {T,N}
+function trajectory(sol::ODESolution{T,N}, idxs) where {T,N}
     idxs = SVector{length(idxs),Int}(idxs)
     PartialTrajectory(idxs, sol.t, get_u(sol))
 end

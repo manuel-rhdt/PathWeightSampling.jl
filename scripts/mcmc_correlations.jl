@@ -30,7 +30,7 @@ function plot_block_averages!(p, values; kwargs...)
     plot!(p, block_size, y_vals, yerror=y_err; kwargs...)
 end
 
-signal = GaussianMcmc.new_signal(initial, system)
+signal = GaussianMcmc.sample(initial, system)
 energies_list = []
 num_samples_list = [16, 20, 22]
 for num_samples ∈ num_samples_list

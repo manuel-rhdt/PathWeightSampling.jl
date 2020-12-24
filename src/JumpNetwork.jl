@@ -1,96 +1,205 @@
-using Catalyst
-using ModelingToolkit
-using DiffEqJump
-using DiffEqBase
-using StaticArrays
-using GaussianMcmc
-
-import DiffEqCallbacks: PresetTimeCallback
 import Distributions: logpdf
-import GaussianMcmc: SSAIter, collect_trajectory, sub_trajectory, merge_trajectories
-
-mutable struct ConditionalEnsemble{JP,CB}
-    jump_problem::JP
-    cond_callback::CB
-    cond_traj::GaussianMcmc.Trajectory
-end
-
-function ConditionalEnsemble(
-    network::ReactionSystem, 
-    cond_traj::GaussianMcmc.Trajectory,
-    u0::AbstractVector{T},
-    p,
-    tspan
-) where T
-    affect! = function (integrator)
-        cond_u = cond_traj(integrator.t)
-        for i in eachindex(cond_u)
-            integrator.u = setindex(integrator.u, cond_u[i], i)
-        end
-        # it is important to call this to properly update reaction rates
-        DiffEqJump.reset_aggregated_jumps!(integrator, nothing, integrator.cb)
-    end
-    callback = DiscreteCallback((u, t, i) -> t ∈ cond_traj.t, affect!, save_positions=(false, false))
-
-    dprob = DiscreteProblem(network, u0, tspan, p)
-    # we have to remake the discrete problem with u0 as StaticArray for 
-    # improved performance
-    dprob = remake(dprob, u0=SVector{length(u0),T}(u0))
-    jprob = JumpProblem(network, dprob, Direct(), save_positions=(false, false))
-
-    ConditionalEnsemble(jprob, callback, cond_traj)
-end
-
-function init(ensemble::ConditionalEnsemble)
-    DiffEqBase.init(ensemble.jump_problem, SSAStepper(), callback=ensemble.cond_callback, tstops=ensemble.cond_traj.t)
-end
-
-ssa_iter(ensemble::ConditionalEnsemble) = SSAIter(init(ensemble))
 
 struct SRXsystem
+    sn::ReactionSystem
+    rn::ReactionSystem
+    xn::ReactionSystem
 
+    u0::AbstractVector
+
+    ps::AbstractVector
+    pr::AbstractVector
+    px::AbstractVector
+
+    tspan
 end
 
-function generate_configuration(SRXsystem)
+function generate_configuration(system::SRXsystem)
     # we first generate a joint SRX trajectory
+    joint = merge(merge(system.sn, system.rn), system.xn)
 
-    u0 = SA[10, 30, 0, 50, 0, 0]
-    tspan = (0.0, 10.0)
-    p = [5.0, 1.0, 1.0, 4.0, 1.0, 2.0, 1.0, 1.0]
+    u0 = SVector(system.u0...)
+
+    tspan = system.tspan
+    p = vcat(system.ps, system.pr, system.px)
     dprob = DiscreteProblem(joint, u0, tspan, p)
     dprob = remake(dprob, u0=u0)
     jprob = JumpProblem(joint, dprob, Direct())
 
     sol = solve(jprob, SSAStepper())
 
-    # then we create the R ensemble conditioned on the signal
-    signal = GaussianMcmc.Trajectory(GaussianMcmc.trajectory(sol, [1]))
-    r_ensemble = ConditionalEnsemble(rn, signal, [10, 30, 0, 50, 0], [1.0, 4.0, 1.0, 2.0], tspan)
+    # then we extract the signal
+    s_spec = independent_species(system.sn)
+    s_idxs = species_indices(joint, s_spec...)
+    s_traj = Trajectory(trajectory(sol, s_idxs))
 
+    # the R trajectory
+    r_spec = independent_species(system.rn)
+    r_idxs = species_indices(joint, r_spec...)
+    r_traj = Trajectory(trajectory(sol, r_idxs))
+    
     # finally we extract the X part from the SRX trajectory
-    x_traj = GaussianMcmc.Trajectory(GaussianMcmc.trajectory(sol, [6]))
-    x_dist = distribution(xn)
+    x_spec = independent_species(system.xn)
+    x_idxs = species_indices(joint, x_spec...)
+    x_traj = Trajectory(trajectory(sol, x_idxs))
 
-    SRXconfiguration(r_ensemble, SA[5], x_traj, x_dist)
+    SRXconfiguration(s_traj, r_traj, x_traj)
 end
 
-struct SRXconfiguration{RE,RIdx,XT,XD}
-    r_ensemble::RE
-    r_idxs::RIdx
-    x_traj::XT
+struct MarginalEnsemble{JP,XD,DX}
+    jump_problem::JP
     x_dist::XD
+    dep_idxs::DX
+    xp::Vector{Float64}
 end
 
-function sample(configuration::SRXconfiguration; θ=0.0)
-    if θ!=0.0
+function MarginalEnsemble(system::SRXsystem)
+    sr_network = merge(system.sn, system.rn)
+    joint = merge(sr_network, system.xn)
+    sr_idxs = species_indices(joint, Catalyst.species(sr_network)...)
+
+    dprob = DiscreteProblem(sr_network, system.u0[sr_idxs], system.tspan, vcat(system.ps, system.pr))
+    # we have to remake the discrete problem with u0 as StaticArray for 
+    # improved performance
+    dprob = remake(dprob, u0=SVector(dprob.u0...))
+    jprob = JumpProblem(sr_network, dprob, Direct(), save_positions=(false, false))
+
+    dep_species = dependent_species(system.xn)
+    dep_idxs = species_indices(sr_network, dep_species...)
+
+    MarginalEnsemble(jprob, distribution(system.xn), dep_idxs, system.px)
+end
+struct TrajectoryCallback
+    traj::Trajectory
+end
+
+function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
+    traj = tc.traj
+    cond_u = traj(integrator.t)
+    for i in eachindex(cond_u)
+        integrator.u = setindex(integrator.u, cond_u[i], i)
+    end
+    # it is important to call this to properly update reaction rates
+    DiffEqJump.reset_aggregated_jumps!(integrator, nothing, integrator.cb)
+    nothing
+end
+
+function (tc::TrajectoryCallback)(u, t::Real, i::DiffEqBase.DEIntegrator)::Bool # condition
+    t ∈ tc.traj.t
+end
+
+struct ConditionalEnsemble{JP,XD,IX,DX}
+    jump_problem::JP
+    x_dist::XD
+    indep_idxs::IX
+    dep_idxs::DX
+    xp::Vector{Float64}
+end
+
+function ConditionalEnsemble(
+    rn::ReactionSystem, 
+    xn::ReactionSystem,
+    u0,
+    rp::Vector{Float64},
+    xp::Vector{Float64},
+    tspan
+)
+    dprob = DiscreteProblem(rn, u0, tspan, rp)
+    # we have to remake the discrete problem with u0 as StaticArray for 
+    # improved performance
+    dprob = remake(dprob, u0=SVector(dprob.u0...))
+    jprob = JumpProblem(rn, dprob, Direct(), save_positions=(false, false))
+
+    indep_species = independent_species(rn)
+    indep_idxs = species_indices(rn, indep_species...)
+
+    dep_species = dependent_species(xn)
+    dep_idxs = SVector(indexin(species_indices(rn, dep_species...), indep_idxs))
+
+    ConditionalEnsemble(jprob, distribution(xn), indep_idxs, dep_idxs, xp)
+end
+
+function ConditionalEnsemble(system::SRXsystem)
+    joint = merge(merge(system.sn, system.rn), system.xn)
+    r_idxs = species_indices(joint, Catalyst.species(system.rn)...)
+    ConditionalEnsemble(system.rn, system.xn, system.u0[r_idxs], system.pr, system.px, system.tspan)
+end
+
+# returns a list of species in `a` that also occur in `b`
+function intersecting_species(a::ReactionSystem, b::ReactionSystem)
+    intersect(Catalyst.species(a), Catalyst.species(b))
+end
+
+# returns a list of species in `a` that are not in `b`
+function unique_species(a::ReactionSystem, b::ReactionSystem)
+    setdiff(Catalyst.species(a), Catalyst.species(b))
+end
+
+function species_indices(rs::ReactionSystem, species...)
+    SVector(getindex.(Ref(Catalyst.speciesmap(rs)), species))
+end
+
+function independent_species(rs::ReactionSystem)
+    i_spec = []
+    for r in Catalyst.reactions(rs)
+        push!(i_spec, getindex.(r.netstoich, 1)...)
+    end
+    unique(s for s∈i_spec)
+end
+
+function dependent_species(rs::ReactionSystem)
+    setdiff(Catalyst.species(rs), independent_species(rs))
+end
+
+struct SXconfiguration{uType,tType,Ns,Nx}
+    s_traj::Trajectory{uType,tType,Ns}
+    x_traj::Trajectory{uType,tType,Nx}
+end
+
+function sample(configuration::T, system::MarginalEnsemble; θ=0.0)::T where T<:SXconfiguration
+    if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
-    collect_trajectory(sub_trajectory(ssa_iter(jump_newtork.r_ensemble), jump_newtork.r_idxs))
+    jprob = system.jump_problem
+    integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
+    iter = SSAIter(integrator)
+    s_traj = collect_trajectory(iter)
+    SXconfiguration(s_traj, configuration.x_traj)
 end
 
-function energy_difference(r_traj, configuration::SRXconfiguration, params)
-    -logpdf(jump_network.x_dist, merge_trajectories(r_traj, jump_network.x_traj), params=params)
+function energy_difference(configuration::SXconfiguration, system::MarginalEnsemble)
+    dep = sub_trajectory(configuration.s_traj, system.dep_idxs)
+    -logpdf(system.x_dist, merge_trajectories(dep, configuration.x_traj), params=system.xp)
 end 
+struct SRXconfiguration{uType,tType,Ns,Nr,Nx}
+    s_traj::Trajectory{uType,tType,Ns}
+    r_traj::Trajectory{uType,tType,Nr}
+    x_traj::Trajectory{uType,tType,Nx}
+end
+
+function sample(configuration::T, system::ConditionalEnsemble; θ=0.0)::T where T<:SRXconfiguration
+    if θ != 0.0
+        error("can only use DirectMC with JumpNetwork")
+    end
+    cb = TrajectoryCallback(configuration.s_traj)
+    cb = DiscreteCallback(cb, cb, save_positions=(false, false))
+    jprob = system.jump_problem
+    integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=configuration.s_traj.t, numsteps_hint=0)
+    iter = SSAIter(integrator)
+
+    rtraj = collect_trajectory(sub_trajectory(iter, system.indep_idxs))
+    SRXconfiguration(configuration.s_traj, rtraj, configuration.x_traj)
+end
+
+function energy_difference(configuration::SRXconfiguration, system::ConditionalEnsemble)
+    dep = sub_trajectory(configuration.r_traj, system.dep_idxs)
+    -logpdf(system.x_dist, merge_trajectories(dep, configuration.x_traj), params=system.xp)
+end 
+
+function marginal_configuration(conf::SRXconfiguration)
+    new_s = collect_trajectory(merge_trajectories(conf.s_traj, conf.r_traj))
+    SXconfiguration(new_s, conf.x_traj)
+end
 
 # To compute the MI we need the ability
 # - create a new configuration (i.e. jointly sample S, R, X)
@@ -99,59 +208,44 @@ end
 # - compute P(r, x | s)
 # - compute P_0(r)
 
-sn = @reaction_network begin
-    κ, ∅ --> 2L
-    λ, L --> ∅
-end κ λ
+# system
 
-rn = @reaction_network begin
-    ρ, L + R --> L + LR
-    μ, LR --> R
-    ξ, R + CheY --> R + CheYp
-    ν, CheYp --> CheY
-end ρ μ ξ ν
+# conf = generate_configuration(system)
+# conf.r_ensemble.jump_problem.prob
+# sig = sample(conf)
 
-xn = @reaction_network begin
-    δ, CheYp --> CheYp + X
-    χ, X --> ∅
-end δ χ
+# samples = [sample(conf) for i ∈ 1:10000]
+# e = energy_difference.(samples)
 
-joint = merge(merge(sn, rn), xn)
+# using Plots
+# histogram(e)
 
-using Plots
+# using DiffEqBase, DiffEqJump
 
-u0 = SA[10, 30, 0, 50, 0, 0]
-tspan = (0.0, 10.0)
-p = [5.0, 1.0, 1.0, 4.0, 1.0, 2.0, 1.0, 1.0]
-dprob = DiscreteProblem(joint, u0, tspan, p)
-dprob = remake(dprob, u0=u0)
-jprob = JumpProblem(joint, dprob, Direct())
-sol = solve(jprob, SSAStepper())
-plot(sol)
+# u0 = SA[10, 30, 0, 50, 0, 0]
+# tspan = (0.0, 10.0)
+# ps = [5.0, 1.0]
+# pr = [1.0, 4.0, 1.0, 2.0]
+# px = [1.0, 1.0]
 
-traj = GaussianMcmc.Trajectory(GaussianMcmc.trajectory(sol, [1]))
-x_traj = GaussianMcmc.Trajectory(GaussianMcmc.trajectory(sol, [6]))
-x_dist = GaussianMcmc.distribution(xn)
+# system = SRXsystem(sn, rn, xn, u0, ps, pr, px, tspan)
 
-ensemble = ConditionalEnsemble(rn, traj, [10, 30, 0, 50, 0], [1.0, 4.0, 1.0, 2.0], tspan)
+# initial = generate_configuration(system)
+# cond_ensemble = ConditionalEnsemble(system)
+# marg_ensemble = MarginalEnsemble(system)
 
-jn = JumpNetwork(ensemble, SA[5], x_traj, x_dist)
+# marginal_configuration(initial)
 
-get_sample = function ()
-    r_traj = sample(jn)
-    energy_difference(r_traj, jn, SA[1.0, 1.0])
-end
+# using Plots
+# c = sample(initial, cond_ensemble)
+# energy_difference(c, cond_ensemble)
 
-histogram([get_sample() for i=1:10000])
+# c = sample(marginal_configuration(initial), marg_ensemble)
+# energy_difference(c, marg_ensemble)
 
-iterator = ssa_iter(ensemble)
-subtraj = GaussianMcmc.sub_trajectory(iterator, SA[5])
-subtraj = collect_trajectory(subtraj)
+# algorithm = DirectMCEstimate(10000)
+# result = simulate(algorithm, initial, cond_ensemble)
+# log_marginal(result)
 
-x_ens = ConditionalEnsemble(xn, subtraj, [1, 0], [1.0, 1.0], tspan)
-
-plot(collect_trajectory(ssa_iter(x_ens)))
-
-results = [logpdf(dist, ssa_iter(x_ens), params=[1.0, 1.0]) for i = 1:10000]
-
-histogram(results)
+# result2 = simulate(algorithm, marginal_configuration(initial), marg_ensemble)
+# log_marginal(result2)

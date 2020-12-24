@@ -54,7 +54,7 @@ function simulate(algorithm::AnnealingEstimate, initial, system; kwargs...)
         initial_energy = Inf
         signal = initial
         while isinf(initial_energy)
-            signal = new_signal(initial, system)
+            signal = sample(initial, system)
             initial_energy = energy(signal, system, 1.0)
         end
 

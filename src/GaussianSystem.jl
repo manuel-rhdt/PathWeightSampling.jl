@@ -168,7 +168,7 @@ function generate_configuration(system::GaussianSystem)
     rand(system.joint)
 end
 
-function new_signal(old_conf::Vector{Float64}, system::GaussianSystem)
+function sample(old_conf::Vector{Float64}, system::GaussianSystem)
     n_dim = length(old_conf) ÷ 2
     new_conf = copy(old_conf)
     new_conf[1:n_dim] .= rand(system.prior)

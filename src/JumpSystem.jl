@@ -52,9 +52,9 @@ function reject(pot::SignalChain)
     push!(pot.rejected_list, pot.last_regrowth)
 end
 
-new_signal(old::JumpSystemConfiguration, system::JumpSystem) = JumpSystemConfiguration(new_signal(old.signal, system), old.response)
+sample(old::JumpSystemConfiguration, system::JumpSystem) = JumpSystemConfiguration(sample(old.signal, system), old.response)
 
-function new_signal(old_signal::Trajectory, system::JumpSystem)
+function sample(old_signal::Trajectory, system::JumpSystem)
     jump_problem = system.signal_j_problem
     s0_dist = system.s0_dist
     sample = rand(s0_dist)
