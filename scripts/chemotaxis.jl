@@ -21,6 +21,8 @@ import Catalyst: @reaction_network
 
 using StaticArrays
 
+extra_kwargs = Dict{Symbol,Any}()
+
 sn = @reaction_network begin
     κ, ∅ --> 2L
     λ, L --> ∅
