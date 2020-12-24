@@ -5,21 +5,28 @@ using FileIO
 using ArgParse
 using Dates
 
+# my_args = Dict(
+#     "script" => "simple_network.jl",
+#     "system" => "JumpSystem",
+#     # "scale" => 0.1,
+#     "algorithm" => "annealing",
+#     "run_name" => "2020-11-27",
+#     "duration" => 2 .^ range(log2(0.1), log2(2.0), length=6),
+#     "num_responses" => 50_000,
+#     "mean_s" => [20, 40],
+#     "corr_time_s" => 1,
+#     "corr_time_ratio" => [2, 5, 10],
+# )
+
 my_args = Dict(
-    "system" => "JumpSystem",
-    # "scale" => 0.1,
-    "algorithm" => "annealing",
-    "run_name" => "2020-11-27",
-    "duration" => 2 .^ range(log2(0.1), log2(2.0), length=6),
-    "num_responses" => 150_000,
-    "mean_s" => [20, 40],
-    "corr_time_s" => 1,
-    "corr_time_ratio" => [2, 5, 10],
+    "script" => "chemotaxis.jl",
+    "run_name" => "2020-12-24",
+    "duration" => 2 .^ range(log2(0.1), log2(10.0), length=6)
 )
 
-const NODES = 3
+const NODES = 4
 const PPN = 36
-const NAME = "AIS.27-11-2020"
+const NAME = "CHEMOTAXIS"
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -49,7 +56,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         export JULIA_PROJECT=$(projectdir())
 
         julia -e "using InteractiveUtils; versioninfo(verbose=true)"
-        julia $(projectdir("scripts", "run_cluster.jl")) $(filename)
+        julia $(projectdir("scripts", "run_cluster.jl")) $(filename) $(my_args["script"])
         """
 
     name = NAME
@@ -80,6 +87,10 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
 end
 
 function estimate_runtime(dict)
+    if dict["script"] == "chemotaxis.jl"
+        return 24 * 60 * 60
+    end
+
     if dict["algorithm"] == "annealing"
         factor = 0.14 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
     elseif dict["algorithm"] == "thermodynamic_integration"

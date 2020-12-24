@@ -14,4 +14,4 @@ addprocs(manager)
 @assert nworkers() >= 2
 @info "Successfully launched MPI processes"
 
-include("simple_network.jl")
+include(ARGS[2])
