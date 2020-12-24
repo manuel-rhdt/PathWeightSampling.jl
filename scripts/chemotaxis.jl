@@ -69,7 +69,7 @@ end
 
 filename = savename((@dict duration), "hdf5")
 local_path = datadir("chemotaxis", run_name, filename)
-tagsave(local_path, merge(dict, me, ce), storepatch=false)
+tagsave(local_path, merge(dict, result), storepatch=false)
 @info "Saved to" filename
 
 # upload to SUN storage
