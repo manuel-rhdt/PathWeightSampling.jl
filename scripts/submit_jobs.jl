@@ -20,13 +20,19 @@ using Dates
 
 my_args = Dict(
     "script" => "chemotaxis.jl",
-    "run_name" => "2020-12-24",
+    "run_name" => "2021-01-05",
     "num_responses" => 50_000,
-    "duration" => 2 .^ range(log2(0.1), log2(10.0), length=6)
+    "duration" => 2 .^ range(log2(0.1), log2(2.0), length=8),
+    "mean_L" => 50,
+    "num_receptors" => 10,
+    "Y_tot" => 50,
+    "LR_timescale" => 0.5,
+    "Y_timescale" => 0.25
 )
 
-const NODES = 6
-const PPN = 36
+const NODES = 5
+const PPN = 8
+const QUEUE = "highcpu"
 const NAME = "CHEMOTAXIS"
 
 function parse_commandline()
@@ -61,7 +67,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         """
 
     name = NAME
-    resources = `-l nodes=$NODES:ppn=$PPN:highcore,mem=$(NODES * PPN * 4)gb,walltime=$runtime`
+    resources = `-l nodes=$NODES:ppn=$PPN:$QUEUE,mem=$(NODES * PPN * 4)gb,walltime=$runtime`
 
     if job_before !== nothing
         dependency = `-W depend=afterok:$job_before`
@@ -69,7 +75,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         dependency = ``
     end
 
-    cmd = `qsub -q highcore -N $name $resources $dependency -j oe -o $out_dir`
+    cmd = `qsub -q $QUEUE -N $name $resources $dependency -j oe -o $out_dir`
 
     if dry_run
         println(cmd)

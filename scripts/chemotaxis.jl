@@ -1,6 +1,6 @@
 using DrWatson
 import JSON
-using Distributed
+using Logging
 
 f = ARGS[1]
 dict = JSON.parsefile(projectdir("_research", "tmp", f))
@@ -10,9 +10,23 @@ run_name = dict["run_name"]
 duration = dict["duration"]
 num_responses = dict["num_responses"]
 
-using HDF5
-using Logging
+mean_L = dict["mean_L"]
+num_receptors = dict["num_receptors"]
+Y_tot = dict["Y_tot"]
+LR_ratio = 0.5
+Y_ratio = 0.5
 
+LR_timescale = dict["LR_timescale"]
+Y_timescale = dict["Y_timescale"]
+
+mean_LR = num_receptors * LR_ratio
+mean_R = num_receptors - mean_LR
+
+mean_Yp = Y_tot * Y_ratio
+mean_Y = Y_tot - mean_Yp
+
+using HDF5
+using Distributed
 import Catalyst: @reaction_network
 
 @info "Loading GaussianMcmc"
@@ -24,27 +38,27 @@ using StaticArrays
 extra_kwargs = Dict{Symbol,Any}()
 
 sn = @reaction_network begin
-    κ, ∅ --> 2L
+    κ, ∅ --> L
     λ, L --> ∅
 end κ λ
 
 rn = @reaction_network begin
     ρ, L + R --> L + LR
     μ, LR --> R
-    ξ, R + CheY --> R + CheYp
-    ν, CheYp --> CheY
-end ρ μ ξ ν
+end ρ μ
 
 xn = @reaction_network begin
-    δ, CheYp --> CheYp + X
-    χ, X --> ∅
+    δ, LR + Y --> Yp + LR
+    χ, Yp --> Y
 end δ χ
 
-u0 = SA[10, 30, 0, 50, 0, 0]
+u0 = SA[mean_L, num_receptors, 0, Y_tot, 0]
 tspan = (0.0, duration)
-ps = [5.0, 1.0]
-pr = [1.0, 4.0, 1.0, 2.0]
-px = [1.0, 1.0]
+ps = [mean_L, 1.0]
+pr = [mean_LR / (LR_timescale * mean_R * mean_L), 1/LR_timescale]
+px = [mean_Yp / (Y_timescale * mean_Y * mean_LR), 1/Y_timescale]
+
+
 
 system = SRXsystem(sn, rn, xn, u0, ps, pr, px, tspan)
 algorithm = DirectMCEstimate(50_000)

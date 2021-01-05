@@ -2,7 +2,6 @@ using GaussianMcmc
 using Catalyst
 import Statistics: var
 import LinearAlgebra: I
-import Distributions: MvNormal, Poisson
 
 sn = @reaction_network begin
     κ, ∅ --> S
