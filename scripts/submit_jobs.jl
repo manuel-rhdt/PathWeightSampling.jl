@@ -22,7 +22,7 @@ my_args = Dict(
     "script" => "chemotaxis.jl",
     "run_name" => "2021-01-05",
     "num_responses" => 50_000,
-    "duration" => 2 .^ range(log2(0.1), log2(2.0), length=8),
+    "duration" => 2 .^ range(log2(0.5), log2(2.0), length=8),
     "mean_L" => 50,
     "num_receptors" => 10,
     "Y_tot" => 50,
