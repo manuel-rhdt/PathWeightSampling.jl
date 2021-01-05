@@ -55,15 +55,16 @@ end δ χ
 u0 = SA[mean_L, num_receptors, 0, Y_tot, 0]
 tspan = (0.0, duration)
 ps = [mean_L, 1.0]
-pr = [mean_LR / (LR_timescale * mean_R * mean_L), 1/LR_timescale]
-px = [mean_Yp / (Y_timescale * mean_Y * mean_LR), 1/Y_timescale]
+pr = [mean_LR / (LR_timescale * mean_R * mean_L), 1 / LR_timescale]
+px = [mean_Yp / (Y_timescale * mean_Y * mean_LR), 1 / Y_timescale]
 
 
 
 system = SRXsystem(sn, rn, xn, u0, ps, pr, px, tspan)
 algorithm = DirectMCEstimate(50_000)
 
-result = pmap(x -> mutual_information(system, algorithm; num_responses=20, extra_kwargs...), 1:div(num_responses, 20, RoundUp))
+batch_size = 10
+result = pmap(x -> mutual_information(system, algorithm; num_responses=batch_size, extra_kwargs...), 1:div(num_responses, batch_size, RoundUp))
 
 function reduce_results(res1, results...)
     new_res = typeof(res1)()
