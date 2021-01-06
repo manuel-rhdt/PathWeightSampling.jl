@@ -30,6 +30,15 @@ for i in eachindex(sol)
     @test sol[i] == traj_sol.u[i]
 end
 
+# test SSAIterator
+iterator = GaussianMcmc.SSAIter(init(jump_prob, SSAStepper()))
+collected_values = collect(iterator)
+times = getindex.(collected_values, 2)
+@test times[begin] == 0.0
+@test times[end] == 100.0
+@test issorted(times)
+@test allunique(times)
+
 traj2 = GaussianMcmc.Trajectory([0.5, 1.5, 2.5], [SA[1,4], SA[2,5], SA[3,6]])
 
 joint = merge(traj, traj2)

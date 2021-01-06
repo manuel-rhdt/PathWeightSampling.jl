@@ -8,13 +8,25 @@ end
 Base.IteratorSize(::Type{SSAIter{F,uType,tType,P,S,CB,SA,OPT,TS}}) where {F,uType,tType,P,S,CB,SA,OPT,TS} = Base.SizeUnknown()
 Base.eltype(::Type{SSAIter{F,uType,tType,P,S,CB,SA,OPT,TS}}) where {F,uType,tType,P,S,CB,SA,OPT,TS} = Tuple{uType, tType}
 
-function Base.iterate(iter::SSAIter, state=nothing)
+function Base.iterate(iter::SSAIter)
     integrator = iter.integrator
-    if (!integrator.keep_stepping) || (integrator.t >= integrator.tstop)
-        return nothing
-    end
-    step!(integrator)
     (integrator.u, integrator.t), nothing
+end
+
+function Base.iterate(iter::SSAIter, state::Nothing)
+    integrator = iter.integrator
+    if DiffEqJump.should_continue_solve(integrator)
+        step!(integrator)
+        return (integrator.u, integrator.t), nothing
+    end
+    
+    end_time = integrator.sol.prob.tspan[2]
+    if integrator.t < end_time
+        integrator.t = end_time
+        return (integrator.u, integrator.t), nothing
+    end
+
+    nothing
 end
 
 # An iterator over events (u, t) where t represents time and u the 
