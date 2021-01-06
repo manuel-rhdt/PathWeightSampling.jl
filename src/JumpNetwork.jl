@@ -69,13 +69,17 @@ function MarginalEnsemble(system::SRXsystem)
 
     MarginalEnsemble(jprob, distribution(system.xn), dep_idxs, system.px)
 end
-struct TrajectoryCallback
-    traj::Trajectory
+mutable struct TrajectoryCallback{uType, tType, N}
+    traj::Trajectory{uType, tType, N}
+    index::Int
 end
+
+TrajectoryCallback(traj::Trajectory) = TrajectoryCallback(traj, 1)
 
 function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
     traj = tc.traj
-    cond_u = traj(integrator.t)
+    cond_u = traj.u[tc.index]
+    tc.index = min(tc.index + 1, length(tc.traj.t))
     for i in eachindex(cond_u)
         integrator.u = setindex(integrator.u, cond_u[i], i)
     end
@@ -85,7 +89,10 @@ function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
 end
 
 function (tc::TrajectoryCallback)(u, t::Real, i::DiffEqBase.DEIntegrator)::Bool # condition
-    t ∈ tc.traj.t
+    while tc.index < length(tc.traj.t) && t > tc.traj.t[tc.index]
+        tc.index += 1
+    end
+    t == tc.traj.t[tc.index]
 end
 
 struct ConditionalEnsemble{JP,XD,IX,DX}

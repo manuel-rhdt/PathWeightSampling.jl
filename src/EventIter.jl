@@ -195,12 +195,11 @@ include("trajectories/trajectory.jl")
 
 function collect_trajectory(iter)
     ((u, t), state) = iterate(iter)
-    uType = SVector{length(u), eltype(u)}
-    traj = Trajectory([t], [uType(u)])
+    traj = Trajectory([t], [u])
 
     for (u, t) in Iterators.rest(iter, state)
         push!(traj.t, t)
-        push!(traj.u, uType(u))
+        push!(traj.u, u)
     end
 
     traj
