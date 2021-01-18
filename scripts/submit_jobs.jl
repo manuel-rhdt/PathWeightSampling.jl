@@ -20,17 +20,17 @@ using Dates
 
 my_args = Dict(
     "script" => "chemotaxis.jl",
-    "run_name" => "2021-01-18",
+    "run_name" => "2021-01-18_2",
     "num_responses" => 10_000,
-    "duration" => 2,
+    "duration" => 4,
     "mean_L" => 50,
     "num_receptors" => 10,
     "Y_tot" => 50,
-    "LR_timescale" => 0.5,
-    "Y_timescale" => 0.25
+    "LR_timescale" => [0.01, 0.1, 0.5],
+    "Y_timescale" => [0.01, 0.1, 0.5]
 )
 
-const NODES = 3
+const NODES = 1
 const PPN = 36
 const QUEUE = "highcore"
 const NAME = "CHEMOTAXIS"

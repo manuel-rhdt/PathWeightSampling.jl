@@ -40,7 +40,9 @@ function DrWatson._wsave(filename, result::Dict)
     end
 end
 
-filename = savename((@dict duration), "hdf5")
+save_dict = Dict("Duration" => duration, "TauLR" => LR_timescale, "TauY" => Y_timescale)
+
+filename = savename(save_dict, "hdf5")
 local_path = datadir("chemotaxis", run_name, filename)
 tagsave(local_path, merge(dict, result), storepatch=false)
 @info "Saved to" filename
