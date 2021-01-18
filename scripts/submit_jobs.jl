@@ -20,9 +20,9 @@ using Dates
 
 my_args = Dict(
     "script" => "chemotaxis.jl",
-    "run_name" => "2021-01-05",
-    "num_responses" => 50_000,
-    "duration" => 2 .^ range(log2(0.5), log2(2.0), length=8),
+    "run_name" => "2021-01-18",
+    "num_responses" => 10_000,
+    "duration" => 2,
     "mean_L" => 50,
     "num_receptors" => 10,
     "Y_tot" => 50,
@@ -30,9 +30,9 @@ my_args = Dict(
     "Y_timescale" => 0.25
 )
 
-const NODES = 5
-const PPN = 8
-const QUEUE = "highcpu"
+const NODES = 3
+const PPN = 36
+const QUEUE = "highcore"
 const NAME = "CHEMOTAXIS"
 
 function parse_commandline()
