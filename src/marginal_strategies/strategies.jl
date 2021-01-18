@@ -2,7 +2,11 @@ using DataFrames
 
 abstract type SimulationResult end
 
-logmeanexp(x) = log(mean(exp.(x .- maximum(x)))) + maximum(x)
+function _logmeanexp(x::AbstractArray)
+    x_max = maximum(x)
+    log(mean(xi -> exp(xi - x_max), x)) + x_max
+end
+logmeanexp(x::AbstractArray; dims=nothing) = if dims === nothing _logmeanexp(x) else mapslices(_logmeanexp, x, dims=dims) end
 
 include("ThermodynamicIntegration.jl")
 include("AIS.jl")
@@ -54,52 +58,41 @@ function conditional_entropy(system;  num_responses::Int=1)
     Dict("conditional_entropy" => DataFrame(Sample=[mean(result)], NumSamples=[num_responses]))
 end
 
-function mutual_information(system::SRXsystem, algorithm; num_responses::Integer=1, kwargs...)
+function mutual_information(system::SRXsystem, algorithm; num_responses::Integer=1, dtimes)
     # initialize the ensembles
     cond_ensemble = ConditionalEnsemble(system)
     marg_ensemble = MarginalEnsemble(system)
 
     # this is the outer Direct Monte-Carlo loop
-    stats, results = Base.invokelatest(_mi_inner, system, cond_ensemble, marg_ensemble, algorithm, num_responses; kwargs...)
-
-    cond_res = getindex.(results, 1)
-    marg_res = getindex.(results, 2)
+    result = Base.invokelatest(_mi_inner, system, cond_ensemble, marg_ensemble, algorithm, num_responses; kwargs...)
 
     Dict(
-        "mutual_information" => stats, 
-        "marginal_entropy_estimate" => summary(marg_res...),
-        "conditional_entropy_estimate" => summary(cond_res...)
+        "mutual_information" => result, 
     )
 end
 
-function _mi_inner(system::SRXsystem, cond_ensemble, marg_ensemble, algorithm, num_responses; kwargs...)
+function _mi_inner(system::SRXsystem, cond_ensemble, marg_ensemble, algorithm, num_responses, dtimes)
     stats = DataFrame(
-        MI=zeros(Float64, num_responses),
-        MarginalEntropy=zeros(Float64, num_responses),
-        ConditionalEntropy=zeros(Float64, num_responses),
         TimeConditional=zeros(Float64, num_responses), 
         TimeMarginal=zeros(Float64, num_responses), 
     )
 
-    result = map(1:num_responses) do i
+    mi = map(1:num_responses) do i
         # draw an independent sample
         initial = generate_configuration(system)
 
         # compute P(x|s) and P(x)
-        cond_result = @timed simulate(algorithm, initial, cond_ensemble; kwargs...)
-        marg_result = @timed simulate(algorithm, marginal_configuration(initial), marg_ensemble; kwargs...)
+        cond_result = @timed simulate(algorithm, initial, cond_ensemble, dtimes)
+        marg_result = @timed simulate(algorithm, marginal_configuration(initial), marg_ensemble, dtimes)
 
-
-        # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
-        stats.MI[i] = log_marginal(cond_result.value) - log_marginal(marg_result.value)
-
-        stats.MarginalEntropy[i] = log_marginal(marg_result.value)
-        stats.ConditionalEntropy[i] = log_marginal(cond_result.value)
         stats.TimeConditional[i] = cond_result.time
         stats.TimeMarginal[i] = marg_result.time
 
-        (cond_result.value, marg_result.value)
+        # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
+        log_marginal(cond_result.value) .- log_marginal(marg_result.value)
     end
 
-    stats, result
+    stats[:MutualInformation] = mi
+
+    stats
 end

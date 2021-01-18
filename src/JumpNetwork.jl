@@ -174,6 +174,20 @@ function sample(configuration::T, system::MarginalEnsemble; θ=0.0)::T where T<:
     SXconfiguration(s_traj, configuration.x_traj)
 end
 
+function collect_samples(initial::SXconfiguration, system::MarginalEnsemble, num_samples::Int, dtimes::AbstractVector)
+    jprob = system.jump_problem
+    integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
+
+    result = Array{Float64, 2}(undef, length(dtimes), num_samples)
+    for result_col ∈ eachcol(result)
+        integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
+        iter = sub_trajectory(SSAIter(integrator), system.dep_idxs)
+        cumulative_logpdf!(result_col, system.x_dist, merge_trajectories(iter, initial.x_traj), dtimes, params=system.xp)
+    end
+
+    result
+end
+
 function energy_difference(configuration::SXconfiguration, system::MarginalEnsemble)
     dep = sub_trajectory(configuration.s_traj, system.dep_idxs)
     -logpdf(system.x_dist, merge_trajectories(dep, configuration.x_traj), params=system.xp)
@@ -196,6 +210,24 @@ function sample(configuration::T, system::ConditionalEnsemble; θ=0.0)::T where 
 
     rtraj = collect_trajectory(sub_trajectory(iter, system.indep_idxs))
     SRXconfiguration(configuration.s_traj, rtraj, configuration.x_traj)
+end
+
+function collect_samples(initial::SRXconfiguration, system::ConditionalEnsemble, num_samples::Int, dtimes::AbstractVector)
+    cb = TrajectoryCallback(initial.s_traj)
+    cb = DiscreteCallback(cb, cb, save_positions=(false, false))
+    jprob = system.jump_problem
+
+    idxs = system.indep_idxs[system.dep_idxs]
+
+    result = Array{Float64, 2}(undef, length(dtimes), num_samples)
+    for result_col ∈ eachcol(result)
+        integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=initial.s_traj.t, numsteps_hint=0)
+        iter = SSAIter(integrator)
+        dep = sub_trajectory(iter, idxs)
+        cumulative_logpdf!(result_col, system.x_dist, merge_trajectories(dep, initial.x_traj), dtimes, params=system.xp)
+    end
+
+    result
 end
 
 function energy_difference(configuration::SRXconfiguration, system::ConditionalEnsemble)

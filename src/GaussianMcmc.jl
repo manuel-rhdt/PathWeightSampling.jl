@@ -8,6 +8,8 @@ include("JumpNetwork.jl")
 include("marginal_strategies/strategies.jl")
 include("write_hdf5.jl")
 
+include("example_systems.jl")
+
 export JumpSystem, 
     GaussianSystem, marginal_entropy, conditional_entropy, 
     TIEstimate, AnnealingEstimate, DirectMCEstimate,

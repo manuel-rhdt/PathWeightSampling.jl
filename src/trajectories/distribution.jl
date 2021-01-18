@@ -43,6 +43,53 @@ distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemica
     result
 end
 
+function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution{<:Tuple}, trajectory, times::AbstractVector; params=[])
+    ((uprev, tprev), state) = iterate(trajectory)
+    
+    j = 1
+    while j <= length(times) && tprev > times[j]
+        result[j] = 0.0
+        j += 1
+    end
+    result[j] = dist.log_p0(uprev...)::Float64
+
+    for (u, t) in Iterators.rest(trajectory, state)
+        du = u - uprev
+
+        totalrate = evaltotalrate(uprev, dist.reactions..., params=params)
+
+        while j <= length(times) && times[j] < t
+            result[j] -= (times[j] - tprev) * totalrate
+            tprev = times[j]
+            j += 1
+            if j <= length(times)
+                @inbounds result[j] = result[j - 1]
+            end
+        end
+
+        if j > length(times)
+            break
+        end    
+        
+        dt = t - tprev
+
+        reaction_rate = evalrxrate(uprev, du, dist.reactions..., params=params)
+        log_reaction_rate = log(reaction_rate)
+        result[j] += - dt * totalrate + log_reaction_rate
+
+        tprev = t
+        uprev = copy(u)
+    end
+
+    if length(result) > j
+        result[j+1:end] .= result[j]
+    end
+
+    result
+end
+
+cumulative_logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory, dtimes::AbstractVector; params=[]) = cumulative_logpdf!(empty(dtimes, Float64), dist, trajectory, times, params=params)
+
 function create_chemical_reactions(reaction_system::ReactionSystem)
     _create_chemical_reactions(reaction_system, Catalyst.reactions(reaction_system)...)
 end
@@ -89,11 +136,11 @@ end
     end
 end
 
-function evaltotalrate(speciesvec::AbstractVector, r1::ChemicalReaction; params=[])::Float64
+@inline @fastmath function evaltotalrate(speciesvec::AbstractVector, r1::ChemicalReaction; params=[])::Float64
     evalrxrate(speciesvec, r1, params)
 end
 
-function evaltotalrate(speciesvec::AbstractVector, r1::ChemicalReaction, rs::ChemicalReaction...; params=[])::Float64
+@inline @fastmath function evaltotalrate(speciesvec::AbstractVector, r1::ChemicalReaction, rs::ChemicalReaction...; params=[])::Float64
     evalrxrate(speciesvec, r1, params) + evaltotalrate(speciesvec, rs..., params=params)
 end
 
