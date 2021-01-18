@@ -62,6 +62,11 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
     jobscript = """
         export JULIA_PROJECT=$(projectdir())
 
+        # DEPOT=/dev/shm/julia_depot
+        # mkdir -p $DEPOT
+        # rsync -au ~/.julia/* $DEPOT
+        # export JULIA_DEPOT_PATH=$DEPOT:~/.julia
+
         julia -e "using InteractiveUtils; versioninfo(verbose=true)"
         julia $(projectdir("scripts", "run_cluster.jl")) $(filename) $(my_args["script"])
         """
