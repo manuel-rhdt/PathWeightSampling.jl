@@ -64,11 +64,9 @@ function mutual_information(system::SRXsystem, algorithm; num_responses::Integer
     marg_ensemble = MarginalEnsemble(system)
 
     # this is the outer Direct Monte-Carlo loop
-    result = Base.invokelatest(_mi_inner, system, cond_ensemble, marg_ensemble, algorithm, num_responses; kwargs...)
+    result = Base.invokelatest(_mi_inner, system, cond_ensemble, marg_ensemble, algorithm, num_responses, dtimes)
 
-    Dict(
-        "mutual_information" => result, 
-    )
+    result
 end
 
 function _mi_inner(system::SRXsystem, cond_ensemble, marg_ensemble, algorithm, num_responses, dtimes)
@@ -92,7 +90,7 @@ function _mi_inner(system::SRXsystem, cond_ensemble, marg_ensemble, algorithm, n
         log_marginal(cond_result.value) .- log_marginal(marg_result.value)
     end
 
-    stats[:MutualInformation] = mi
+    stats[!, :MutualInformation] = mi
 
     stats
 end

@@ -25,7 +25,7 @@ using HDF5
 using Logging
 
 @info "Loading GaussianMcmc"
-@everywhere using GaussianMcmc
+using GaussianMcmc
 
 if dict["algorithm"] == "thermodynamic_integration"
     algorithm = TIEstimate(1024, 6, 2^15)

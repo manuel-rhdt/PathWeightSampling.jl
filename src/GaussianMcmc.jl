@@ -10,6 +10,8 @@ include("write_hdf5.jl")
 
 include("example_systems.jl")
 
+include("ParallelRun.jl")
+
 export JumpSystem, 
     GaussianSystem, marginal_entropy, conditional_entropy, 
     TIEstimate, AnnealingEstimate, DirectMCEstimate,

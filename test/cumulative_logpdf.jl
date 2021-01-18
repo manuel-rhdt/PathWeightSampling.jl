@@ -1,35 +1,17 @@
-import GaussianMcmc: chemotaxis_system, ConditionalEnsemble, MarginalEnsemble, marginal_configuration, generate_configuration, collect_samples
+import GaussianMcmc: DirectMCEstimate, chemotaxis_system, ConditionalEnsemble, MarginalEnsemble, marginal_configuration, generate_configuration, collect_samples, mutual_information
 using Test
 using Statistics
 
 system = chemotaxis_system()
-cond_ens = ConditionalEnsemble(system)
-marg_ens = MarginalEnsemble(system)
-initial = generate_configuration(system)
+
+algorithm = DirectMCEstimate(1000)
 dtimes = collect(range(0.0, 2.0, length=51)[2:end])
+num_responses = 10
 
-function _logmeanexp(x::AbstractArray)
-    x_max = maximum(x)
-    log(mean(xi -> exp(xi - x_max), x)) + x_max
-end
-logmeanexp(x::AbstractArray; dims=nothing) = if dims === nothing _logmeanexp(x) else mapslices(_logmeanexp, x, dims=dims) end
+result = mutual_information(system, algorithm, num_responses=num_responses, dtimes=dtimes)
 
-collect_samples(initial, cond_ens, 10, dtimes)
-collect_samples(marginal_configuration(initial), marg_ens, 10, dtimes)
+mi = hcat(result.MutualInformation...)
 
-N = 10_000
-final = map(1:50) do i
-    ce = collect_samples(initial, cond_ens, N, dtimes)
-    ce = -logmeanexp(ce, dims=2)
-    me = collect_samples(marginal_configuration(initial), marg_ens, N, dtimes)
-    me = -logmeanexp(me, dims=2)
-    vec(me .- ce)
-end
-final = hcat(final...)
+@test all(isfinite.(mi))
 
-using Plots
- 
-plot(dtimes, mean(final, dims=2), ribbon=3*std(final, dims=2) ./ sqrt(100))
-
-@test all((mean(final, dims=2) + 3*std(final, dims=2) ./ sqrt(100)) .>= 0.0)
-
+mean(mi, dims=2)
