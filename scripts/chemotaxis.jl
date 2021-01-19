@@ -29,7 +29,7 @@ system = GaussianMcmc.chemotaxis_system(
 )
 
 algorithm = DirectMCEstimate(100_000)
-dtimes = collect(range(0.0, 2.0, length=51)[2:end])
+dtimes = collect((0.0:0.04:duration)[2:end])
 
 mi = GaussianMcmc.run_parallel(system, algorithm, num_responses, dtimes)
 result = Dict("Samples" => mi, "DiscreteTimes" => dtimes)
