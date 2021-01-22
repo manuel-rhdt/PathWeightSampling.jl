@@ -20,14 +20,14 @@ using Dates
 
 my_args = Dict(
     "script" => "chemotaxis.jl",
-    "run_name" => "2021-01-18_2",
-    "num_responses" => 10_000,
-    "duration" => 4,
+    "run_name" => "2021-01-22",
+    "num_responses" => 1_000,
+    "duration" => 2,
     "mean_L" => 50,
     "num_receptors" => 10,
     "Y_tot" => 50,
-    "LR_timescale" => [0.01, 0.1, 0.5],
-    "Y_timescale" => [0.01, 0.1, 0.5]
+    "LR_timescale" => [0.01, 0.1],
+    "Y_timescale" => [0.01, 0.1]
 )
 
 const NODES = 1
@@ -70,11 +70,11 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
     name = NAME
     resources = `-l nodes=$NODES:ppn=$PPN:$QUEUE,mem=$(NODES * PPN * 4)gb,walltime=$runtime`
 
-    if job_before !== nothing
-        dependency = `-W depend=afterok:$job_before`
-    else
+    # if job_before !== nothing
+    #     dependency = `-W depend=afterok:$job_before`
+    # else
         dependency = ``
-    end
+    # end
 
     cmd = `qsub -q $QUEUE -N $name $resources $dependency -j oe -o $out_dir`
 
@@ -96,7 +96,7 @@ end
 
 function estimate_runtime(dict)
     if dict["script"] == "chemotaxis.jl"
-        return 24 * 60 * 60
+        return 48 * 60 * 60
     end
 
     if dict["algorithm"] == "annealing"
