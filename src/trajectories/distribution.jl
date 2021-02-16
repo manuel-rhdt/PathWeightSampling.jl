@@ -31,10 +31,9 @@ distribution(rn::ReactionSystem, log_p0) = TrajectoryDistribution(create_chemica
 
         result -= dt * totalrate
         reaction_rate = evalrxrate(uprev, du, dist.reactions..., params=params)
-        if reaction_rate == zero(reaction_rate)
-            return -Inf
+        if reaction_rate != zero(reaction_rate)
+            result += log(reaction_rate)
         end
-        result += log(reaction_rate)
 
         tprev = t
         uprev = copy(u)
@@ -82,7 +81,7 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
     end
 
     if length(result) > j
-        result[j+1:end] .= result[j]
+        result[j + 1:end] .= result[j]
     end
 
     result

@@ -196,8 +196,9 @@ function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, tspan::Tup
     jprob = remake(ensemble.jump_problem, tspan=tspan)
     integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
 
-    iter = sub_trajectory(SSAIter(integrator), system.dep_idxs)
-    log_weight = logpdf(system.x_dist, merge_trajectories(iter, conf.x_traj), params=system.xp)
+    iter = sub_trajectory(SSAIter(integrator), ensemble.dep_idxs)
+
+    log_weight = logpdf(ensemble.x_dist, merge_trajectories(iter, conf.x_traj), params=ensemble.xp)
 
     integrator.u, log_weight
 end

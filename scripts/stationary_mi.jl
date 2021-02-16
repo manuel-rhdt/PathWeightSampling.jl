@@ -42,7 +42,7 @@ jump_problem = gen.joint_j_problem
 
 using Plots
 
-grid = vcat.(50.0:150.0, (50.0:150.0)')
+grid = vcat.(50.0:150.0, ( 50.0:150.0 )')
 val = map(x -> pdf(gen.p0_dist, x), grid)
 gr()
 heatmap(50.0:150.0, 50.0:150.0, val, c=:bilbao)
