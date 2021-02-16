@@ -95,25 +95,41 @@ Base.IteratorSize(::Type{MergeIter{T1,T2}}) where {T1,T2} = Base.SizeUnknown()
 function Base.iterate(iter::MergeIter)
     (u1, t1), state1 = iterate(iter.first)
     (u2, t2), state2 = iterate(iter.second)
-
-    u = vcat(u1, u2)
     
-    selector = t1 <= t2
-    t_soonest = selector ? t1 : t2
+    active_index = t1 <= t2
+    t_active = active_index ? t1 : t2
+    t_inactive = (!active_index) ? t1 : t2
 
     state = MergeState(
         state1, state2,
         u1, u2, u1, u2,
-        selector,
-        selector ? t2 : t1
+        active_index,
+        t_inactive
     )
 
-    new_event = execute_event!(t_soonest, state)
-    if t1 == t2
-        return iterate(iter, state)
+    while t_active <= t_inactive
+        new_event = execute_event!(t_active, state)
+        t_active = get_next_event!(iter, state)
     end
 
-    new_event, state
+    new_event = (vcat(state.u1, state.u2), state.t_inactive)
+
+    state.active_index = !state.active_index
+    state.t_inactive = t_active
+
+    new_event
+
+    # new_event = execute_event!(t_soonest, state)
+
+    # while new_event[2] <= t_last
+    #     (new_event, state) = iterate(iter, state)
+    # end
+
+    # if t1 == t2
+    #     return iterate(iter, state)
+    # end
+
+    # new_event, state
 end
 
 mutable struct MergeState{S1,S2,U1,U2,tType <: Real}
@@ -123,25 +139,25 @@ mutable struct MergeState{S1,S2,U1,U2,tType <: Real}
     u2::U2
     u1_next::U1
     u2_next::U2
-    selector::Bool
-    t_jump::tType
+    active_index::Bool
+    t_inactive::tType
 end
 
 function Base.iterate(iter::MergeIter, state::MergeState)
-    t = get_next_event!(iter, state)
+    t_active = get_next_event!(iter, state)
 
-    if t == state.t_jump == Inf
+    if t_active == Inf
         return nothing
     end
 
-    if t > state.t_jump
-        state.selector = !state.selector 
+    if t_active > state.t_inactive
+        state.active_index = !state.active_index 
         t_swap = t
-        t = state.t_jump
-        state.t_jump = t_swap
+        t = state.t_inactive
+        state.t_inactive = t_swap
     end
     new_event = execute_event!(t, state)
-    if state.t_jump == t
+    if state.t_inactive == t_active
         return iterate(iter, state)
     end
 
@@ -149,7 +165,7 @@ function Base.iterate(iter::MergeIter, state::MergeState)
 end
 
 function get_next_event!(iter::MergeIter, state::MergeState)
-    if state.selector
+    if state.active_index
         iter_result = iterate(iter.first, state.state1)
         if iter_result === nothing
             return Inf
@@ -171,7 +187,7 @@ function get_next_event!(iter::MergeIter, state::MergeState)
 end
 
 function execute_event!(t, state::MergeState)
-    if state.selector
+    if state.active_index
         state.u1 = state.u1_next
     else
         state.u2 = state.u2_next

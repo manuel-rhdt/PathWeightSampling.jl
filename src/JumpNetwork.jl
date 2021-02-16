@@ -14,10 +14,8 @@ struct SRXsystem
     tspan
 end
 
-function generate_configuration(system::SRXsystem)
-    # we first generate a joint SRX trajectory
+function _solve(system::SRXsystem)
     joint = merge(merge(system.sn, system.rn), system.xn)
-
     u0 = SVector(system.u0...)
 
     tspan = system.tspan
@@ -27,6 +25,12 @@ function generate_configuration(system::SRXsystem)
     jprob = JumpProblem(joint, dprob, Direct())
 
     sol = solve(jprob, SSAStepper())
+end
+
+function generate_configuration(system::SRXsystem)
+    # we first generate a joint SRX trajectory
+    joint = merge(merge(system.sn, system.rn), system.xn)
+    sol = _solve(system)
 
     # then we extract the signal
     s_spec = independent_species(system.sn)
@@ -186,6 +190,16 @@ function collect_samples(initial::SXconfiguration, system::MarginalEnsemble, num
     end
 
     result
+end
+
+function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, tspan::Tuple)
+    jprob = remake(ensemble.jump_problem, tspan=tspan)
+    integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
+
+    iter = sub_trajectory(SSAIter(integrator), system.dep_idxs)
+    log_weight = logpdf(system.x_dist, merge_trajectories(iter, conf.x_traj), params=system.xp)
+
+    integrator.u, log_weight
 end
 
 function energy_difference(configuration::SXconfiguration, system::MarginalEnsemble)

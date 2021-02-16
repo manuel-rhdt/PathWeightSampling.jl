@@ -74,7 +74,7 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
         dt = t - tprev
 
         reaction_rate = evalrxrate(uprev, du, dist.reactions..., params=params)
-        log_reaction_rate = log(reaction_rate)
+        log_reaction_rate = reaction_rate == 0 ? zero(reaction_rate) : log(reaction_rate)
         result[j] += - dt * totalrate + log_reaction_rate
 
         tprev = t
@@ -125,12 +125,12 @@ end
 end
 
 @inline function evalrxrate(speciesvec::AbstractVector, du::AbstractVector; params=[])::Float64
-    1.0 # return 1.0 in this case since log(1) = 0.
+    0.0
 end
 
 @inline @fastmath function evalrxrate(speciesvec::AbstractVector, du::AbstractVector, r1::ChemicalReaction, rs::ChemicalReaction...; params=[])::Float64
     if du == r1.netstoich
-        return evalrxrate(speciesvec, r1, params)
+        return evalrxrate(speciesvec, r1, params) + evalrxrate(speciesvec, du, rs..., params=params)
     else
         return evalrxrate(speciesvec, du, rs..., params=params)
     end

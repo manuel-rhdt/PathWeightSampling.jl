@@ -9,7 +9,7 @@ sn = @reaction_network begin
 end κ λ
 
 rn = @reaction_network begin
-    ρ, L + R --> L + LR
+    ρ*L, R --> LR
     μ, LR --> R
     ξ, R + CheY --> R + CheYp
     ν, CheYp --> CheY

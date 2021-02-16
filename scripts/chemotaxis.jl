@@ -28,7 +28,7 @@ system = GaussianMcmc.chemotaxis_system(
     duration = duration
 )
 
-algorithm = DirectMCEstimate(1_000_000)
+algorithm = DirectMCEstimate(1_000)
 dtimes = collect((0.0:0.04:duration)[2:end])
 
 mi = GaussianMcmc.run_parallel(system, algorithm, num_responses, dtimes)
