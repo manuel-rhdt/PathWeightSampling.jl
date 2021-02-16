@@ -3,9 +3,9 @@ using Test
 using StaticArrays
 
 num_samples = 10000
-rand_u = [SVector{2}(rand([0, 1], 2)) for i=1:num_samples-1]
+rand_u = [SVector{2}(rand([0, 1], 2)) for i = 1:num_samples - 1]
 push!(rand_u, rand_u[end])
-rand_t = vcat(0.0, cumsum(-log.(rand(num_samples-1))))
+rand_t = vcat(0.0, cumsum(-log.(rand(num_samples - 1))))
 iter = zip(rand_u, rand_t)
 all_events = collect(iter)
 
@@ -15,8 +15,8 @@ for elem in thinned
 end
 
 thinned_events = [x for x in thinned]
-for i in 1:length(thinned_events)-2
-    @test thinned_events[i][1] != thinned_events[i+1][1]
+for i in 1:length(thinned_events) - 2
+    @test thinned_events[i][1] != thinned_events[i + 1][1]
 end
 
 @test thinned_events[end] == all_events[end]
@@ -24,4 +24,11 @@ end
 sub1 = sub_trajectory(iter, SA[1])
 sub2 = sub_trajectory(iter, SA[2])
 merg = merge_trajectories(sub1, sub2)
+
 @test collect(merg) == thinned_events
+
+# test that merged trajectories time spans are defined by the overlaps of the individual trajectory timespans
+sub1_trim  = collect(sub_trajectory(iter, SA[1]))[100:110]
+merg_trim = collect(merge_trajectories(sub1_trim, sub2))
+@test merg_trim[begin][2] == sub1_trim[begin][2]
+@test merg_trim[end][2] == sub1_trim[end][2]
