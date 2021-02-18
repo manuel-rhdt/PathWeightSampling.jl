@@ -1,6 +1,6 @@
 using RecipesBase
 using DiffEqBase
-import StaticArrays: SVector
+import StaticArrays:SVector
 
 abstract type AbstractTrajectory{uType,tType,N} end
 
@@ -51,6 +51,23 @@ function clip!(t::Trajectory, time::Real)
     resize!(t.u, index)
     t.t[index] = time
     t
+end
+
+function get_slice(t::Trajectory, tspan::Tuple{<:Real,<:Real})
+    i1 = searchsortedfirst(t.t, tspan[1])
+    i2 = searchsortedfirst(t.t, tspan[2])
+
+    new_t = similar(t.t, i2 - i1 + 3)
+    new_t[begin] = tspan[1]
+    new_t[end] = tspan[2]
+    new_t[begin + 1:end - 1] .= t.t[i1:i2]
+
+    new_u = similar(t.u, i2 - i1 + 3)
+    new_u[begin] = t.u[i1]
+    new_u[end] = t.u[i2]
+    new_u[begin + 1:end - 1] .= t.u[i1:i2]
+
+    Trajectory(new_t, new_u)
 end
 
 function get_u(sol::ODESolution{T,N,Vector{SVector{M,T}}}) where {T,N,M}

@@ -59,7 +59,7 @@ function conditional_entropy(system;  num_responses::Int=1)
     Dict("conditional_entropy" => DataFrame(Sample=[mean(result)], NumSamples=[num_responses]))
 end
 
-function mutual_information(system::SRXsystem, algorithm; num_responses::Integer=1)
+function mutual_information(system, algorithm; num_responses::Integer=1)
     # initialize the ensembles
     cond_ensemble = ConditionalEnsemble(system)
     marg_ensemble = MarginalEnsemble(system)
@@ -70,7 +70,7 @@ function mutual_information(system::SRXsystem, algorithm; num_responses::Integer
     result
 end
 
-function _mi_inner(system::SRXsystem, cond_ensemble, marg_ensemble, algorithm, num_responses)
+function _mi_inner(system, cond_ensemble, marg_ensemble, algorithm, num_responses)
     stats = DataFrame(
         TimeConditional=zeros(Float64, num_responses), 
         TimeMarginal=zeros(Float64, num_responses), 

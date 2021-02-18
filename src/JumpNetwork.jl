@@ -1,4 +1,4 @@
-import Distributions: logpdf
+import Distributions:logpdf
 
 struct SRXsystem
     sn::ReactionSystem
@@ -76,8 +76,8 @@ function MarginalEnsemble(system::SRXsystem)
 
     MarginalEnsemble(jprob, distribution(system.xn), dep_idxs, system.px, collect(system.dtimes))
 end
-mutable struct TrajectoryCallback{uType, tType, N}
-    traj::Trajectory{uType, tType, N}
+mutable struct TrajectoryCallback{uType,tType,N}
+    traj::Trajectory{uType,tType,N}
     index::Int
 end
 
@@ -171,7 +171,7 @@ struct SXconfiguration{uType,tType,Ns,Nx}
     x_traj::Trajectory{uType,tType,Nx}
 end
 
-function sample(configuration::T, system::MarginalEnsemble; θ=0.0)::T where T<:SXconfiguration
+function sample(configuration::T, system::MarginalEnsemble; θ=0.0)::T where T <: SXconfiguration
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
@@ -186,7 +186,7 @@ function collect_samples(initial::SXconfiguration, system::MarginalEnsemble, num
     jprob = system.jump_problem
     integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
 
-    result = Array{Float64, 2}(undef, length(dtimes), num_samples)
+    result = Array{Float64,2}(undef, length(system.dtimes), num_samples)
     for result_col ∈ eachcol(result)
         integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
         iter = sub_trajectory(SSAIter(integrator), system.dep_idxs)
@@ -217,7 +217,7 @@ struct SRXconfiguration{uType,tType,Ns,Nr,Nx}
     x_traj::Trajectory{uType,tType,Nx}
 end
 
-function sample(configuration::T, system::ConditionalEnsemble; θ=0.0)::T where T<:SRXconfiguration
+function sample(configuration::T, system::ConditionalEnsemble; θ=0.0)::T where T <: SRXconfiguration
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
@@ -238,7 +238,7 @@ function collect_samples(initial::SRXconfiguration, system::ConditionalEnsemble,
 
     idxs = system.indep_idxs[system.dep_idxs]
 
-    result = Array{Float64, 2}(undef, length(dtimes), num_samples)
+    result = Array{Float64,2}(undef, length(system.dtimes), num_samples)
     for result_col ∈ eachcol(result)
         integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=initial.s_traj.t, numsteps_hint=0)
         iter = SSAIter(integrator)
@@ -249,11 +249,17 @@ function collect_samples(initial::SRXconfiguration, system::ConditionalEnsemble,
     result
 end
 
+function simulate(algorithm::DirectMCEstimate, initial::Union{SXconfiguration,SRXconfiguration}, system)
+    samples = collect_samples(initial, system, algorithm.num_samples)
+    DirectMCResult(samples)
+end
+
 function propagate(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
-    cb = TrajectoryCallback(conf.s_traj)
+    s_traj = get_slice(conf.s_traj, tspan)
+    cb = TrajectoryCallback(s_traj)
     cb = DiscreteCallback(cb, cb, save_positions=(false, false))
     jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
-    integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=conf.s_traj.t, numsteps_hint=0)
+    integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=s_traj.t, numsteps_hint=0)
 
     idxs = ensemble.indep_idxs[ensemble.dep_idxs]
     iter = sub_trajectory(SSAIter(integrator), idxs)

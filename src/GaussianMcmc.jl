@@ -2,10 +2,10 @@ module GaussianMcmc
 
 include("EventIter.jl")
 include("MetropolisSampler.jl")
+include("marginal_strategies/strategies.jl")
 include("GaussianSystem.jl")
 include("JumpSystem.jl")
 include("JumpNetwork.jl")
-include("marginal_strategies/strategies.jl")
 include("write_hdf5.jl")
 
 include("example_systems.jl")
