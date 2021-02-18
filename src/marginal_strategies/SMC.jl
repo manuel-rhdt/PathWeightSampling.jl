@@ -1,4 +1,4 @@
-using StatsBase
+import StatsBase
 
 mutable struct JumpParticle{uType}
     u::uType
@@ -21,7 +21,7 @@ function new_particle(parent, setup)
 end
 
 function propagate!(p::JumpParticle, tspan::Tuple{T,T}, setup) where T
-    u_end, weight = propagate(setup.configuration, setup.ensemble, tspan)
+    u_end, weight = propagate(setup.configuration, setup.ensemble, p.u, tspan)
     p.u = u_end
     p.weight += weight
     p
@@ -44,7 +44,7 @@ function sample(nparticles, dtimes, setup)
         end
 
         # sample parent indices
-        prob_weights = fweights(exp.(weights[:,i] .- maximum(weights[:,i])))
+        prob_weights = StatsBase.fweights(exp.(weights[:,i] .- maximum(weights[:,i])))
         parent_indices = StatsBase.sample(particle_indices, prob_weights, nparticles)
 
         particle_bag = map(parent_indices) do i
@@ -55,15 +55,21 @@ function sample(nparticles, dtimes, setup)
     weights
 end
 
-import GaussianMcmc: MarginalEnsemble, marginal_configuration, generate_configuration, chemotaxis_system, propagate
-system = chemotaxis_system()
-conf = marginal_configuration(generate_configuration(system))
-ens = MarginalEnsemble(system)
 
-setup = Setup(conf, ens)
-p = new_particle(setup)
-propagate!(p, (0.5, 1.0), setup)
+struct SMCEstimate
+    num_particles::Int
+end
 
-propagate(conf, ens, (0.5, 0.6))
+name(x::SMCEstimate) = "SMC"
 
-sample(50, 0.0:0.1:2.0, setup)
+struct SMCResult <: SimulationResult
+    samples::Matrix{Float64}
+end
+
+log_marginal(result::SMCResult) = cumsum(vec(logmeanexp(result.samples, dims=1)))
+
+function simulate(algorithm::SMCEstimate, initial, system)
+    setup = Setup(initial, system)
+    weights = sample(algorithm.num_particles, system.dtimes, setup)
+    SMCResult(weights)
+end

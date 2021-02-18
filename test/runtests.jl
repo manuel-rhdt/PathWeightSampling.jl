@@ -7,3 +7,4 @@ using Test
 @testset "Annealing" begin include("annealing.jl") end
 @testset "Gaussian" begin include("gaussian.jl") end
 @testset "SRXsystem" begin include("SRXsystem.jl") end
+@testset "SMCEstimate" begin include("SMCEstimate.jl") end

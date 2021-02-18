@@ -11,16 +11,18 @@ struct SRXsystem
     pr::AbstractVector
     px::AbstractVector
 
-    tspan
+    dtimes
 end
+
+tspan(sys::SRXsystem) = (first(sys.dtimes), last(sys.dtimes))
 
 function _solve(system::SRXsystem)
     joint = merge(merge(system.sn, system.rn), system.xn)
     u0 = SVector(system.u0...)
 
-    tspan = system.tspan
+    tp = tspan(system)
     p = vcat(system.ps, system.pr, system.px)
-    dprob = DiscreteProblem(joint, u0, tspan, p)
+    dprob = DiscreteProblem(joint, u0, tp, p)
     dprob = remake(dprob, u0=u0)
     jprob = JumpProblem(joint, dprob, Direct())
 
@@ -55,6 +57,7 @@ struct MarginalEnsemble{JP,XD,DX}
     x_dist::XD
     dep_idxs::DX
     xp::Vector{Float64}
+    dtimes::Vector{Float64}
 end
 
 function MarginalEnsemble(system::SRXsystem)
@@ -62,7 +65,7 @@ function MarginalEnsemble(system::SRXsystem)
     joint = merge(sr_network, system.xn)
     sr_idxs = species_indices(joint, Catalyst.species(sr_network)...)
 
-    dprob = DiscreteProblem(sr_network, system.u0[sr_idxs], system.tspan, vcat(system.ps, system.pr))
+    dprob = DiscreteProblem(sr_network, system.u0[sr_idxs], tspan(system), vcat(system.ps, system.pr))
     # we have to remake the discrete problem with u0 as StaticArray for 
     # improved performance
     dprob = remake(dprob, u0=SVector(dprob.u0...))
@@ -71,7 +74,7 @@ function MarginalEnsemble(system::SRXsystem)
     dep_species = dependent_species(system.xn)
     dep_idxs = species_indices(sr_network, dep_species...)
 
-    MarginalEnsemble(jprob, distribution(system.xn), dep_idxs, system.px)
+    MarginalEnsemble(jprob, distribution(system.xn), dep_idxs, system.px, collect(system.dtimes))
 end
 mutable struct TrajectoryCallback{uType, tType, N}
     traj::Trajectory{uType, tType, N}
@@ -105,6 +108,7 @@ struct ConditionalEnsemble{JP,XD,IX,DX}
     indep_idxs::IX
     dep_idxs::DX
     xp::Vector{Float64}
+    dtimes::Vector{Float64}
 end
 
 function ConditionalEnsemble(
@@ -113,9 +117,9 @@ function ConditionalEnsemble(
     u0,
     rp::Vector{Float64},
     xp::Vector{Float64},
-    tspan
+    dtimes
 )
-    dprob = DiscreteProblem(rn, u0, tspan, rp)
+    dprob = DiscreteProblem(rn, u0, (first(dtimes), last(dtimes)), rp)
     # we have to remake the discrete problem with u0 as StaticArray for 
     # improved performance
     dprob = remake(dprob, u0=SVector(dprob.u0...))
@@ -127,13 +131,13 @@ function ConditionalEnsemble(
     dep_species = dependent_species(xn)
     dep_idxs = SVector(indexin(species_indices(rn, dep_species...), indep_idxs))
 
-    ConditionalEnsemble(jprob, distribution(xn), indep_idxs, dep_idxs, xp)
+    ConditionalEnsemble(jprob, distribution(xn), indep_idxs, dep_idxs, xp, collect(dtimes))
 end
 
 function ConditionalEnsemble(system::SRXsystem)
     joint = merge(merge(system.sn, system.rn), system.xn)
     r_idxs = species_indices(joint, Catalyst.species(system.rn)...)
-    ConditionalEnsemble(system.rn, system.xn, system.u0[r_idxs], system.pr, system.px, system.tspan)
+    ConditionalEnsemble(system.rn, system.xn, system.u0[r_idxs], system.pr, system.px, system.dtimes)
 end
 
 # returns a list of species in `a` that also occur in `b`
@@ -178,7 +182,7 @@ function sample(configuration::T, system::MarginalEnsemble; θ=0.0)::T where T<:
     SXconfiguration(s_traj, configuration.x_traj)
 end
 
-function collect_samples(initial::SXconfiguration, system::MarginalEnsemble, num_samples::Int, dtimes::AbstractVector)
+function collect_samples(initial::SXconfiguration, system::MarginalEnsemble, num_samples::Int)
     jprob = system.jump_problem
     integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
 
@@ -186,14 +190,14 @@ function collect_samples(initial::SXconfiguration, system::MarginalEnsemble, num
     for result_col ∈ eachcol(result)
         integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
         iter = sub_trajectory(SSAIter(integrator), system.dep_idxs)
-        cumulative_logpdf!(result_col, system.x_dist, merge_trajectories(iter, initial.x_traj), dtimes, params=system.xp)
+        cumulative_logpdf!(result_col, system.x_dist, merge_trajectories(iter, initial.x_traj), system.dtimes, params=system.xp)
     end
 
     result
 end
 
-function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, tspan::Tuple)
-    jprob = remake(ensemble.jump_problem, tspan=tspan)
+function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan::Tuple)
+    jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
     integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
 
     iter = sub_trajectory(SSAIter(integrator), ensemble.dep_idxs)
@@ -227,7 +231,7 @@ function sample(configuration::T, system::ConditionalEnsemble; θ=0.0)::T where 
     SRXconfiguration(configuration.s_traj, rtraj, configuration.x_traj)
 end
 
-function collect_samples(initial::SRXconfiguration, system::ConditionalEnsemble, num_samples::Int, dtimes::AbstractVector)
+function collect_samples(initial::SRXconfiguration, system::ConditionalEnsemble, num_samples::Int)
     cb = TrajectoryCallback(initial.s_traj)
     cb = DiscreteCallback(cb, cb, save_positions=(false, false))
     jprob = system.jump_problem
@@ -239,10 +243,24 @@ function collect_samples(initial::SRXconfiguration, system::ConditionalEnsemble,
         integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=initial.s_traj.t, numsteps_hint=0)
         iter = SSAIter(integrator)
         dep = sub_trajectory(iter, idxs)
-        cumulative_logpdf!(result_col, system.x_dist, merge_trajectories(dep, initial.x_traj), dtimes, params=system.xp)
+        cumulative_logpdf!(result_col, system.x_dist, merge_trajectories(dep, initial.x_traj), system.dtimes, params=system.xp)
     end
 
     result
+end
+
+function propagate(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
+    cb = TrajectoryCallback(conf.s_traj)
+    cb = DiscreteCallback(cb, cb, save_positions=(false, false))
+    jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
+    integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=conf.s_traj.t, numsteps_hint=0)
+
+    idxs = ensemble.indep_idxs[ensemble.dep_idxs]
+    iter = sub_trajectory(SSAIter(integrator), idxs)
+
+    log_weight = logpdf(ensemble.x_dist, merge_trajectories(iter, conf.x_traj), params=ensemble.xp)
+
+    integrator.u, log_weight
 end
 
 function energy_difference(configuration::SRXconfiguration, system::ConditionalEnsemble)

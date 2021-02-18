@@ -11,6 +11,7 @@ logmeanexp(x::AbstractArray; dims=nothing) = if dims === nothing _logmeanexp(x) 
 include("ThermodynamicIntegration.jl")
 include("AIS.jl")
 include("DirectMC.jl")
+include("SMC.jl")
 
 function marginal_entropy(
     system;
@@ -58,18 +59,18 @@ function conditional_entropy(system;  num_responses::Int=1)
     Dict("conditional_entropy" => DataFrame(Sample=[mean(result)], NumSamples=[num_responses]))
 end
 
-function mutual_information(system::SRXsystem, algorithm; num_responses::Integer=1, dtimes)
+function mutual_information(system::SRXsystem, algorithm; num_responses::Integer=1)
     # initialize the ensembles
     cond_ensemble = ConditionalEnsemble(system)
     marg_ensemble = MarginalEnsemble(system)
 
     # this is the outer Direct Monte-Carlo loop
-    result = Base.invokelatest(_mi_inner, system, cond_ensemble, marg_ensemble, algorithm, num_responses, dtimes)
+    result = Base.invokelatest(_mi_inner, system, cond_ensemble, marg_ensemble, algorithm, num_responses)
 
     result
 end
 
-function _mi_inner(system::SRXsystem, cond_ensemble, marg_ensemble, algorithm, num_responses, dtimes)
+function _mi_inner(system::SRXsystem, cond_ensemble, marg_ensemble, algorithm, num_responses)
     stats = DataFrame(
         TimeConditional=zeros(Float64, num_responses), 
         TimeMarginal=zeros(Float64, num_responses), 
@@ -80,8 +81,8 @@ function _mi_inner(system::SRXsystem, cond_ensemble, marg_ensemble, algorithm, n
         initial = generate_configuration(system)
 
         # compute P(x|s) and P(x)
-        cond_result = @timed simulate(algorithm, initial, cond_ensemble, dtimes)
-        marg_result = @timed simulate(algorithm, marginal_configuration(initial), marg_ensemble, dtimes)
+        cond_result = @timed simulate(algorithm, initial, cond_ensemble)
+        marg_result = @timed simulate(algorithm, marginal_configuration(initial), marg_ensemble)
 
         stats.TimeConditional[i] = cond_result.time
         stats.TimeMarginal[i] = marg_result.time
