@@ -3,15 +3,15 @@ import StatsBase
 mutable struct JumpParticle{uType}
     u::uType
     weight::Float64
-end
 
-function new_particle{JumpParticle}(setup)
-    u = setup.ensemble.jump_problem.prob.u0
-    JumpParticle(u, 0.0, nothing)
-end
+    function JumpParticle(setup)
+        u = setup.ensemble.jump_problem.prob.u0
+        new{typeof(u)}(u, 0.0)
+    end
 
-function new_particle{JumpParticle}(parent, setup)
-    JumpParticle(parent.u, 0.0, parent)
+    function JumpParticle(parent, setup)
+        new{typeof(parent.u)}(parent.u, 0.0)
+    end
 end
 
 function propagate!(p::JumpParticle, tspan::Tuple{T,T}, setup) where T
@@ -25,20 +25,20 @@ mutable struct JumpParticleSlow{uType}
     u::uType
     weight::Float64
     parent::Union{JumpParticle{uType},Nothing}
+
+    function JumpParticleSlow(setup)
+        u = setup.ensemble.jump_problem.prob.u0
+        new{typeof(u)}(u, 0.0, nothing)
+    end
+
+    function JumpParticleSlow(parent, setup)
+        new{typeof(u)}(parent.u, 0.0, parent)
+    end
 end
 
 struct Setup{Configuration,Ensemble}
     configuration::Configuration
     ensemble::Ensemble
-end
-
-function new_particle{JumpParticleSlow}(setup)
-    u = setup.ensemble.jump_problem.prob.u0
-    JumpParticle(u, 0.0, nothing)
-end
-
-function new_particle{JumpParticleSlow}(parent, setup)
-    JumpParticle(parent.u, 0.0, parent)
 end
 
 function propagate!(p::JumpParticleSlow, tspan::Tuple{T,T}, setup) where T
@@ -48,10 +48,11 @@ function propagate!(p::JumpParticleSlow, tspan::Tuple{T,T}, setup) where T
     p
 end
 
+weight(p::JumpParticle) = p.weight
 weight(p::JumpParticleSlow) = p.weight
 
-function sample(nparticles, dtimes, setup; inspect=Base.identity, ptype=JumpParticle)
-    particle_bag = [new_particle{ptype}(setup) for i = 1:nparticles]
+function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=JumpParticle)
+    particle_bag = [new_particle(setup) for i = 1:nparticles]
     weights = zeros(nparticles, length(dtimes))
     particle_indices = collect(1:nparticles)
     for (i, tspan) in enumerate(zip(dtimes[begin:end - 1], dtimes[begin + 1:end]))
