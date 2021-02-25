@@ -11,6 +11,20 @@ struct SXsystem <: JumpNetwork
     px::AbstractVector
 
     dtimes
+
+    jump_problem
+end
+
+function SXsystem(sn, xn, u0, ps, px, dtimes)
+    joint = merge(sn, xn)
+
+    tp = (first(dtimes), last(dtimes))
+    p = vcat(ps, px)
+    dprob = DiscreteProblem(joint, u0, tp, p)
+    dprob = remake(dprob, u0=u0)
+    jprob = JumpProblem(joint, dprob, Direct())
+
+    SXsystem(sn, xn, u0, ps, px, dtimes, jprob)
 end
 
 struct SRXsystem <: JumpNetwork
@@ -25,6 +39,20 @@ struct SRXsystem <: JumpNetwork
     px::AbstractVector
 
     dtimes
+
+    jump_problem
+end
+
+function SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=Direct())
+    joint = merge(merge(sn, rn), xn)
+
+    tp = (first(dtimes), last(dtimes))
+    p = vcat(ps, pr, px)
+    dprob = DiscreteProblem(joint, u0, tp, p)
+    dprob = remake(dprob, u0=u0)
+    jprob = JumpProblem(joint, dprob, aggregator)
+
+    SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob)
 end
 
 tspan(sys::JumpNetwork) = (first(sys.dtimes), last(sys.dtimes))
@@ -33,16 +61,7 @@ reaction_network(system::SXsystem) = merge(system.sn, system.xn)
 reaction_network(system::SRXsystem) = merge(merge(system.sn, system.rn), system.xn)
 
 function _solve(system::SXsystem)
-    joint = reaction_network(system)
-    u0 = system.u0
-
-    tp = tspan(system)
-    p = vcat(system.ps, system.px)
-    dprob = DiscreteProblem(joint, u0, tp, p)
-    dprob = remake(dprob, u0=u0)
-    jprob = JumpProblem(joint, dprob, Direct())
-
-    sol = solve(jprob, SSAStepper())
+    sol = solve(system.jump_problem, SSAStepper())
 end
 
 function generate_configuration(system::SXsystem)
@@ -61,21 +80,12 @@ function generate_configuration(system::SXsystem)
 end
 
 function _solve(system::SRXsystem)
-    joint = merge(merge(system.sn, system.rn), system.xn)
-    u0 = system.u0
-
-    tp = tspan(system)
-    p = vcat(system.ps, system.pr, system.px)
-    dprob = DiscreteProblem(joint, u0, tp, p)
-    dprob = remake(dprob, u0=u0)
-    jprob = JumpProblem(joint, dprob, Direct())
-
-    sol = solve(jprob, SSAStepper())
+    sol = solve(system.jump_problem, SSAStepper())
 end
 
 function generate_configuration(system::SRXsystem)
     # we first generate a joint SRX trajectory
-    joint = merge(merge(system.sn, system.rn), system.xn)
+    joint = reaction_network(system)
     sol = _solve(system)
 
     # then we extract the signal

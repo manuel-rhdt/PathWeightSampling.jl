@@ -57,15 +57,21 @@ end
 import Catalyst
 using ModelingToolkit
 
-function cooperative_chemotaxis_system()
-    lmax = 2
-    mmax = 3
+function cooperative_chemotaxis_system(;
+    lmax = 4,
+    mmax = 9,
 
-    k_on = 5
-    k_off = 5
-    km = 5
-    kdm = 5
+    k_on = 5,
+    k_off = 5,
+    km = 5,
+    kdm = 5,
 
+    delta_e = -1,
+    delta_g = 2,
+    delta_f = -1,
+
+    mean_s = 50
+)
     sn = @reaction_network begin
         κ, ∅ --> L
         λ, L --> ∅
@@ -79,8 +85,8 @@ function cooperative_chemotaxis_system()
     Catalyst.addspecies!(rn, L)
 
     xn = @reaction_network begin
-        (χ, χb), Yp ↔ Y
-    end χ χb
+        χ, Yp --> Y
+    end χ
 
     spmap = Dict()
     for l=0:lmax, m=0:mmax
@@ -97,9 +103,9 @@ function cooperative_chemotaxis_system()
 
     for l=0:lmax, m=0:mmax
         if l > 0
-            ligand_bind_active = Catalyst.Reaction(k_on * L * (lmax + 1 - l), [spmap[(l-1, m, :active)]], [spmap[(l, m, :active)]])
+            ligand_bind_active = Catalyst.Reaction(k_on * (lmax + 1 - l), [spmap[(l-1, m, :active)], L], [spmap[(l, m, :active)], L])
             ligand_unbind_active = Catalyst.Reaction(k_off * l, [spmap[(l, m, :active)]], [spmap[(l-1, m, :active)]])
-            ligand_bind_inactive = Catalyst.Reaction(k_on * L * (lmax + 1 - l), [spmap[(l-1, m, :inactive)]], [spmap[(l, m, :inactive)]])
+            ligand_bind_inactive = Catalyst.Reaction(k_on * (lmax + 1 - l), [spmap[(l-1, m, :inactive)], L], [spmap[(l, m, :inactive)], L])
             ligand_unbind_inactive = Catalyst.Reaction(k_off * l, [spmap[(l, m, :inactive)]], [spmap[(l-1, m, :inactive)]])
 
             Catalyst.addreaction!(rn, ligand_bind_active)
@@ -120,29 +126,30 @@ function cooperative_chemotaxis_system()
             Catalyst.addreaction!(rn, demethylate_inactive)
         end
 
-        switch_active = Catalyst.Reaction(10, [spmap[(l, m, :inactive)]], [spmap[(l, m, :active)]])
-        switch_inactive = Catalyst.Reaction(10, [spmap[(l, m, :active)]], [spmap[(l, m, :inactive)]])
+        switch_active = Catalyst.Reaction(exp(-delta_e-l*delta_g-m*delta_f), [spmap[(l, m, :inactive)]], [spmap[(l, m, :active)]])
+        switch_inactive = Catalyst.Reaction(1, [spmap[(l, m, :active)]], [spmap[(l, m, :inactive)]])
         Catalyst.addreaction!(rn, switch_active)
         Catalyst.addreaction!(rn, switch_inactive)
 
-        phosphorylate = Catalyst.Reaction(spmap[(l, m, :active)], [Y], [Yp])
+        active_spec = spmap[(l, m, :inactive)]
+        phosphorylate = Catalyst.Reaction(5e-2, [Y, active_spec], [Yp, active_spec])
         Catalyst.addreaction!(xn, phosphorylate)
     end
 
+    joint = merge(merge(sn, rn), xn)
+
     u0 = zeros(length(spmap) + 3)
-    u0[1] = 20
-    u0[Catalyst.speciesmap(rn)[spmap[(0, 0, :inactive)]]] = 100
+    u0[1] = round(Int, mean_s)
+    u0[Catalyst.speciesmap(joint)[spmap[(0, 0, :inactive)]]] = 100
+    u0[Catalyst.speciesmap(joint)[Y]] = 10000
 
-    ps = [20.0, 1.0]
+    ps = [mean_s, 1.0]
     pr = []
-    px = [1.0, 0.1]
-    dtimes = 0:0.1:2
+    px = [2.0]
+    dtimes = 0:0.1:20.0
 
-    SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes)
+    SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=DiffEqJump.DirectCR())
 end
-
-system = cooperative_chemotaxis_system()
-joint_n = reaction_network(system)
 
 function active_indices(rs, firstletter = "A")
     smap = Catalyst.speciesmap(rs)
@@ -157,15 +164,18 @@ function active_indices(rs, firstletter = "A")
     result
 end
 
+using Plots
+
+begin
+system = cooperative_chemotaxis_system(;delta_f=-1, mean_s=5)
+joint_n = reaction_network(system)
+@Catalyst.parameters t
+@Catalyst.variables Yp(t)
 act_i = active_indices(joint_n)
 inact_i = active_indices(joint_n, "I")
-res = _solve(system)
-
+yp_i = Catalyst.speciesmap(joint_n)[Yp]
+@time res = _solve(system)
 act_sum = vec(sum(res[act_i, :], dims=1))
 inact_sum = vec(sum(res[inact_i, :], dims=1))
-
-using Plots
-plot(res.t, [act_sum, inact_sum])
-
-g = Catalyst.Graph(system.rn)
-g
+plot(res.t, [inact_sum, res[1,:], res[yp_i,:]./100])
+end
