@@ -1,6 +1,19 @@
 import Distributions:logpdf
 
-struct SRXsystem
+abstract type JumpNetwork end
+struct SXsystem <: JumpNetwork
+    sn::ReactionSystem
+    xn::ReactionSystem
+
+    u0::AbstractVector
+
+    ps::AbstractVector
+    px::AbstractVector
+
+    dtimes
+end
+
+struct SRXsystem <: JumpNetwork
     sn::ReactionSystem
     rn::ReactionSystem
     xn::ReactionSystem
@@ -14,11 +27,42 @@ struct SRXsystem
     dtimes
 end
 
-tspan(sys::SRXsystem) = (first(sys.dtimes), last(sys.dtimes))
+tspan(sys::JumpNetwork) = (first(sys.dtimes), last(sys.dtimes))
+
+reaction_network(system::SXsystem) = merge(system.sn, system.xn)
+reaction_network(system::SRXsystem) = merge(merge(system.sn, system.rn), system.xn)
+
+function _solve(system::SXsystem)
+    joint = reaction_network(system)
+    u0 = system.u0
+
+    tp = tspan(system)
+    p = vcat(system.ps, system.px)
+    dprob = DiscreteProblem(joint, u0, tp, p)
+    dprob = remake(dprob, u0=u0)
+    jprob = JumpProblem(joint, dprob, Direct())
+
+    sol = solve(jprob, SSAStepper())
+end
+
+function generate_configuration(system::SXsystem)
+    joint = reaction_network(system)
+    sol = _solve(system)
+
+    s_spec = independent_species(system.sn)
+    s_idxs = species_indices(joint, s_spec...)
+    s_traj = Trajectory(trajectory(sol, s_idxs))
+    
+    x_spec = independent_species(system.xn)
+    x_idxs = species_indices(joint, x_spec...)
+    x_traj = Trajectory(trajectory(sol, x_idxs))
+
+    SXconfiguration(s_traj, x_traj)
+end
 
 function _solve(system::SRXsystem)
     joint = merge(merge(system.sn, system.rn), system.xn)
-    u0 = SVector(system.u0...)
+    u0 = system.u0
 
     tp = tspan(system)
     p = vcat(system.ps, system.pr, system.px)

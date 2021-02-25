@@ -88,7 +88,7 @@ function _mi_inner(system, cond_ensemble, marg_ensemble, algorithm, num_response
         stats.TimeMarginal[i] = marg_result.time
 
         # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
-        log_marginal(cond_result.value) .- log_marginal(marg_result.value)
+        log_marginal(cond_result.value) - log_marginal(marg_result.value)
     end
 
     stats[!, :MutualInformation] = mi
