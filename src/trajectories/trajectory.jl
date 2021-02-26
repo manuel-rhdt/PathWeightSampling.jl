@@ -4,7 +4,7 @@ import StaticArrays:SVector
 
 abstract type AbstractTrajectory{uType,tType,N} end
 
-mutable struct Trajectory{uType,tType,N} <: AbstractTrajectory{uType,tType,N}
+struct Trajectory{uType,tType,N} <: AbstractTrajectory{uType,tType,N}
     t::Vector{tType}
     u::Vector{SVector{N,uType}}
 end
