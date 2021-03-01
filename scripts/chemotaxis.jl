@@ -19,19 +19,22 @@ Y_tot = dict["Y_tot"]
 LR_timescale = dict["LR_timescale"]
 Y_timescale = dict["Y_timescale"]
 
+dtimes = collect(0.0:0.04:duration)
+
 system = GaussianMcmc.chemotaxis_system(
     mean_L = mean_L,
     num_receptors = num_receptors,
     Y_tot = Y_tot,
     LR_timescale = LR_timescale,
     Y_timescale = Y_timescale,
-    duration = duration
+    dtimes = dtimes,
+    Y_ratio = 1/6,
+    LR_ratio = 0.5
 )
 
-algorithm = DirectMCEstimate(1_000)
-dtimes = collect((0.0:0.04:duration)[2:end])
+algorithm = SMCEstimate(100)
 
-mi = GaussianMcmc.run_parallel(system, algorithm, num_responses, dtimes)
+mi = GaussianMcmc.run_parallel(system, algorithm, num_responses)
 result = Dict("Samples" => mi, "DiscreteTimes" => dtimes)
 
 function DrWatson._wsave(filename, result::Dict)
