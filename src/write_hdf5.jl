@@ -20,7 +20,7 @@ function write_value_hdf5!(group, name::String, value)
     write_hdf5!(newgroup, value)
 end
 
-# non array values are written as arguments
+# non array values are written as attributes
 function write_value_hdf5!(group, name::String, value::Union{String,Number})
     attrs(group)[name] = value
 end
