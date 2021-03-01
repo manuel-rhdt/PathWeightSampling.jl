@@ -46,7 +46,7 @@ function Base.iterate(iter::EventThinner)
         nothing
     else
         ((u, t), state) = result
-        ((u, t), (state, (copy(u), t)))
+        ((u, t), (state, (u, t)))
     end
 end
 
@@ -74,7 +74,7 @@ function Base.iterate(iter::EventThinner, state::Tuple{<:Any,<:Any})
                 continue
             end
 
-            return ((u, t), (inner_state, (copy(u), t)))
+            return ((u, t), (inner_state, (u, t)))
         end
     end
 end
@@ -188,9 +188,19 @@ function execute_event!(t, state::MergeState)
     else
         state.u2 = state.u2_next
     end
-    u = vcat(state.u1, state.u2)
+    u = Chain(state.u1, state.u2)
     (u, t)
 end
+
+struct Chain{U, T<:AbstractVector{U}} <: AbstractVector{U}
+    head::T
+    tail::T
+end
+
+Base.IndexStyle(::Type{<:Chain}) = IndexLinear()
+Base.size(ch::Chain) = size(ch.head) .+ size(ch.tail)
+Base.getindex(ch::Chain, i::Int) = i > length(ch.head) ? ch.tail[i - length(ch.head)] : ch.head[i]
+Base.setindex!(ch::Chain, v, i::Int) = i > length(ch.head) ? ch.tail[i - length(ch.head)] = v : ch.head[i] = v
 
 # merge more than 2 trajectories using recursion
 merge_trajectories(traj) = traj
@@ -211,7 +221,7 @@ function collect_trajectory(iter)
 
     for (u, t) in Iterators.rest(iter, state)
         push!(traj.t, t)
-        push!(traj.u, u)
+        push!(traj.u, copy(u))
     end
 
     traj
