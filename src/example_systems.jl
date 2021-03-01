@@ -24,12 +24,14 @@ function gene_expression_system(; mean_s=50, corr_time_s=1.0, corr_time_x=0.1, d
     SXsystem(sn, xn, u0, ps, px, dtimes)
 end
 
-function chemotaxis_system(; mean_L=20, num_receptors=10, Y_tot=50, L_timescale=1.0, LR_timescale=0.5, LR_ratio=0.5, Y_timescale=0.1, Y_ratio=0.5, dtimes=0:0.1:2.0)
+function chemotaxis_system(; mean_L=20, num_receptors=10, Y_tot=50, L_timescale=1.0, LR_timescale=0.5, LR_ratio=0.5, Y_timescale=0.1, Y_ratio=0.5, q=10, dtimes=0:0.1:2.0)
     mean_LR = num_receptors * LR_ratio
     mean_R = num_receptors - mean_LR
 
     mean_Yp = Y_tot * Y_ratio
     mean_Y = Y_tot - mean_Yp
+
+    eq_L = mean_L * exp(-q)
 
     sn = @reaction_network begin
         κ, ∅ --> L
@@ -42,20 +44,28 @@ function chemotaxis_system(; mean_L=20, num_receptors=10, Y_tot=50, L_timescale=
     end ρ μ
 
     xn = @reaction_network begin
-        (δ, δb), LR + Y ↔ Yp + LR
-        (χ, χb), Yp ↔ Y
-    end δ δb χ χb
+        δ, LR + Y --> Yp + LR
+        χ, Yp --> Y
+    end δ χ
 
-    u0 = SA[mean_L, mean_R, mean_LR, mean_Y, mean_Yp]
+    u0 = [mean_L, mean_R, mean_LR, mean_Y, mean_Yp]
     ps = [mean_L, 1 / L_timescale]
-    pr = [mean_LR / (LR_timescale * mean_R * mean_L), 1 / LR_timescale]
-    px = [mean_Yp / (Y_timescale * mean_Y * mean_LR), 1e-3, 1 / Y_timescale, 1e-3]
+
+    ρ = inv(eq_L * LR_timescale * (1 + mean_R / mean_LR))
+    μ = eq_L * ρ * mean_R / mean_LR
+
+    pr = [ρ, μ]
+
+    χ = inv(Y_timescale * (1 + Y_ratio))
+    δ = χ * Y_ratio / mean_LR
+
+    px = [δ, χ]
 
     SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes)
 end
 
 import Catalyst
-using ModelingToolkit
+import ModelingToolkit
 
 function cooperative_chemotaxis_system(;
     lmax = 4,
@@ -90,8 +100,8 @@ function cooperative_chemotaxis_system(;
 
     spmap = Dict()
     for l=0:lmax, m=0:mmax
-        active_species = Num(Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("A_", l, "_", m)))(t)
-        inactive_species = Num(Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("I_", l, "_", m)))(t)
+        active_species = ModelingToolkit.Num(ModelingToolkit.Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("A_", l, "_", m)))(t)
+        inactive_species = ModelingToolkit.Num(ModelingToolkit.Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("I_", l, "_", m)))(t)
 
         spmap[(l, m, :active)] = active_species
         spmap[(l, m, :inactive)] = inactive_species
@@ -138,7 +148,7 @@ function cooperative_chemotaxis_system(;
 
     joint = merge(merge(sn, rn), xn)
 
-    u0 = zeros(length(spmap) + 3)
+    u0 = zeros(Int, length(spmap) + 3)
     u0[1] = round(Int, mean_s)
     u0[Catalyst.speciesmap(joint)[spmap[(0, 0, :inactive)]]] = 100
     u0[Catalyst.speciesmap(joint)[Y]] = 10000
@@ -164,18 +174,17 @@ function active_indices(rs, firstletter = "A")
     result
 end
 
-using Plots
-
-begin
-system = cooperative_chemotaxis_system(;delta_f=-1, mean_s=5)
-joint_n = reaction_network(system)
-@Catalyst.parameters t
-@Catalyst.variables Yp(t)
-act_i = active_indices(joint_n)
-inact_i = active_indices(joint_n, "I")
-yp_i = Catalyst.speciesmap(joint_n)[Yp]
-@time res = _solve(system)
-act_sum = vec(sum(res[act_i, :], dims=1))
-inact_sum = vec(sum(res[inact_i, :], dims=1))
-plot(res.t, [inact_sum, res[1,:], res[yp_i,:]./100])
-end
+# using Plots
+# begin
+# system = cooperative_chemotaxis_system(;delta_f=-1, mean_s=5)
+# joint_n = reaction_network(system)
+# @Catalyst.parameters t
+# @Catalyst.variables Yp(t)
+# act_i = active_indices(joint_n)
+# inact_i = active_indices(joint_n, "I")
+# yp_i = Catalyst.speciesmap(joint_n)[Yp]
+# @time res = _solve(system)
+# act_sum = vec(sum(res[act_i, :], dims=1))
+# inact_sum = vec(sum(res[inact_i, :], dims=1))
+# plot(res.t, [inact_sum, res[1,:], res[yp_i,:]./100])
+# end
