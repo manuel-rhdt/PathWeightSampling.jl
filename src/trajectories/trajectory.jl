@@ -2,11 +2,11 @@ using RecipesBase
 using DiffEqBase
 import StaticArrays:SVector
 
-abstract type AbstractTrajectory{uType,tType,N} end
+abstract type AbstractTrajectory{uType,tType} end
 
-struct Trajectory{uType,tType,N} <: AbstractTrajectory{uType,tType,N}
+struct Trajectory{uType,tType} <: AbstractTrajectory{uType,tType}
     t::Vector{tType}
-    u::Vector{SVector{N,uType}}
+    u::Vector{uType}
 end
 
 Base.copy(traj::Trajectory) = Trajectory(copy(traj.t), copy(traj.u))
@@ -75,12 +75,7 @@ function get_u(sol::ODESolution{T,N,Vector{SVector{M,T}}}) where {T,N,M}
 end
 
 function get_u(sol::ODESolution{T,N,Vector{Vector{T}}}) where {T,N}
-    num_components = length(get(sol.u, 1, T[]))
-    if num_components > 0
-        [SVector{num_components}(u) for u in sol.u]
-    else
-        SVector{0,T}[]
-    end
+    sol.u
 end
 
 Trajectory(sol::ODESolution) = trajectory(sol)
@@ -100,7 +95,7 @@ function trajectory(sol::ODESolution{T,N}) where {T,N}
     Trajectory(sol.t, get_u(sol))
 end
 
-mutable struct PartialTrajectory{uType,tType,N,NPart} <: AbstractTrajectory{uType,tType,NPart}
+mutable struct PartialTrajectory{uType,tType,N,NPart} <: AbstractTrajectory{SVector{NPart,uType},tType}
     idxs::SVector{NPart,Int}
     t::Vector{tType}
     u::Vector{SVector{N,uType}}
@@ -162,7 +157,7 @@ function Base.iterate(traj::PartialTrajectory, index=1)
     (traj.u[index][traj.idxs], traj.t[index]), index + 1
 end
 
-Base.eltype(::Type{T}) where {uType,tType,N,T <: AbstractTrajectory{uType,tType,N}} = Tuple{SVector{N,uType},tType}
+Base.eltype(::Type{T}) where {uType,tType,T <: AbstractTrajectory{uType,tType}} = Tuple{uType,tType}
 
 struct MergeTrajectory{uType,tType,T1 <: Trajectory{uType,tType},T2 <: Trajectory{uType,tType}}
     first::T1
@@ -227,7 +222,7 @@ function Base.iterate(iter::MergeTrajectory{uType,tType}, (i, j, t, u)::Tuple{In
     (u, current_t), (i, j, t, next_u)
 end
 
-@recipe function f(traj::AbstractTrajectory{uType,tType,N}) where {uType,tType,N}
+@recipe function f(traj::AbstractTrajectory{uType,tType}) where {uType,tType}
     seriestype --> :steppost
     # label --> hcat([String(sym) for sym in traj.syms]...)
 
