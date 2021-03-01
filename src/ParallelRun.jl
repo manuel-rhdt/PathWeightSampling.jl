@@ -8,7 +8,7 @@ function reduce_results(res1, results...)
     new_res
 end
 
-function run_parallel(system, algorithm, num_responses, dtimes)
-    result = pmap(x -> mutual_information(system, algorithm; num_responses=1, dtimes=dtimes), 1:num_responses)
+function run_parallel(system, algorithm, num_responses)
+    result = pmap(x -> mutual_information(system, algorithm; num_responses=1), 1:num_responses)
     vcat(result...)
 end
