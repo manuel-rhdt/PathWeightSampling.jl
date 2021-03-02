@@ -5,11 +5,14 @@ import StaticArrays:SVector
 abstract type AbstractTrajectory{uType,tType} end
 
 struct Trajectory{uType,tType} <: AbstractTrajectory{uType,tType}
-    t::Vector{tType}
-    u::Vector{uType}
+    t::Vector{tType} # vector of length N, recording the reaction times and the start/end times of the trajectory
+    u::Vector{uType} # vector of length N, recording the copy numbers at the corresponding time
+    i::Vector{Int} # vector of length N-2 recording all reaction indices, or empty vector if no reaction indices
 end
 
-Base.copy(traj::Trajectory) = Trajectory(copy(traj.t), copy(traj.u))
+Trajectory(t::Vector, u::Vector) = Trajectory(t, u, Int[])
+
+Base.copy(traj::Trajectory) = Trajectory(copy(traj.t), copy(traj.u), copy(traj.i))
 
 Base.getindex(traj::Trajectory, i::Int) = traj.u[i]
 Base.getindex(traj::Trajectory, i::AbstractRange) = traj.u[i]
@@ -18,8 +21,10 @@ Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.t == traj2.t) && (traj
 function Base.copyto!(to::Trajectory, from::Trajectory)
     resize!(to.t, length(from.t))
     resize!(to.u, length(from.u))
+    resize!(to.i, length(from.i))
     copyto!(to.t, from.t)
     copyto!(to.u, from.u)
+    copyto!(to.i, from.i)
     to
 end
 
@@ -80,7 +85,7 @@ end
 
 Trajectory(sol::ODESolution) = trajectory(sol)
 
-function Trajectory(t::AbstractVector{tType}, u::AbstractMatrix{T}) where {tType <: Real,T <: Real}
+function Trajectory(t::AbstractVector{tType}, u::AbstractMatrix{T}, i=Int[]) where {tType <: Real,T <: Real}
     num_components = size(u, 1)
     if num_components > 0
         u_vec = [SVector{num_components}(c) for c in eachcol(u)]
@@ -88,7 +93,7 @@ function Trajectory(t::AbstractVector{tType}, u::AbstractMatrix{T}) where {tType
         u_vec = SVector{0,T}[]
     end
 
-    Trajectory(convert(Vector{tType}, t), u_vec)
+    Trajectory(convert(Vector{tType}, t), u_vec, i)
 end
 
 function trajectory(sol::ODESolution{T,N}) where {T,N}
@@ -146,7 +151,9 @@ function Base.iterate(traj::Trajectory, index=1)
         return nothing
     end
 
-    (traj.u[index], traj.t[index]), index + 1
+    ridx = checkbounds(Bool, traj.i, index - 1) ? traj.i[index - 1] : 0
+
+    (traj.u[index], traj.t[index], ridx), index + 1
 end
 
 function Base.iterate(traj::PartialTrajectory, index=1)
@@ -157,7 +164,7 @@ function Base.iterate(traj::PartialTrajectory, index=1)
     (traj.u[index][traj.idxs], traj.t[index]), index + 1
 end
 
-Base.eltype(::Type{T}) where {uType,tType,T <: AbstractTrajectory{uType,tType}} = Tuple{uType,tType}
+Base.eltype(::Type{T}) where {uType,tType,T <: AbstractTrajectory{uType,tType}} = Tuple{uType,tType,Int}
 
 struct MergeTrajectory{uType,tType,T1 <: Trajectory{uType,tType},T2 <: Trajectory{uType,tType}}
     first::T1

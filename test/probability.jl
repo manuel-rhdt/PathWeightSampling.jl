@@ -14,7 +14,7 @@ log_p0 = (s) -> logpdf(s0_dist, [s])
 
 dist = GaussianMcmc.distribution(sn, log_p0)
 
-traj = GaussianMcmc.Trajectory([0.0, 1.0, 2.0, 3.0], [SA[50.0], SA[51.0], SA[50.0], SA[50.0]])
+traj = GaussianMcmc.Trajectory([0.0, 1.0, 2.0, 3.0], [[50.0], [51.0], [50.0], [50.0]])
 
 κ = 0.25
 λ = 0.005

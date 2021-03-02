@@ -6,24 +6,25 @@ struct SSAIter{F,uType,tType,P,S,CB,SA,OPT,TS}
 end
 
 Base.IteratorSize(::Type{SSAIter{F,uType,tType,P,S,CB,SA,OPT,TS}}) where {F,uType,tType,P,S,CB,SA,OPT,TS} = Base.SizeUnknown()
-Base.eltype(::Type{SSAIter{F,uType,tType,P,S,CB,SA,OPT,TS}}) where {F,uType,tType,P,S,CB,SA,OPT,TS} = Tuple{uType,tType}
+Base.eltype(::Type{SSAIter{F,uType,tType,P,S,CB,SA,OPT,TS}}) where {F,uType,tType,P,S,CB,SA,OPT,TS} = Tuple{uType,tType,Int}
 
 function Base.iterate(iter::SSAIter)
     integrator = iter.integrator
-    (integrator.u, integrator.t), nothing
+    (integrator.u, integrator.t, 0), nothing
 end
 
 function Base.iterate(iter::SSAIter, state::Nothing)
     integrator = iter.integrator
     if DiffEqJump.should_continue_solve(integrator)
         step!(integrator)
-        return (integrator.u, integrator.t), nothing
+        aggregator = integrator.cb.condition
+        return (integrator.u, integrator.t, aggregator.prev_jump), nothing
     end
     
     end_time = integrator.sol.prob.tspan[2]
     if integrator.t < end_time
         integrator.t = end_time
-        return (integrator.u, integrator.t), nothing
+        return (integrator.u, integrator.t, 0), nothing
     end
 
     nothing
@@ -45,13 +46,13 @@ function Base.iterate(iter::EventThinner)
     if result === nothing
         nothing
     else
-        ((u, t), state) = result
-        ((u, t), (state, (u, t)))
+        ((u, t, i), state) = result
+        ((u, t, i), (state, (u, t, i)))
     end
 end
 
-function Base.iterate(iter::EventThinner, state::Tuple{<:Any,<:Any})
-    (inner_state, (uprev, tprev)) = state
+function Base.iterate(iter::EventThinner, state::Tuple{<:Any,<:Any,Int})
+    (inner_state, (uprev, tprev, iprev)) = state
     if tprev == Inf
         return nothing
     end
@@ -63,24 +64,24 @@ function Base.iterate(iter::EventThinner, state::Tuple{<:Any,<:Any})
         if result === nothing
             if tprev != previous_time
                 # return the last element as the final point of the trajectory
-                return (uprev, tprev), (inner_state, (uprev, Inf))
+                return (uprev, tprev, iprev), (inner_state, (uprev, Inf, iprev))
             else
                 return nothing
             end
         else
-            ((u, t), inner_state) = result
+            ((u, t, i), inner_state) = result
             if u == uprev
                 tprev = t
                 continue
             end
 
-            return ((u, t), (inner_state, (u, t)))
+            return ((u, t, i), (inner_state, (u, t, i)))
         end
     end
 end
 
 function sub_trajectory(traj, indices)
-    EventThinner((u[indices], t) for (u, t) in traj)
+    EventThinner((u[indices], t, i) for (u, t, i) in traj)
 end
 
 
@@ -103,6 +104,7 @@ function Base.iterate(iter::MergeIter)
     state = MergeState(
         state1, state2,
         u1, u2, u1, u2,
+        0, 0,
         active_index,
         t_inactive
     )
@@ -112,7 +114,7 @@ function Base.iterate(iter::MergeIter)
         t_active = get_next_event!(iter, state)
     end
 
-    new_event = (vcat(state.u1, state.u2), state.t_inactive)
+    new_event = (Chain(state.u1, state.u2), state.t_inactive, 0)
 
     state.active_index = !state.active_index
     state.t_inactive = t_active
@@ -127,8 +129,10 @@ mutable struct MergeState{S1,S2,U1,U2,tType <: Real}
     u2::U2
     u1_next::U1
     u2_next::U2
+    i1_next::Int
+    i2_next::Int
     active_index::Bool
-t_inactive::tType
+    t_inactive::tType
 end
 
 function Base.iterate(iter::MergeIter, state::MergeState)
@@ -166,35 +170,42 @@ function get_next_event!(iter::MergeIter, state::MergeState)
         if iter_result === nothing
             return Inf
         end
-        (u, t), inner_state = iter_result
+        (u, t, i), inner_state = iter_result
         state.state1 = inner_state
         state.u1_next = u
+        state.i1_next = i
         return t
     else
         iter_result = iterate(iter.second, state.state2)
         if iter_result === nothing
             return Inf
         end
-        (u, t), inner_state = iter_result
+        (u, t, i), inner_state = iter_result
         state.state2 = inner_state
         state.u2_next = u
+        state.i2_next = i
         return t
     end
 end
 
 function execute_event!(t, state::MergeState)
+    i = 0
     if state.active_index
         state.u1 = state.u1_next
+        i = state.i1_next
+        state.i1_next = 0
     else
         state.u2 = state.u2_next
+        i = state.i2_next
+        state.i2_next = 0
     end
     u = Chain(state.u1, state.u2)
-    (u, t)
+    (u, t, i)
 end
 
-struct Chain{U, T<:AbstractVector{U}} <: AbstractVector{U}
+struct Chain{U, T<:AbstractVector{U}, V<:AbstractVector{U}} <: AbstractVector{U}
     head::T
-    tail::T
+    tail::V
 end
 
 Base.IndexStyle(::Type{<:Chain}) = IndexLinear()
@@ -212,16 +223,19 @@ function merge_trajectories(traj1, traj2, other_trajs...)
     merge_trajectories(merge12, other_trajs...)
 end
 
-include("trajectories/trajectory.jl")
-
-
 function collect_trajectory(iter)
-    ((u, t), state) = iterate(iter)
-    traj = Trajectory([t], [u])
+    ((u, t, i), state) = iterate(iter)
+    traj = Trajectory([t], [copy(u)], Int[])
 
-    for (u, t) in Iterators.rest(iter, state)
+    for (u, t, i) in Iterators.rest(iter, state)
         push!(traj.t, t)
         push!(traj.u, copy(u))
+        push!(traj.i, i)
+    end
+
+    if length(traj.i) > 0
+        # remove last reaction index at end of trajectory
+        pop!(traj.i)
     end
 
     traj
