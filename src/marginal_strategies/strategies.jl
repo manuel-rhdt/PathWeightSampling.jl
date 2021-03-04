@@ -61,16 +61,15 @@ end
 
 function mutual_information(system, algorithm; num_responses::Integer=1)
     # initialize the ensembles
-    cond_ensemble = ConditionalEnsemble(system)
-    marg_ensemble = MarginalEnsemble(system)
+    compiled_system = compile(system)
 
     # this is the outer Direct Monte-Carlo loop
-    result = Base.invokelatest(_mi_inner, system, cond_ensemble, marg_ensemble, algorithm, num_responses)
+    result = Base.invokelatest(_mi_inner, compiled_system, algorithm, num_responses)
 
     result
 end
 
-function _mi_inner(system, cond_ensemble, marg_ensemble, algorithm, num_responses)
+function _mi_inner(compiled_system, algorithm, num_responses)
     stats = DataFrame(
         TimeConditional=zeros(Float64, num_responses), 
         TimeMarginal=zeros(Float64, num_responses), 
@@ -78,17 +77,19 @@ function _mi_inner(system, cond_ensemble, marg_ensemble, algorithm, num_response
 
     mi = map(1:num_responses) do i
         # draw an independent sample
-        initial = generate_configuration(system)
+        sample = generate_configuration(compiled_system.system)
 
         # compute P(x|s) and P(x)
-        cond_result = @timed simulate(algorithm, initial, cond_ensemble)
-        marg_result = @timed simulate(algorithm, marginal_configuration(initial), marg_ensemble)
+        cond_result = @timed conditional_density(compiled_system, algorithm, sample)
+        marg_result = @timed marginal_density(compiled_system, algorithm, sample)
 
+        # record the simulation time
         stats.TimeConditional[i] = cond_result.time
         stats.TimeMarginal[i] = marg_result.time
 
+        # compute a sample for the mutual information using
         # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
-        log_marginal(cond_result.value) - log_marginal(marg_result.value)
+        cond_result.value - marg_result.value
     end
 
     stats[!, :MutualInformation] = mi

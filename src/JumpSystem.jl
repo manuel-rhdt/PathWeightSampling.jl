@@ -1,5 +1,6 @@
 using StaticArrays
 
+include("trajectories/trajectory.jl")
 include("trajectories/distribution.jl")
 include("histogram_dist.jl")
 

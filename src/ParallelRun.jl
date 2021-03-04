@@ -9,6 +9,16 @@ function reduce_results(res1, results...)
 end
 
 function run_parallel(system, algorithm, num_responses)
-    result = pmap(x -> mutual_information(system, algorithm; num_responses=1), 1:num_responses)
+    batches = Int[]
+
+    batch_size = clamp(floor(num_responses / nworkers()), 1, 10)
+
+    while num_responses > 0
+        batch = min(num_responses, batch_size)
+        push!(batches, batch)
+        num_responses -= batch
+    end
+
+    result = pmap(batch -> mutual_information(system, algorithm; num_responses=batch), batches)
     vcat(result...)
 end

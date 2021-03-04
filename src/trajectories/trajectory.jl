@@ -233,7 +233,8 @@ end
     seriestype --> :steppost
     # label --> hcat([String(sym) for sym in traj.syms]...)
 
-    uvec = zeros(uType, length(traj), N)
+    N = length(traj.u[1])
+    uvec = zeros(eltype(uType), length(traj), N)
     tvec = zeros(tType, length(traj))
     for (i, (u, t)) in enumerate(traj)
         uvec[i, :] = u

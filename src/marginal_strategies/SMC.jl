@@ -10,7 +10,7 @@ mutable struct JumpParticle{uType}
     end
 
     function JumpParticle(parent, setup)
-        new{typeof(parent.u)}(parent.u, 0.0)
+        new{typeof(parent.u)}(copy(parent.u), 0.0)
     end
 end
 
@@ -32,7 +32,7 @@ mutable struct JumpParticleSlow{uType}
     end
 
     function JumpParticleSlow(parent, setup)
-        new{typeof(u)}(parent.u, 0.0, parent)
+        new{typeof(u)}(copy(parent.u), 0.0, parent)
     end
 end
 
@@ -68,10 +68,6 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
         # sample parent indices
         prob_weights = StatsBase.fweights(exp.(weights[:,i + 1] .- maximum(weights[:,i + 1])))
         parent_indices = StatsBase.sample(particle_indices, prob_weights, nparticles)
-
-        if i == 100
-            @show sort(weights[:,i + 1])
-        end
 
         particle_bag = map(parent_indices) do k
             new_particle(particle_bag[k], setup)

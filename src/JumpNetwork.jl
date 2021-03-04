@@ -1,5 +1,31 @@
 import Distributions:logpdf
 
+struct MarginalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,XD}
+    jump_problem::JP
+    x_dist::XD
+    xp::Vector{Float64}
+    dtimes::Vector{Float64}
+end
+
+struct ConditionalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,XD,IX,DX}
+    jump_problem::JP
+    x_dist::XD
+    indep_idxs::IX
+    dep_idxs::DX
+    xp::Vector{Float64}
+    dtimes::Vector{Float64}
+end
+
+struct SXconfiguration{uType,tType}
+    s_traj::Trajectory{uType,tType}
+    x_traj::Trajectory{uType,tType}
+end
+struct SRXconfiguration{uType,tType}
+    s_traj::Trajectory{uType,tType}
+    r_traj::Trajectory{uType,tType}
+    x_traj::Trajectory{uType,tType}
+end
+
 abstract type JumpNetwork end
 struct SXsystem <: JumpNetwork
     sn::ReactionSystem
@@ -26,6 +52,15 @@ function SXsystem(sn, xn, u0, ps, px, dtimes)
 
     SXsystem(sn, xn, u0, ps, px, dtimes, jprob)
 end
+
+struct CompiledSXsystem{JP, XD}
+    system::SXsystem
+    marginal_ensemble::MarginalEnsemble{JP, XD}
+end
+
+compile(s::SXsystem) = CompiledSXsystem(s, MarginalEnsemble(s))
+marginal_density(csx::CompiledSXsystem, algorithm, conf::SXconfiguration) = log_marginal(simulate(algorithm, conf, csx.marginal_ensemble))
+conditional_density(csx::CompiledSXsystem, algorithm, conf::SXconfiguration) = -energy_difference(conf, csx.marginal_ensemble)
 
 struct SRXsystem <: JumpNetwork
     sn::ReactionSystem
@@ -55,6 +90,16 @@ function SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=Direct())
     SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob)
 end
 
+struct CompiledSRXsystem{JP, XD, JPC, XDC, IXC, DXC}
+    system::SRXsystem
+    marginal_ensemble::MarginalEnsemble{JP, XD}
+    conditional_ensemble::ConditionalEnsemble{JPC, XDC, IXC, DXC}
+end
+
+compile(s::SRXsystem) = CompiledSRXsystem(s, MarginalEnsemble(s), ConditionalEnsemble(s))
+marginal_density(csrx::CompiledSRXsystem, algorithm, conf::SRXconfiguration) = log_marginal(simulate(algorithm, marginal_configuration(conf), csrx.marginal_ensemble))
+conditional_density(csrx::CompiledSRXsystem, algorithm, conf::SRXconfiguration) = log_marginal(simulate(algorithm, conf, csrx.conditional_ensemble))
+
 tspan(sys::JumpNetwork) = (first(sys.dtimes), last(sys.dtimes))
 
 reaction_network(system::SXsystem) = merge(system.sn, system.xn)
@@ -66,15 +111,16 @@ end
 
 function generate_configuration(system::SXsystem)
     joint = reaction_network(system)
-    sol = _solve(system)
+    integrator = init(system.jump_problem, SSAStepper())
+    trajectory = collect_trajectory(SSAIter(integrator))
 
     s_spec = independent_species(system.sn)
-    s_idxs = species_indices(joint, s_spec...)
-    s_traj = Trajectory(trajectory(sol, s_idxs))
-    
+    s_idxs = species_indices(joint, s_spec)
+    s_traj = collect_trajectory(sub_trajectory(trajectory, s_idxs))
+
     x_spec = independent_species(system.xn)
-    x_idxs = species_indices(joint, x_spec...)
-    x_traj = Trajectory(trajectory(sol, x_idxs))
+    x_idxs = species_indices(joint, x_spec)
+    x_traj = collect_trajectory(sub_trajectory(trajectory, x_idxs))
 
     SXconfiguration(s_traj, x_traj)
 end
@@ -106,12 +152,25 @@ function generate_configuration(system::SRXsystem)
     SRXconfiguration(s_traj, r_traj, x_traj)
 end
 
-struct MarginalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,XD,DX}
-    jump_problem::JP
-    x_dist::XD
-    dep_idxs::DX
-    xp::Vector{Float64}
-    dtimes::Vector{Float64}
+function MarginalEnsemble(system::SXsystem)
+    joint = reaction_network(system)
+    s_idxs = species_indices(joint, Catalyst.species(system.sn))
+
+    dprob = DiscreteProblem(system.sn, system.u0[s_idxs], tspan(system), system.ps)
+    jprob = JumpProblem(system.sn, dprob, Direct(), save_positions=(false, false))
+
+    update_map = Int[]
+    k = 1
+    for react in Catalyst.reactions(joint)
+        if react in Catalyst.reactions(system.xn)
+            push!(update_map, k)
+            k += 1
+        else
+            push!(update_map, 0)
+        end
+    end
+
+    MarginalEnsemble(jprob, distribution(joint; update_map), vcat(system.ps, system.px), collect(system.dtimes))
 end
 
 function MarginalEnsemble(system::SRXsystem)
@@ -125,10 +184,7 @@ function MarginalEnsemble(system::SRXsystem)
     # dprob = remake(dprob, u0=SVector(dprob.u0...))
     jprob = JumpProblem(sr_network, dprob, Direct(), save_positions=(false, false))
 
-    dep_species = dependent_species(system.xn)
-    dep_idxs = species_indices(sr_network, dep_species...)
-
-    MarginalEnsemble(jprob, distribution(system.xn), dep_idxs, system.px, collect(system.dtimes))
+    MarginalEnsemble(jprob, distribution(system.xn), Int[], system.px, collect(system.dtimes))
 end
 mutable struct TrajectoryCallback{uType,tType}
     traj::Trajectory{uType,tType}
@@ -156,14 +212,6 @@ function (tc::TrajectoryCallback)(u, t::Real, i::DiffEqBase.DEIntegrator)::Bool 
     t == tc.traj.t[tc.index]
 end
 
-struct ConditionalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,XD,IX,DX}
-    jump_problem::JP
-    x_dist::XD
-    indep_idxs::IX
-    dep_idxs::DX
-    xp::Vector{Float64}
-    dtimes::Vector{Float64}
-end
 
 function ConditionalEnsemble(
     rn::ReactionSystem, 
@@ -220,11 +268,6 @@ function dependent_species(rs::ReactionSystem)
     setdiff(Catalyst.species(rs), independent_species(rs))
 end
 
-struct SXconfiguration{uType,tType}
-    s_traj::Trajectory{uType,tType}
-    x_traj::Trajectory{uType,tType}
-end
-
 function sample(configuration::T, system::MarginalEnsemble; θ=0.0)::T where T <: SXconfiguration
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
@@ -243,7 +286,7 @@ function collect_samples(initial::SXconfiguration, system::MarginalEnsemble, num
     result = Array{Float64,2}(undef, length(system.dtimes), num_samples)
     for result_col ∈ eachcol(result)
         integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
-        iter = sub_trajectory(SSAIter(integrator), system.dep_idxs)
+        iter = SSAIter(integrator)
         cumulative_logpdf!(result_col, system.x_dist, merge_trajectories(iter, initial.x_traj), system.dtimes, params=system.xp)
     end
 
@@ -254,21 +297,14 @@ function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan:
     jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
     integrator = DiffEqBase.init(jprob, SSAStepper(), numsteps_hint=0)
 
-    iter = sub_trajectory(SSAIter(integrator), ensemble.dep_idxs)
-
+    iter = SSAIter(integrator)
     log_weight = logpdf(ensemble.x_dist, merge_trajectories(iter, conf.x_traj), params=ensemble.xp)
 
     integrator.u, log_weight
 end
 
 function energy_difference(configuration::SXconfiguration, system::MarginalEnsemble)
-    dep = sub_trajectory(configuration.s_traj, system.dep_idxs)
-    -logpdf(system.x_dist, merge_trajectories(dep, configuration.x_traj), params=system.xp)
-end 
-struct SRXconfiguration{uType,tType}
-    s_traj::Trajectory{uType,tType}
-    r_traj::Trajectory{uType,tType}
-    x_traj::Trajectory{uType,tType}
+    -cumulative_logpdf(system.x_dist, merge_trajectories(configuration.s_traj, configuration.x_traj), system.dtimes, params=system.xp)
 end
 
 function sample(configuration::T, system::ConditionalEnsemble; θ=0.0)::T where T <: SRXconfiguration

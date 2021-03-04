@@ -51,7 +51,7 @@ function Base.iterate(iter::EventThinner)
     end
 end
 
-function Base.iterate(iter::EventThinner, state::Tuple{<:Any,<:Any,Int})
+function Base.iterate(iter::EventThinner, state::Tuple{<:Any,<:Any})
     (inner_state, (uprev, tprev, iprev)) = state
     if tprev == Inf
         return nothing
