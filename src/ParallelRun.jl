@@ -19,7 +19,11 @@ function run_parallel(system, algorithm, num_responses)
         num_responses -= batch
     end
 
-    @everywhere global compiled_system = GaussianMcmc.compile($system)
+    @everywhere begin 
+        global compiled_system = GaussianMcmc.compile($system)
+        import Random
+        Random.seed!(myid())
+    end
 
     result = pmap(batch -> _mi_inner(Main.compiled_system, algorithm, batch), batches)
     vcat(result...)
