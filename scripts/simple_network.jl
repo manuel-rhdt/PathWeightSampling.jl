@@ -1,8 +1,10 @@
-using DrWatson
-import JSON
-using Logging
-using HDF5
-using GaussianMcmc
+@everywhere begin
+    using DrWatson
+    import JSON
+    using Logging
+    using HDF5
+    using GaussianMcmc
+end
 
 f = ARGS[1]
 dict = JSON.parsefile(projectdir("_research", "tmp", f))
