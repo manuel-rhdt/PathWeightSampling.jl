@@ -12,6 +12,8 @@ run_name = dict["run_name"]
 duration = dict["duration"]
 num_responses = dict["num_responses"]
 
+
+
 mean_L = dict["mean_L"]
 num_receptors = dict["num_receptors"]
 Y_tot = dict["Y_tot"]

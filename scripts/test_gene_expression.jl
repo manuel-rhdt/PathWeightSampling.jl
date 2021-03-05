@@ -2,7 +2,7 @@ import GaussianMcmc
 using GaussianMcmc: SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, gene_expression_system, generate_configuration, logpdf
 
 system = gene_expression_system(dtimes=0:0.1:10)
-smc = SMCEstimate(200)
+smc = SMCEstimate(50)
 dmc = DirectMCEstimate(200)
 
 
@@ -15,9 +15,7 @@ addprocs(4)
 end
 @everywhere import GaussianMcmc
 
-@fetchfrom 2 InteractiveUtils.varinfo()
-
-result = GaussianMcmc.run_parallel(system, smc, 50)
+result = GaussianMcmc.run_parallel(system, smc, 500)
 dresult = GaussianMcmc.run_parallel(system, dmc, 50)
 
 using Plots

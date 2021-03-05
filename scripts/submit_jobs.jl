@@ -5,35 +5,34 @@ using FileIO
 using ArgParse
 using Dates
 
-# my_args = Dict(
-#     "script" => "simple_network.jl",
-#     "system" => "JumpSystem",
-#     # "scale" => 0.1,
-#     "algorithm" => "annealing",
-#     "run_name" => "2020-11-27",
-#     "duration" => 2 .^ range(log2(0.1), log2(2.0), length=6),
-#     "num_responses" => 50_000,
-#     "mean_s" => [20, 40],
-#     "corr_time_s" => 1,
-#     "corr_time_ratio" => [2, 5, 10],
-# )
-
 my_args = Dict(
-    "script" => "chemotaxis.jl",
-    "run_name" => "2021-01-22",
-    "num_responses" => 1_000,
-    "duration" => 2,
-    "mean_L" => 50,
-    "num_receptors" => 10,
-    "Y_tot" => 50,
-    "LR_timescale" => [0.01, 0.1],
-    "Y_timescale" => [0.01, 0.1]
+    "script" => "simple_network.jl",
+    # "scale" => 0.1,
+    "algorithm" => "smc",
+    "run_name" => "2021-03-05",
+    "duration" => 10,
+    "num_responses" => 5000,
+    "mean_s" => [10, 50],
+    "corr_time_s" => 1,
+    "corr_time_ratio" => [2, 5, 10],
 )
 
-const NODES = 1
+# my_args = Dict(
+#     "script" => "chemotaxis.jl",
+#     "run_name" => "2021-01-22",
+#     "num_responses" => 1_000,
+#     "duration" => 2,
+#     "mean_L" => 50,
+#     "num_receptors" => 10,
+#     "Y_tot" => 50,
+#     "LR_timescale" => [0.01, 0.1],
+#     "Y_timescale" => [0.01, 0.1]
+# )
+
+const NODES = 2
 const PPN = 36
 const QUEUE = "highcore"
-const NAME = "CHEMOTAXIS"
+const NAME = "GENE_EXP"
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -105,6 +104,8 @@ function estimate_runtime(dict)
         factor = 0.05 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
     elseif dict["algorithm"] == "directmc"
         factor = 0.03 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
+    elseif dict["algorithm"] == "smc"
+        factor = 0.1 * 2
     else
         error("unknown algorithm $(dict["algorithm"])")
     end
