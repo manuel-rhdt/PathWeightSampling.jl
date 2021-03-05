@@ -25,7 +25,7 @@ elseif dict["algorithm"] == "annealing"
 elseif dict["algorithm"] == "directmc"
     algorithm = DirectMCEstimate(2^16)
 elseif dict["algorithm"] == "smc"
-    algorithm = SMCEstimate(128)
+    algorithm = SMCEstimate(dict["smc_samples"])
 else
     error("Unsupported algorithm " * dict["algorithm"])
 end
