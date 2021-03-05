@@ -8,7 +8,7 @@ function reduce_results(res1, results...)
     new_res
 end
 
-function run_parallel(system, algorithm, num_responses)
+function run_parallel(systemfn, algorithm, num_responses)
     batches = Int[]
 
     batch_size = clamp(floor(num_responses / nworkers()), 1, 10)
@@ -19,10 +19,9 @@ function run_parallel(system, algorithm, num_responses)
         num_responses -= batch
     end
 
-    @everywhere begin 
-        global compiled_system = GaussianMcmc.compile($system)
-        import Random
-        Random.seed!(myid())
+    @everywhere begin
+        system = $systemfn()
+        global compiled_system = GaussianMcmc.compile(system)
     end
 
     result = pmap(batch -> _mi_inner(Main.compiled_system, algorithm, batch), batches)

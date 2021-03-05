@@ -109,7 +109,8 @@ end
 
 function generate_configuration(system::SXsystem)
     joint = reaction_network(system)
-    integrator = init(system.jump_problem, SSAStepper())
+    jp = remake(system.jump_problem, u0=copy(system.u0))
+    integrator = init(jp, SSAStepper())
     trajectory = collect_trajectory(SSAIter(integrator))
 
     s_spec = independent_species(system.sn)

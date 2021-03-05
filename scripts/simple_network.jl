@@ -34,14 +34,14 @@ end
 
 @info "Parameters" run_name duration num_responses algorithm mean_s corr_time_s corr_time_ratio
 
-system = GaussianMcmc.gene_expression_system(
+system_fn = () -> GaussianMcmc.gene_expression_system(
     mean_s=mean_s,
     corr_time_s = corr_time_s,
     corr_time_x = corr_time_s / corr_time_ratio,
     dtimes=dtimes
 )
 
-mi = GaussianMcmc.run_parallel(system, algorithm, num_responses)
+mi = GaussianMcmc.run_parallel(system_fn, algorithm, num_responses)
 result = Dict("Samples" => mi, "DiscreteTimes" => dtimes)
 
 function DrWatson._wsave(filename, result::Dict)
