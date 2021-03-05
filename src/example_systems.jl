@@ -24,7 +24,7 @@ function gene_expression_system(; mean_s=50, corr_time_s=1.0, corr_time_x=0.1, d
     SXsystem(sn, xn, u0, ps, px, dtimes)
 end
 
-function chemotaxis_system(; mean_L=20, num_receptors=10, Y_tot=50, L_timescale=1.0, LR_timescale=0.5, LR_ratio=0.5, Y_timescale=0.1, Y_ratio=0.5, q=10, dtimes=0:0.1:2.0)
+function chemotaxis_system(; mean_L=20, num_receptors=10, Y_tot=50, L_timescale=1.0, LR_timescale=0.5, LR_ratio=0.5, Y_timescale=0.1, Y_ratio=1/6, q=0, dtimes=0:0.1:2.0)
     mean_LR = num_receptors * LR_ratio
     mean_R = num_receptors - mean_LR
 

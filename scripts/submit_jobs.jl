@@ -5,34 +5,35 @@ using FileIO
 using ArgParse
 using Dates
 
-my_args = Dict(
-    "script" => "simple_network.jl",
-    # "scale" => 0.1,
-    "algorithm" => "smc",
-    "smc_samples" => 256,
-    "run_name" => "2021-03-05_5",
-    "duration" => 10,
-    "num_responses" => 5_000,
-    "mean_s" => [10, 50],
-    "corr_time_s" => 1,
-    "corr_time_ratio" => [2, 5, 10],
-)
-
 # my_args = Dict(
-#     "script" => "chemotaxis.jl",
-#     "run_name" => "2021-01-22",
-#     "num_responses" => 1_000,
-#     "duration" => 2,
-#     "mean_L" => 50,
-#     "num_receptors" => 10,
-#     "Y_tot" => 50,
-#     "LR_timescale" => [0.01, 0.1],
-#     "Y_timescale" => [0.01, 0.1]
+#     "script" => "simple_network.jl",
+#     # "scale" => 0.1,
+#     "algorithm" => "smc",
+#     "smc_samples" => 256,
+#     "run_name" => "2021-03-05_5",
+#     "duration" => 10,
+#     "num_responses" => 5_000,
+#     "mean_s" => [10, 50],
+#     "corr_time_s" => 1,
+#     "corr_time_ratio" => [2, 5, 10],
 # )
+
+my_args = Dict(
+    "script" => "chemotaxis.jl",
+    "run_name" => "2021-03-05_6",
+    "smc_samples" => 256,
+    "num_responses" => 1_000,
+    "duration" => 10,
+    "mean_L" => 20,
+    "num_receptors" => 10_000,
+    "Y_tot" => 5000,
+    "LR_timescale" => 0.01,
+    "Y_timescale" => 0.1
+)
 
 const NCPUS = 2 * 36 - 2
 const QUEUE = "highcore"
-const NAME = "GENE_EXP"
+const NAME = "CHEMOTAXIS"
 
 function parse_commandline()
     s = ArgParseSettings()

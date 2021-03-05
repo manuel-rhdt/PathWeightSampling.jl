@@ -34,7 +34,7 @@ system_fn = () -> GaussianMcmc.chemotaxis_system(
     LR_ratio = 0.5
 )
 
-algorithm = SMCEstimate(100)
+algorithm = SMCEstimate(dict["smc_samples"])
 
 mi = GaussianMcmc.run_parallel(system_fn, algorithm, num_responses)
 result = Dict("Samples" => mi, "DiscreteTimes" => dtimes)
