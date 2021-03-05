@@ -29,8 +29,7 @@ my_args = Dict(
 #     "Y_timescale" => [0.01, 0.1]
 # )
 
-const NODES = 2
-const PPN = 36
+const NCPUS = 2 * 36
 const QUEUE = "highcore"
 const NAME = "GENE_EXP"
 
@@ -67,7 +66,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         """
 
     name = NAME
-    resources = `-l nodes=$NODES:ppn=$PPN:$QUEUE,mem=$(NODES * PPN * 4)gb,walltime=$runtime`
+    resources = `-l walltime=$runtime -l select=$NCPUS:ncpus=1:mem=4gb -l place=free`
 
     # if job_before !== nothing
     #     dependency = `-W depend=afterok:$job_before`
@@ -109,12 +108,12 @@ function estimate_runtime(dict)
     else
         error("unknown algorithm $(dict["algorithm"])")
     end
-    constant = 20 * 60 + (NODES * PPN) * 5 # just make sure we have an extra buffer
+    constant = 20 * 60 + NCPUS * 5 # just make sure we have an extra buffer
 
     num_reactions = dict["duration"] * dict["mean_s"] * (1 / dict["corr_time_s"]) * (1 + dict["corr_time_ratio"])
 
     val = factor * (num_reactions + 10) * dict["num_responses"]
-    round(Int, val / (NODES * PPN) + constant)
+    round(Int, val / NCPUS + constant)
 end
 
 function submit_sims(; job_before=nothing, dry_run=false)
