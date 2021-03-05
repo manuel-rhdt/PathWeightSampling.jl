@@ -9,10 +9,10 @@ my_args = Dict(
     "script" => "simple_network.jl",
     # "scale" => 0.1,
     "algorithm" => "smc",
-    "smc_samples" => 512,
-    "run_name" => "2021-03-05_2",
+    "smc_samples" => 256,
+    "run_name" => "2021-03-05_3",
     "duration" => 10,
-    "num_responses" => 5000,
+    "num_responses" => 25_000,
     "mean_s" => [10, 50],
     "corr_time_s" => 1,
     "corr_time_ratio" => [2, 5, 10],
@@ -30,7 +30,7 @@ my_args = Dict(
 #     "Y_timescale" => [0.01, 0.1]
 # )
 
-const NCPUS = 2 * 36
+const NCPUS = 2 * 36 - 2
 const QUEUE = "highcore"
 const NAME = "GENE_EXP"
 
