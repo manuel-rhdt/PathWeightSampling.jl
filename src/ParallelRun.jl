@@ -19,6 +19,9 @@ function run_parallel(system, algorithm, num_responses)
         num_responses -= batch
     end
 
-    result = pmap(batch -> mutual_information(system, algorithm; num_responses=batch), batches)
+    @everywhere global compiled_system = GaussianMcmc.compile($system)
+
+    result = pmap(batch -> _mi_inner(Main.compiled_system, algorithm, batch), batches)
     vcat(result...)
 end
+

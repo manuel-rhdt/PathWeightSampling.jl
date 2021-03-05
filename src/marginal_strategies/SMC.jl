@@ -67,7 +67,8 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
 
         # sample parent indices
         prob_weights = StatsBase.fweights(exp.(weights[:,i + 1] .- maximum(weights[:,i + 1])))
-        parent_indices = StatsBase.sample(particle_indices, prob_weights, nparticles)
+        # parent_indices = StatsBase.sample(particle_indices, prob_weights, nparticles)
+        parent_indices = systematic_sample(prob_weights)
 
         particle_bag = map(parent_indices) do k
             new_particle(particle_bag[k], setup)
@@ -78,6 +79,23 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
     weights
 end
 
+function systematic_sample(weights)
+    N = length(weights)
+    inc = inv(N)
+    x = inc * rand()
+    j=1
+    y = weights[j] / sum(weights)
+    result = zeros(Int, N)
+    for i=1:N
+        while y < x
+            j += 1
+            y += weights[j] / sum(weights)
+        end
+        result[i] = j
+        x += inc
+    end
+    result
+end
 
 struct SMCEstimate
     num_particles::Int

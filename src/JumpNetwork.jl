@@ -46,8 +46,7 @@ function SXsystem(sn, xn, u0, ps, px, dtimes)
 
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, px)
-    dprob = DiscreteProblem(joint, u0, tp, p)
-    dprob = remake(dprob, u0=u0)
+    dprob = DiscreteProblem(joint, copy(u0), tp, p)
     jprob = JumpProblem(joint, dprob, Direct())
 
     SXsystem(sn, xn, u0, ps, px, dtimes, jprob)
@@ -83,8 +82,7 @@ function SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=Direct())
 
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, pr, px)
-    dprob = DiscreteProblem(joint, u0, tp, p)
-    dprob = remake(dprob, u0=u0)
+    dprob = DiscreteProblem(joint, copy(u0), tp, p)
     jprob = JumpProblem(joint, dprob, aggregator)
 
     SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob)

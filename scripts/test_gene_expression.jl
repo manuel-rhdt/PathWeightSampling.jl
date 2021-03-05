@@ -15,7 +15,7 @@ addprocs(4)
 end
 @everywhere import GaussianMcmc
 
-result = GaussianMcmc.run_parallel(system, smc, 500)
+result = GaussianMcmc.run_parallel(system, smc, 50)
 dresult = GaussianMcmc.run_parallel(system, dmc, 50)
 
 using Plots
