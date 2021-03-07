@@ -37,7 +37,7 @@ distribution(rn::ReactionSystem, log_p0=myzero_fn; update_map=1:Catalyst.numreac
     end
     ((uprev, tprev, iprev), state) = first
     result = dist.log_p0(uprev...)::Float64
-    update_rates!(dist.aggregator, uprev, dist.reactions...; params=params)
+    update_rates!(dist.aggregator, uprev, params, dist.reactions...)
     
     for (u, t, i) in Iterators.rest(trajectory, state)
         dt = t - tprev
@@ -48,7 +48,7 @@ distribution(rn::ReactionSystem, log_p0=myzero_fn; update_map=1:Catalyst.numreac
             result += log(dist.aggregator.rates[agg_i])
         end
     
-        update_rates!(dist.aggregator, u, dist.reactions...; params=params)
+        update_rates!(dist.aggregator, u, params, dist.reactions...)
 
         tprev = t
     end
@@ -65,7 +65,7 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
         j += 1
     end
     result[j] = dist.log_p0(uprev...)::Float64
-    update_rates!(dist.aggregator, uprev, dist.reactions...; params=params)
+    update_rates!(dist.aggregator, uprev, params, dist.reactions...)
 
     for (u, t, i) in Iterators.rest(trajectory, state)
         totalrate = dist.aggregator.sumrate
@@ -92,7 +92,7 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
 
         result[j] -= dt * totalrate
 
-        update_rates!(dist.aggregator, u, dist.reactions...; params=params)
+        update_rates!(dist.aggregator, u, params, dist.reactions...)
 
         tprev = t
     end
@@ -157,16 +157,16 @@ end
 end
 
 
-@inline @fastmath function update_rates!(aggregator::DirectAggregator, speciesvec::AbstractVector, rs::ChemicalReaction...; params=[])
+@inline @fastmath function update_rates!(aggregator::DirectAggregator, speciesvec::AbstractVector, params::AbstractVector{Float64}, rs::ChemicalReaction...)
     aggregator.sumrate = 0.0
-    update_rates!(aggregator, 1, speciesvec, rs...; params)
+    update_rates!(aggregator, 1, speciesvec, params, rs...)
 end
 
 @inline @fastmath function evalrxrate(speciesvec::AbstractVector, reaction::ChemicalReaction, params=[])::Float64
     (reaction.rate)(speciesvec, params)
 end
 
-@inline @fastmath function update_rates!(aggregator::DirectAggregator, i::Int, speciesvec::AbstractVector, r1::ChemicalReaction; params=[])
+@inline @fastmath function update_rates!(aggregator::DirectAggregator, i::Int, speciesvec::AbstractVector, params::AbstractVector{Float64}, r1::ChemicalReaction)
     agg_i = get_update_index(aggregator, i)
     if agg_i != 0
         rate = evalrxrate(speciesvec, r1, params)
@@ -176,8 +176,8 @@ end
     nothing
 end
 
-@inline @fastmath function update_rates!(aggregator::DirectAggregator, i::Int, speciesvec::AbstractVector, r1::ChemicalReaction, rs::ChemicalReaction...; params=[])
-    update_rates!(aggregator, i, speciesvec, r1; params)
-    update_rates!(aggregator, i+1, speciesvec, rs...; params)
+@inline @fastmath function update_rates!(aggregator::DirectAggregator, i::Int, speciesvec::AbstractVector, params::AbstractVector{Float64}, r1::ChemicalReaction, rs::ChemicalReaction...)
+    update_rates!(aggregator, i, speciesvec, params, r1)
+    update_rates!(aggregator, i+1, speciesvec, params, rs...)
 end
 
