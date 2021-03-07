@@ -20,9 +20,9 @@ using Dates
 
 my_args = Dict(
     "script" => "chemotaxis.jl",
-    "run_name" => "2021-03-05_6",
+    "run_name" => "2021-03-07",
     "smc_samples" => 256,
-    "num_responses" => 5_000,
+    "num_responses" => 10_000,
     "duration" => 10,
     "mean_L" => 20,
     "num_receptors" => 10_000,
