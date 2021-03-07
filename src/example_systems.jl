@@ -48,7 +48,7 @@ function chemotaxis_system(; mean_L=20, num_receptors=10, Y_tot=50, L_timescale=
         χ, Yp --> Y
     end δ χ
 
-    u0 = [mean_L, mean_R, mean_LR, mean_Y, mean_Yp]
+    u0 = round.([mean_L, mean_R, mean_LR, mean_Y, mean_Yp])
     ps = [mean_L, 1 / L_timescale]
 
     ρ = inv(eq_L * LR_timescale * (1 + mean_R / mean_LR))
