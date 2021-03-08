@@ -81,7 +81,7 @@ function Base.iterate(iter::EventThinner, state::Tuple{<:Any,<:Any})
 end
 
 function sub_trajectory(traj, indices)
-    EventThinner((u[indices], t, i) for (u, t, i) in traj)
+    EventThinner(((@view u[indices]), t, i) for (u, t, i) in traj)
 end
 
 
