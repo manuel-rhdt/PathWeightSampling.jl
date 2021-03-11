@@ -65,12 +65,12 @@ function get_slice(t::Trajectory, tspan::Tuple{<:Real,<:Real})
     new_t = similar(t.t, i2 - i1 + 3)
     new_t[begin] = tspan[1]
     new_t[end] = tspan[2]
-    new_t[begin + 1:end - 1] .= t.t[i1:i2]
+    new_t[begin + 1:end - 1] .= @view t.t[i1:i2]
 
     new_u = similar(t.u, i2 - i1 + 3)
     new_u[begin] = t.u[i1]
     new_u[end] = t.u[i2]
-    new_u[begin + 1:end - 1] .= t.u[i1:i2]
+    new_u[begin + 1:end - 1] .= @view t.u[i1:i2]
 
     Trajectory(new_t, new_u)
 end
