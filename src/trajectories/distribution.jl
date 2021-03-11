@@ -27,7 +27,7 @@ function TrajectoryDistribution(reactions, log_p0, update_map = 1:num_reactions)
     TrajectoryDistribution(reactions, log_p0, agg)
 end
 
-myzero_fn(x...) = 0.0
+myzero_fn(x) = 0.0
 distribution(rn::ReactionSystem, log_p0=myzero_fn; update_map=1:Catalyst.numreactions(rn)) = TrajectoryDistribution(create_chemical_reactions(rn), log_p0, update_map)
 
 @fastmath function Distributions.logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory; params=[])::Float64
@@ -36,7 +36,7 @@ distribution(rn::ReactionSystem, log_p0=myzero_fn; update_map=1:Catalyst.numreac
         return 0.0
     end
     ((uprev, tprev, iprev), state) = first
-    result = dist.log_p0(uprev...)::Float64
+    result = dist.log_p0(uprev)::Float64
     update_rates!(dist.aggregator, uprev, params, dist.reactions...)
     
     for (u, t, i) in Iterators.rest(trajectory, state)
@@ -64,7 +64,7 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
         result[j] = 0.0
         j += 1
     end
-    result[j] = dist.log_p0(uprev...)::Float64
+    result[j] = dist.log_p0(uprev)::Float64
     update_rates!(dist.aggregator, uprev, params, dist.reactions...)
 
     for (u, t, i) in Iterators.rest(trajectory, state)
