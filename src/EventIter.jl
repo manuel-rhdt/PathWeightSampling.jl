@@ -110,19 +110,18 @@ function Base.iterate(iter::MergeIter)
     )
 
     while t_active <= t_inactive
-        new_event = execute_event!(t_active, state)
-        t_active = get_next_event!(iter, state)
+        new_event, state = execute_event(t_active, state)
+        t_active, state = get_next_event(iter, state)
     end
 
     new_event = (Chain(state.u1, state.u2), state.t_inactive, 0)
 
-    state.active_index = !state.active_index
-    state.t_inactive = t_active
+    state = setfield(state, active_index=!state.active_index, t_inactive=t_active)
 
     new_event, state
 end
 
-mutable struct MergeState{S1,S2,U1,U2,tType <: Real}
+struct MergeState{S1,S2,U1,U2,tType <: Real}
     state1::S1
     state2::S2
     u1::U1
@@ -132,8 +131,20 @@ mutable struct MergeState{S1,S2,U1,U2,tType <: Real}
     i1_next::Int
     i2_next::Int
     active_index::Bool
-    t_inactive::tType
+t_inactive::tType
 end
+
+setfield(s::MS;
+    state1=s.state1, 
+    state2=s.state2,
+    u1=s.u1,
+    u2=s.u2,
+    u1_next=s.u1_next,
+    u2_next=s.u2_next,
+    i1_next=s.i1_next,
+    i2_next=s.i2_next,
+    active_index=s.active_index,
+    t_inactive=s.t_inactive) where {MS <: MergeState} = MergeState(state1, state2, u1, u2, u1_next, u2_next, i1_next, i2_next, active_index, t_inactive)
 
 function Base.iterate(iter::MergeIter, state::MergeState)
     # This code is carefully arranged such that all tests pass.
@@ -142,68 +153,61 @@ function Base.iterate(iter::MergeIter, state::MergeState)
         return nothing
     end
 
-    t_active = get_next_event!(iter, state)
+    t_active, state = get_next_event(iter, state)
 
     if t_active == Inf
         return nothing
     end
 
     if t_active > state.t_inactive
-        state.active_index = !state.active_index 
         t_swap = t_active
         t_active = state.t_inactive
-        state.t_inactive = t_swap
+        state = setfield(state, active_index=!state.active_index, t_inactive=t_swap)
     end
-    new_event = execute_event!(t_active, state)
+    new_event, state = execute_event(t_active, state)
     if state.t_inactive == t_active
-        state.t_inactive = get_next_event!(iter, state)
-        state.active_index = !state.active_index
-        new_event = execute_event!(t_active, state)
+        t, state = get_next_event(iter, state)
+        state = setfield(state, active_index=!state.active_index, t_inactive=t)
+        new_event, state = execute_event(t_active, state)
     end
 
     return new_event, state
 end
 
-function get_next_event!(iter::MergeIter, state::MergeState)
+function get_next_event(iter::MergeIter, state::MergeState)
     if state.active_index
         iter_result = iterate(iter.first, state.state1)
         if iter_result === nothing
-            return Inf
+            return (Inf, state)
         end
         (u, t, i), inner_state = iter_result
-        state.state1 = inner_state
-        state.u1_next = u
-        state.i1_next = i
-        return t
+        state = setfield(state, state1=inner_state, u1_next=u, i1_next=i)
+        return (t, state)
     else
         iter_result = iterate(iter.second, state.state2)
         if iter_result === nothing
-            return Inf
+            return (Inf, state)
         end
         (u, t, i), inner_state = iter_result
-        state.state2 = inner_state
-        state.u2_next = u
-        state.i2_next = i
-        return t
+        state = setfield(state, state2=inner_state, u2_next=u, i2_next=i)
+        return (t, state)
     end
 end
 
-function execute_event!(t, state::MergeState)
+function execute_event(t, state::MergeState)
     i = 0
     if state.active_index
-        state.u1 = state.u1_next
         i = state.i1_next
-        state.i1_next = 0
+        state = setfield(state, u1=state.u1_next, i1_next=0)
     else
-        state.u2 = state.u2_next
         i = state.i2_next
-        state.i2_next = 0
+        state = setfield(state, u2=state.u2_next, i2_next=0)
     end
     u = Chain(state.u1, state.u2)
-    (u, t, i)
+    (u, t, i), state
 end
 
-struct Chain{U, T<:AbstractVector{U}, V<:AbstractVector{U}} <: AbstractVector{U}
+struct Chain{U,T <: AbstractVector{U},V <: AbstractVector{U}} <: AbstractVector{U}
     head::T
     tail::V
 end
