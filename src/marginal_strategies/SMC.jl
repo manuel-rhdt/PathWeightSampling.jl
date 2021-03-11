@@ -1,24 +1,22 @@
 import StatsBase
 
-mutable struct JumpParticle{uType}
+struct JumpParticle{uType}
     u::uType
     weight::Float64
-
-    function JumpParticle(setup)
-        u = setup.ensemble.jump_problem.prob.u0
-        new{typeof(u)}(u, 0.0)
-    end
-
-    function JumpParticle(parent, setup)
-        new{typeof(parent.u)}(copy(parent.u), 0.0)
-    end
 end
 
-function propagate!(p::JumpParticle, tspan::Tuple{T,T}, setup) where T
+function JumpParticle(setup)
+    u = setup.ensemble.jump_problem.prob.u0
+    JumpParticle(u, 0.0)
+end
+
+function JumpParticle(parent::JumpParticle, setup)
+    JumpParticle(copy(parent.u), 0.0)
+end
+
+function propagate(p::JumpParticle, tspan::Tuple{T,T}, setup) where T
     u_end, weight = propagate(setup.configuration, setup.ensemble, p.u, tspan)
-    p.u = u_end
-    p.weight = weight
-    p
+    JumpParticle(u_end, weight)
 end
 
 mutable struct JumpParticleSlow{uType}
@@ -41,7 +39,7 @@ struct Setup{Configuration,Ensemble}
     ensemble::Ensemble
 end
 
-function propagate!(p::JumpParticleSlow, tspan::Tuple{T,T}, setup) where T
+function propagate(p::JumpParticleSlow, tspan::Tuple{T,T}, setup) where T
     u_end, weight = propagate(setup.configuration, setup.ensemble, p.u, tspan)
     p.u = u_end
     p.weight = weight
@@ -56,9 +54,9 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
     weights = zeros(nparticles, length(dtimes))
     particle_indices = collect(1:nparticles)
     for (i, tspan) in enumerate(zip(dtimes[begin:end - 1], dtimes[begin + 1:end]))
-        for (j, particle) in enumerate(particle_bag)
-            propagate!(particle, tspan, setup)
-            weights[j, i + 1] = weight(particle)
+        for j in eachindex(particle_bag)
+            particle_bag[j] = propagate(particle_bag[j], tspan, setup)
+            weights[j, i + 1] = weight(particle_bag[j])
         end
 
         if (i + 1) == lastindex(weights, 2)
