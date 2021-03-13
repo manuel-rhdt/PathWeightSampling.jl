@@ -6,7 +6,7 @@ num_samples = 10000
 rand_u = [SVector{2}(rand([0, 1], 2)) for i = 1:num_samples - 1]
 push!(rand_u, rand_u[end])
 rand_t = vcat(0.0, cumsum(-log.(rand(num_samples - 1))))
-iter = zip(rand_u, rand_t)
+iter = zip(rand_u, rand_t, zeros(Int, length(rand_t)))
 all_events = collect(iter)
 
 thinned = EventThinner(iter)

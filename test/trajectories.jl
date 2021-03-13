@@ -75,10 +75,11 @@ u0 = [50.0,50.0]
 tspan = (0., 100.)
 discrete_prob = DiscreteProblem(u0, tspan)
 jump_prob = JumpProblem(network, discrete_prob, Direct())
-sol = solve(jump_prob, SSAStepper())
+integrator = init(jump_prob, SSAStepper())
 
-partial = GaussianMcmc.trajectory(sol, SA[1])
-for i in eachindex(sol)
-    @test sol.t[i] == partial.t[i]
-    @test sol[[1],i] == partial[i]
+partial = GaussianMcmc.collect_trajectory(GaussianMcmc.sub_trajectory(GaussianMcmc.SSAIter(integrator), [1]))
+sol = integrator.sol
+for i in eachindex(partial.t)
+    @test partial.t[i] ∈ vcat(sol.t, 100.0)
+    @test partial[i][1] ∈ sol[[1],:]
 end

@@ -10,18 +10,18 @@ sn = @reaction_network begin
 end κ λ
 
 s0_dist = MvNormal([50.0], 50.0 * ones((1, 1)))
-log_p0 = (s) -> logpdf(s0_dist, [s])
+log_p0 = (s) -> logpdf(s0_dist, s)
 
 dist = GaussianMcmc.distribution(sn, log_p0)
 
-traj = GaussianMcmc.Trajectory([0.0, 1.0, 2.0, 3.0], [[50.0], [51.0], [50.0], [50.0]])
+traj = GaussianMcmc.Trajectory([0.0, 1.0, 2.0, 3.0], [[50.0], [51.0], [50.0], [50.0]], [1, 2])
 
 κ = 0.25
 λ = 0.005
 
 p_wait(s, dt) = exp(- (κ + s * λ) * dt)
 
-p0    = log_p0(50.0)
+p0    = log_p0([50.0])
 wait1 = log(p_wait(50, 1.0))
 wait2 = log(p_wait(51, 1.0))
 wait3 = log(p_wait(50, 1.0))
