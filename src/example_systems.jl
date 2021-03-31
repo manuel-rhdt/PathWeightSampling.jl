@@ -68,20 +68,22 @@ import Catalyst
 import ModelingToolkit
 
 function cooperative_chemotaxis_system(;
-    lmax = 4,
+    lmax = 3,
     mmax = 9,
 
-    k_on = 5,
-    k_off = 5,
-    km = 5,
-    kdm = 5,
+    K_on = 500,
+    K_off = 25,
 
-    delta_e = -1,
-    delta_g = 2,
-    delta_f = -1,
+    δf = -3.0,
 
-    mean_s = 50
+    γ = 0.06,
+
+    mean_l = 50,
+
+    n_clusters = 100
 )
+    delta_f = δf
+
     sn = @reaction_network begin
         κ, ∅ --> L
         λ, L --> ∅
@@ -89,10 +91,21 @@ function cooperative_chemotaxis_system(;
 
     rn = Catalyst.make_empty_network()
 
-    @Catalyst.parameters t
+    @Catalyst.parameters t E0 τ0 δg δf lba lbi lda ldi mda mbi
     @Catalyst.variables L(t) Y(t) Yp(t)
 
     Catalyst.addspecies!(rn, L)
+
+    Catalyst.addparam!(rn, E0)
+    Catalyst.addparam!(rn, τ0)
+    Catalyst.addparam!(rn, δg)
+    Catalyst.addparam!(rn, δf)
+    Catalyst.addparam!(rn, lba)
+    Catalyst.addparam!(rn, lbi)
+    Catalyst.addparam!(rn, lda)
+    Catalyst.addparam!(rn, ldi)
+    Catalyst.addparam!(rn, mda)
+    Catalyst.addparam!(rn, mbi)
 
     xn = @reaction_network begin
         χ, Yp --> Y
@@ -100,62 +113,83 @@ function cooperative_chemotaxis_system(;
 
     spmap = Dict()
     for l=0:lmax, m=0:mmax
-        active_species = ModelingToolkit.Num(ModelingToolkit.Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("A_", l, "_", m)))(t)
-        inactive_species = ModelingToolkit.Num(ModelingToolkit.Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("I_", l, "_", m)))(t)
+        # active_species = ModelingToolkit.Num(ModelingToolkit.Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("A_", l, "_", m)))(t)
+        # inactive_species = ModelingToolkit.Num(ModelingToolkit.Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("I_", l, "_", m)))(t)
+        receptor_species = ModelingToolkit.Num(ModelingToolkit.Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("R_", l, "_", m)))(t)
 
-        spmap[(l, m, :active)] = active_species
-        spmap[(l, m, :inactive)] = inactive_species
+        # spmap[(l, m, :active)] = active_species
+        # spmap[(l, m, :inactive)] = inactive_species
+        spmap[(l, m)] = receptor_species
 
-        Catalyst.addspecies!(rn, active_species)
-        Catalyst.addspecies!(xn, active_species)
-        Catalyst.addspecies!(rn, inactive_species)
+        # Catalyst.addspecies!(rn, active_species)
+        # Catalyst.addspecies!(xn, active_species)
+        # Catalyst.addspecies!(rn, inactive_species)
+        Catalyst.addspecies!(xn, receptor_species)
+        Catalyst.addspecies!(rn, receptor_species)
     end
 
-    for l=0:lmax, m=0:mmax
-        if l > 0
-            ligand_bind_active = Catalyst.Reaction(k_on * (lmax + 1 - l), [spmap[(l-1, m, :active)], L], [spmap[(l, m, :active)], L])
-            ligand_unbind_active = Catalyst.Reaction(k_off * l, [spmap[(l, m, :active)]], [spmap[(l-1, m, :active)]])
-            ligand_bind_inactive = Catalyst.Reaction(k_on * (lmax + 1 - l), [spmap[(l-1, m, :inactive)], L], [spmap[(l, m, :inactive)], L])
-            ligand_unbind_inactive = Catalyst.Reaction(k_off * l, [spmap[(l, m, :inactive)]], [spmap[(l-1, m, :inactive)]])
+    γ_B = γ / (3 * lmax * abs(delta_f))
+    γ_R = γ_B / 2
 
-            Catalyst.addreaction!(rn, ligand_bind_active)
-            Catalyst.addreaction!(rn, ligand_unbind_active)
-            Catalyst.addreaction!(rn, ligand_bind_inactive)
-            Catalyst.addreaction!(rn, ligand_unbind_inactive)
+    for l=0:lmax, m=0:mmax
+        p_active = 1 / (1 + exp(E0 + l*δg + m*δf))
+
+        if l > 0
+            ligand_bind = Catalyst.Reaction((lba * p_active + lbi * (1 - p_active)) * (lmax + 1 - l), [spmap[(l-1, m)], L], [spmap[(l, m)], L])
+            ligand_unbind = Catalyst.Reaction((lda * p_active + ldi * (1 - p_active)) * l, [spmap[(l, m)]], [spmap[(l-1, m)]])
+            Catalyst.addreaction!(rn, ligand_bind)
+            Catalyst.addreaction!(rn, ligand_unbind)
+
+            # ligand_bind_active = Catalyst.Reaction(lba * (lmax + 1 - l), [spmap[(l-1, m, :active)], L], [spmap[(l, m, :active)], L])
+            # ligand_unbind_active = Catalyst.Reaction(lda * l, [spmap[(l, m, :active)]], [spmap[(l-1, m, :active)]])
+            # ligand_bind_inactive = Catalyst.Reaction(lbi * (lmax + 1 - l), [spmap[(l-1, m, :inactive)], L], [spmap[(l, m, :inactive)], L])
+            # ligand_unbind_inactive = Catalyst.Reaction(ldi * l, [spmap[(l, m, :inactive)]], [spmap[(l-1, m, :inactive)]])
+
+            # Catalyst.addreaction!(rn, ligand_bind_active)
+            # Catalyst.addreaction!(rn, ligand_unbind_active)
+            # Catalyst.addreaction!(rn, ligand_bind_inactive)
+            # Catalyst.addreaction!(rn, ligand_unbind_inactive)
         end
 
         if m > 0
-            methylate_active = Catalyst.Reaction(km * (mmax + 1 - m), [spmap[(l, m-1, :active)]], [spmap[(l, m, :active)]])
-            demethylate_active = Catalyst.Reaction(kdm * m, [spmap[(l, m, :active)]], [spmap[(l, m-1, :active)]])
-            methylate_inactive = Catalyst.Reaction(km * (mmax + 1 - m), [spmap[(l, m-1, :inactive)]], [spmap[(l, m, :inactive)]])
-            demethylate_inactive = Catalyst.Reaction(kdm * m, [spmap[(l, m, :inactive)]], [spmap[(l, m-1, :inactive)]])
+            # methylate_active = Catalyst.Reaction(methyl_rate * (mmax + 1 - m), [spmap[(l, m-1, :active)]], [spmap[(l, m, :active)]])
+            demethylate_active = Catalyst.Reaction(mda * p_active, [spmap[(l, m)]], [spmap[(l, m-1)]])
+            methylate_inactive = Catalyst.Reaction(mbi * (1 - p_active), [spmap[(l, m-1)]], [spmap[(l, m)]])
+            # demethylate_inactive = Catalyst.Reaction(mda, [spmap[(l, m, :inactive)]], [spmap[(l, m-1, :inactive)]])
 
-            Catalyst.addreaction!(rn, methylate_active)
+            # Catalyst.addreaction!(rn, methylate_active)
             Catalyst.addreaction!(rn, demethylate_active)
             Catalyst.addreaction!(rn, methylate_inactive)
-            Catalyst.addreaction!(rn, demethylate_inactive)
+            # Catalyst.addreaction!(rn, demethylate_inactive)
         end
 
-        switch_active = Catalyst.Reaction(exp(-delta_e-l*delta_g-m*delta_f), [spmap[(l, m, :inactive)]], [spmap[(l, m, :active)]])
-        switch_inactive = Catalyst.Reaction(1, [spmap[(l, m, :active)]], [spmap[(l, m, :inactive)]])
-        Catalyst.addreaction!(rn, switch_active)
-        Catalyst.addreaction!(rn, switch_inactive)
+        # switch_rate = inv(τ0)
+        # switch_active = Catalyst.Reaction(switch_rate*exp(- E0 - l*δg - m*δf), [spmap[(l, m, :inactive)]], [spmap[(l, m, :active)]])
+        # switch_inactive = Catalyst.Reaction(switch_rate, [spmap[(l, m, :active)]], [spmap[(l, m, :inactive)]])
+        # Catalyst.addreaction!(rn, switch_active)
+        # Catalyst.addreaction!(rn, switch_inactive)
 
-        active_spec = spmap[(l, m, :inactive)]
-        phosphorylate = Catalyst.Reaction(5e-2, [Y, active_spec], [Yp, active_spec])
+        # active_spec = spmap[(l, m, :active)]
+        # phosphorylate = Catalyst.Reaction(0.1, [Y, active_spec], [Yp, active_spec])
+        # Catalyst.addreaction!(xn, phosphorylate)
+
+        receptor = spmap[(l, m)]
+        phosphorylate = Catalyst.Reaction(0.1 * p_active, [Y, receptor], [Yp, receptor])
         Catalyst.addreaction!(xn, phosphorylate)
     end
 
     joint = merge(merge(sn, rn), xn)
 
     u0 = zeros(Int, length(spmap) + 3)
-    u0[1] = round(Int, mean_s)
-    u0[Catalyst.speciesmap(joint)[spmap[(0, 0, :inactive)]]] = 100
+    u0[1] = round(Int, mean_l)
+    u0[Catalyst.speciesmap(joint)[spmap[(0, 0)]]] = n_clusters
     u0[Catalyst.speciesmap(joint)[Y]] = 10000
 
-    ps = [mean_s, 1.0]
-    pr = []
-    px = [2.0]
+    ps = [mean_l, 1.0]
+
+    lr = 0.05
+    pr = [0.0, 0.2, log(K_on/K_off), delta_f, lr, lr, lr * K_on, lr * K_off, γ_B, γ_R]
+    px = [10.0]
     dtimes = 0:0.1:20.0
 
     SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=DiffEqJump.DirectCR())

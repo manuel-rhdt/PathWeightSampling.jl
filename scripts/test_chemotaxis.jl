@@ -1,31 +1,41 @@
 import GaussianMcmc
-using GaussianMcmc: SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, gene_expression_system, generate_configuration, logpdf
+using GaussianMcmc: SMCEstimate, DirectMCEstimate, marginal_configuration, ConditionalEnsemble, MarginalEnsemble, gene_expression_system, generate_configuration, log_marginal, logpdf, simulate
 
-system_fn = () -> GaussianMcmc.chemotaxis_system(dtimes=0:0.1:10)
+system_fn = () -> GaussianMcmc.chemotaxis_system(dtimes=0:0.1:10.0)
 smc = SMCEstimate(16)
 dmc = DirectMCEstimate(4)
 
 
-using Distributed
-addprocs(8)
+# using Distributed
+# addprocs(8)
 
-@everywhere begin
-    import Pkg
-    Pkg.activate(".")
-end
-@everywhere import GaussianMcmc
+# @everywhere begin
+#     import Pkg
+#     Pkg.activate(".")
+# end
+# @everywhere import GaussianMcmc
 
 system = system_fn()
-sol = GaussianMcmc.generate_configuration(system)
+conf = generate_configuration(system)
 
-@time result = GaussianMcmc.mutual_information(system, smc, num_responses=1)
-@time result = GaussianMcmc.run_parallel(system_fn, smc, 80)
+cens = ConditionalEnsemble(system)
+mens = MarginalEnsemble(system)
+mconf = marginal_configuration(conf)
+
+cr = simulate(smc, conf, cens)
+mr = simulate(smc, mconf, mens)
+log_marginal(cr) - log_marginal(mr)
+
+
+result = GaussianMcmc.mutual_information(system, smc, num_responses=10)
+
+
+# @time result = GaussianMcmc.run_parallel(system_fn, smc, 80)
 
 using Plots
-using Statistics
-
+# using Statistics
 plot(system.dtimes, result.MutualInformation, color=:gray, legend=false)
-plot!(system.dtimes, dresult.MutualInformation, color=:pink, label="")
+# plot!(system.dtimes, dresult.MutualInformation, color=:pink, label="")
 
-plot(system.dtimes, mean(result.MutualInformation), ribbon=sqrt.(var(result.MutualInformation)./size(result, 1)), label="SMC", ylabel="Path mutual information", xlabel="Trajectory length")
-plot!(system.dtimes, mean(dresult.MutualInformation), ribbon=sqrt.(var(dresult.MutualInformation)./size(dresult, 1)), label="DMC")
+# plot(system.dtimes, mean(result.MutualInformation), ribbon=sqrt.(var(result.MutualInformation)./size(result, 1)), label="SMC", ylabel="Path mutual information", xlabel="Trajectory length")
+# plot!(system.dtimes, mean(dresult.MutualInformation), ribbon=sqrt.(var(dresult.MutualInformation)./size(dresult, 1)), label="DMC")

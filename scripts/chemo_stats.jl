@@ -7,21 +7,21 @@ system = GaussianMcmc.chemotaxis_system(
     Y_tot = 5_000,
     LR_timescale = 1e-2,
     Y_timescale = 1e-1,
-    Y_ratio = 0.05,
-    LR_ratio = 0.01,
+    Y_ratio = 1/8,
+    LR_ratio = 0.5,
     q=0,
     dtimes = 0:0.04:2
 )
 
-sol = GaussianMcmc._solve(system)
+@time sol = GaussianMcmc._solve(system)
 
-p = plot(sol, ylim=(0,200))
+p = plot(sol)
 
-conf = generate_configuration(system)
+@time conf = GaussianMcmc.generate_configuration(system)
 
 cond_ens = GaussianMcmc.ConditionalEnsemble(system)
 
-alg = SMCEstimate(10^2)
+alg = GaussianMcmc.SMCEstimate(256)
 
 @profview result = GaussianMcmc.simulate(alg, conf, cond_ens).samples
 

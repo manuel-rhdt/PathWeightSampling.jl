@@ -1,34 +1,56 @@
-import GaussianMcmc: EventThinner, sub_trajectory, merge_trajectories
+import GaussianMcmc: collect_trajectory, Thin, MergeWith, sub_trajectory, merge_trajectories
 using Test
 using StaticArrays
 
 num_samples = 10000
-rand_u = [SVector{2}(rand([0, 1], 2)) for i = 1:num_samples - 1]
-push!(rand_u, rand_u[end])
-rand_t = vcat(0.0, cumsum(-log.(rand(num_samples - 1))))
-iter = zip(rand_u, rand_t, zeros(Int, length(rand_t)))
+rand_u = [rand([0, 1], 2) for i = 1:num_samples]
+rand_t = cumsum(-log.(rand(num_samples)))
+rand_i = collect(1:num_samples)
+iter = zip(rand_u, rand_t, rand_i)
 all_events = collect(iter)
 
-thinned = EventThinner(iter)
-for elem in thinned
-    @test elem ∈ all_events
+thinned_events = all_events |> Thin() |> collect
+
+for event in thinned_events
+    @test event ∈ all_events
 end
 
-thinned_events = [x for x in thinned]
+for (index, (u, t, i)) in enumerate(all_events)
+    if index == 1
+        continue
+    end
+    (uprev, tprev, iprev) = all_events[index - 1]
+    du = u - uprev
+    if all(du .== 0)
+        @test tprev ∉ getindex.(thinned_events, 2)
+    else
+        @test (uprev, tprev, iprev) ∈ thinned_events
+    end
+end
+
+
 for i in 1:length(thinned_events) - 2
     @test thinned_events[i][1] != thinned_events[i + 1][1]
 end
 
-@test thinned_events[end] == all_events[end]
+@test thinned_events[end][1:2] == all_events[end][1:2]
 
-sub1 = sub_trajectory(iter, SA[1])
-sub2 = sub_trajectory(iter, SA[2])
-merg = merge_trajectories(sub1, sub2)
+sub1 = sub_trajectory(iter, [1])
+sub2 = sub_trajectory(iter, [2])
+merg = sub1 |> MergeWith(sub2) |> collect
 
-@test collect(merg) == thinned_events
+@test merg == thinned_events
 
-# test that merged trajectories time spans are defined by the overlaps of the individual trajectory timespans
-sub1_trim  = collect(sub_trajectory(iter, SA[1]))[100:110]
-merg_trim = collect(merge_trajectories(sub1_trim, sub2))
-@test merg_trim[begin][2] == sub1_trim[begin][2]
-@test merg_trim[end][2] == sub1_trim[end][2]
+# rf = Transducers.Reduction(MergeWith(sub2), (a,b)->rand(Bool) ? a : b)
+# state = Transducers.start(rf, thinned_events[1])
+
+# @run Transducers.next(rf, state, thinned_events[2])
+
+sub1_trim  = collect(sub_trajectory(iter, [1]))[100:110] |> collect_trajectory
+a = sub1_trim |> MergeWith(sub2) |> collect
+b = sub2 |> MergeWith(sub1_trim) |> collect
+
+@test getindex.(a, 2) == getindex.(b, 2)
+for (a, b) in zip(a, b)
+    @test a[1][[1,2]]==b[1][[2,1]]
+end

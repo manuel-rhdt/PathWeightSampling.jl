@@ -22,7 +22,7 @@ end
 mutable struct JumpParticleSlow{uType}
     u::uType
     weight::Float64
-    parent::Union{JumpParticle{uType},Nothing}
+    parent::Union{JumpParticleSlow{uType},Nothing}
 
     function JumpParticleSlow(setup)
         u = setup.ensemble.jump_problem.prob.u0
@@ -30,7 +30,7 @@ mutable struct JumpParticleSlow{uType}
     end
 
     function JumpParticleSlow(parent, setup)
-        new{typeof(u)}(copy(parent.u), 0.0, parent)
+        new{typeof(parent.u)}(copy(parent.u), 0.0, parent)
     end
 end
 
@@ -79,7 +79,7 @@ end
 
 function systematic_sample(weights)
     N = length(weights)
-    inc = inv(N)
+    inc = 1/N
     x = inc * rand()
     j=1
     y = weights[j] / sum(weights)
@@ -107,8 +107,8 @@ end
 
 log_marginal(result::SMCResult) = cumsum(vec(logmeanexp(result.samples, dims=1)))
 
-function simulate(algorithm::SMCEstimate, initial, system; inspect=Base.identity)
+function simulate(algorithm::SMCEstimate, initial, system; kwargs...)
     setup = Setup(initial, system)
-    weights = sample(algorithm.num_particles, system.dtimes, setup; inspect)
+    weights = sample(algorithm.num_particles, system.dtimes, setup; kwargs...)
     SMCResult(weights)
 end

@@ -2,9 +2,22 @@ import GaussianMcmc
 using GaussianMcmc: SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, gene_expression_system, generate_configuration, logpdf
 
 system_fn = () -> GaussianMcmc.gene_expression_system(dtimes=0:0.1:10)
-smc = SMCEstimate(50)
+smc = SMCEstimate(100)
 dmc = DirectMCEstimate(200)
 
+system = system_fn()
+
+conf = generate_configuration(system)
+ens = MarginalEnsemble(system)
+
+GaussianMcmc.log_marginal(GaussianMcmc.simulate(smc, conf, ens))
+GaussianMcmc.energy_difference(conf, ens)
+
+result = GaussianMcmc.mutual_information(system, smc, num_responses=20)
+
+using Plots
+plot(GaussianMcmc._solve(system), xlim=(0,2), seriescolor=[:green :cornflowerblue])
+savefig("~/Downloads/example_traj.pdf")
 
 using Distributed
 addprocs(4)

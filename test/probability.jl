@@ -14,7 +14,7 @@ log_p0 = (s) -> logpdf(s0_dist, s)
 
 dist = GaussianMcmc.distribution(sn, log_p0)
 
-traj = GaussianMcmc.Trajectory([0.0, 1.0, 2.0, 3.0], [[50.0], [51.0], [50.0], [50.0]], [1, 2])
+traj = GaussianMcmc.Trajectory([1.0, 2.0, 3.0], [[50.0], [51.0], [50.0]], [1, 2])
 
 κ = 0.25
 λ = 0.005
@@ -29,3 +29,25 @@ reac1 = log(κ)
 reac2 = log(51 * λ)
 
 @test GaussianMcmc.logpdf(dist, traj, params=[κ, λ]) ≈ sum((p0, wait1, wait2, wait3, reac1, reac2))
+@test GaussianMcmc.trajectory_energy(dist, traj, params=[κ, λ]) ≈ sum((wait1, wait2, wait3, reac1, reac2))
+@test GaussianMcmc.trajectory_energy(dist, traj, tspan=(1.0,2.0), params=[κ, λ]) ≈ sum((wait2, reac2))
+
+GaussianMcmc.trajectory_energy(dist, traj, params=[κ, λ])
+cumulative = GaussianMcmc.cumulative_logpdf(dist, traj, 0:0.5:3, params=[κ, λ])
+@test cumulative ≈ [
+    0.0,
+    0.5wait1,
+    wait1 + reac1,
+    wait1 + reac1 + 0.5wait2,
+    wait1 + reac1 + wait2 + reac2,
+    wait1 + reac1 + wait2 + reac2 + 0.5wait3,
+    wait1 + reac1 + wait2 + reac2 + wait3,
+]
+
+subset = GaussianMcmc.cumulative_logpdf(dist, traj, 2:0.33:3, params=[κ, λ])
+@test subset ≈ [
+    0.0,
+    0.33wait3,
+    0.66wait3,
+    0.99wait3
+]
