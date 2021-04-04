@@ -9,3 +9,7 @@ cens = ConditionalEnsemble(system)
 mens = MarginalEnsemble(system)
 
 @test energy_difference(conf, cens) == energy_difference(mconf, mens)
+
+alg = SMCEstimate(16)
+cresult = simulate(alg, conf, cens)
+mresult = simulate(alg, mconf, mens)
