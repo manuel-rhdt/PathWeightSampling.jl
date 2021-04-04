@@ -27,3 +27,7 @@ jobs:
           julia -e "using Pkg; Pkg.Registry.update();"
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
+      - uses: julia-actions/julia-processcoverage@latest
+      - uses: codecov/codecov-action@latest
+        with:
+          file: lcov.info
