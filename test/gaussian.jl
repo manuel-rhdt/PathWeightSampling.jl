@@ -1,15 +1,19 @@
 using GaussianMcmc
 using Distributions
 using Test
+using LinearAlgebra
 
 system = GaussianSystem(delta_t=0.05, duration=1.0)
 initial = generate_configuration(system)
 
 n_dim = length(initial) ÷ 2
 c_xx = system.joint.Σ[n_dim + 1:end, n_dim + 1:end]
+@test issymmetric(c_xx)
 
 marginal = MvNormal(c_xx)
-val1 = logpdf(marginal, initial[n_dim + 1:end])
+val1 = logpdf(marginal, initial[n_dim + 1:end]) # this is the analytically correct value of the log marginal
+
+# we now test for every implemented estimation algorithm whether they yield results within 1% of the correct value
 
 algorithms = [
     DirectMCEstimate(2^16),
