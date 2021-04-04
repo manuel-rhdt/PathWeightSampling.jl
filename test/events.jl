@@ -41,11 +41,6 @@ merg = sub1 |> MergeWith(sub2) |> collect
 
 @test merg == thinned_events
 
-# rf = Transducers.Reduction(MergeWith(sub2), (a,b)->rand(Bool) ? a : b)
-# state = Transducers.start(rf, thinned_events[1])
-
-# @run Transducers.next(rf, state, thinned_events[2])
-
 sub1_trim  = collect(sub_trajectory(iter, [1]))[100:110] |> collect_trajectory
 a = sub1_trim |> MergeWith(sub2) |> collect
 b = sub2 |> MergeWith(sub1_trim) |> collect

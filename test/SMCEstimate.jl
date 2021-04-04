@@ -9,8 +9,3 @@ cens = ConditionalEnsemble(system)
 mens = MarginalEnsemble(system)
 
 @test energy_difference(conf, cens) == energy_difference(mconf, mens)
-
-system.u0
-conf.x_traj
-
-@run propagate(conf, cens, cens.jump_problem.prob.u0, (0.0,1.0))

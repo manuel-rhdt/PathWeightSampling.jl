@@ -80,7 +80,12 @@ function cooperative_chemotaxis_system(;
 
     mean_l = 50,
 
-    n_clusters = 100
+    phosphorylate = 0.1,
+    dephosphorylate = 0.1,
+
+    n_clusters = 100,
+    n_chey = 10_000,
+    dtimes = 0:0.1:20.0
 )
     delta_f = δf
 
@@ -91,7 +96,7 @@ function cooperative_chemotaxis_system(;
 
     rn = Catalyst.make_empty_network()
 
-    @Catalyst.parameters t E0 τ0 δg δf lba lbi lda ldi mda mbi
+    @Catalyst.parameters t E0 τ0 δg δf lba lbi lda ldi mda mbi ρ
     @Catalyst.variables L(t) Y(t) Yp(t)
 
     Catalyst.addspecies!(rn, L)
@@ -108,8 +113,10 @@ function cooperative_chemotaxis_system(;
     Catalyst.addparam!(rn, mbi)
 
     xn = @reaction_network begin
-        χ, Yp --> Y
-    end χ
+        μ, Yp --> Y
+    end μ
+
+    Catalyst.addparam!(xn, ρ)
 
     spmap = Dict()
     for l=0:lmax, m=0:mmax
@@ -139,16 +146,6 @@ function cooperative_chemotaxis_system(;
             ligand_unbind = Catalyst.Reaction((lda * p_active + ldi * (1 - p_active)) * l, [spmap[(l, m)]], [spmap[(l-1, m)]])
             Catalyst.addreaction!(rn, ligand_bind)
             Catalyst.addreaction!(rn, ligand_unbind)
-
-            # ligand_bind_active = Catalyst.Reaction(lba * (lmax + 1 - l), [spmap[(l-1, m, :active)], L], [spmap[(l, m, :active)], L])
-            # ligand_unbind_active = Catalyst.Reaction(lda * l, [spmap[(l, m, :active)]], [spmap[(l-1, m, :active)]])
-            # ligand_bind_inactive = Catalyst.Reaction(lbi * (lmax + 1 - l), [spmap[(l-1, m, :inactive)], L], [spmap[(l, m, :inactive)], L])
-            # ligand_unbind_inactive = Catalyst.Reaction(ldi * l, [spmap[(l, m, :inactive)]], [spmap[(l-1, m, :inactive)]])
-
-            # Catalyst.addreaction!(rn, ligand_bind_active)
-            # Catalyst.addreaction!(rn, ligand_unbind_active)
-            # Catalyst.addreaction!(rn, ligand_bind_inactive)
-            # Catalyst.addreaction!(rn, ligand_unbind_inactive)
         end
 
         if m > 0
@@ -163,19 +160,12 @@ function cooperative_chemotaxis_system(;
             # Catalyst.addreaction!(rn, demethylate_inactive)
         end
 
-        # switch_rate = inv(τ0)
-        # switch_active = Catalyst.Reaction(switch_rate*exp(- E0 - l*δg - m*δf), [spmap[(l, m, :inactive)]], [spmap[(l, m, :active)]])
-        # switch_inactive = Catalyst.Reaction(switch_rate, [spmap[(l, m, :active)]], [spmap[(l, m, :inactive)]])
-        # Catalyst.addreaction!(rn, switch_active)
-        # Catalyst.addreaction!(rn, switch_inactive)
 
-        # active_spec = spmap[(l, m, :active)]
-        # phosphorylate = Catalyst.Reaction(0.1, [Y, active_spec], [Yp, active_spec])
-        # Catalyst.addreaction!(xn, phosphorylate)
-
+        # every receptor phosphorylates Y with rate ρ if the receptor is active
+        # if the receptor is inactive, no phosphorylation can happen
         receptor = spmap[(l, m)]
-        phosphorylate = Catalyst.Reaction(0.1 * p_active, [Y, receptor], [Yp, receptor])
-        Catalyst.addreaction!(xn, phosphorylate)
+        phosphorylation = Catalyst.Reaction(ρ * p_active, [Y, receptor], [Yp, receptor])
+        Catalyst.addreaction!(xn, phosphorylation)
     end
 
     joint = merge(merge(sn, rn), xn)
@@ -183,14 +173,13 @@ function cooperative_chemotaxis_system(;
     u0 = zeros(Int, length(spmap) + 3)
     u0[1] = round(Int, mean_l)
     u0[Catalyst.speciesmap(joint)[spmap[(0, 0)]]] = n_clusters
-    u0[Catalyst.speciesmap(joint)[Y]] = 10000
+    u0[Catalyst.speciesmap(joint)[Y]] = n_chey
 
     ps = [mean_l, 1.0]
 
     lr = 0.05
     pr = [0.0, 0.2, log(K_on/K_off), delta_f, lr, lr, lr * K_on, lr * K_off, γ_B, γ_R]
-    px = [10.0]
-    dtimes = 0:0.1:20.0
+    px = [dephosphorylate, phosphorylate]
 
     SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=DiffEqJump.DirectCR())
 end
