@@ -21,12 +21,12 @@ We setup our parameters
 ```julia
 lmax = 1
 mmax = 3
-K_a = 500
-K_i = 25
+K_a = 500 # unit: μM
+K_i = 25  # unit: μM
 δg = log(K_a/K_i) # ≈ 3
 
 E0 = 2.0
-δf = -2.0
+δf = -1.0
 
 n_clusters = 800
 
@@ -69,8 +69,8 @@ where the free energy difference between the active and inactive conformations o
 Now we setup the system and the test trajectory which is just a step function
 ```julia
 system = cooperative_chemotaxis_system(lmax=lmax, mmax=mmax, n_clusters=n_clusters)
-step_s = Trajectory([0, 100, 200, 300], [[15], [15], [50], [15]])
-plot(step_s, ylim=(0,100))
+step_s = Trajectory([0, 100, 200, 300], [[0], [0], [5], [0]])
+plot(step_s, ylim=(0,10))
 ```
 
 Set up and solve the system
@@ -145,7 +145,7 @@ end
 function plot_solution(sol, system)
     joint = reaction_network(system)
     t = sol.t
-    p = plot(t, vec(sol[1,:]) ./ 100, label="ligand concentration")
+    p = plot(t, vec(sol[1,:]) ./ 10, label="ligand concentration")
     plot!(p, t, active_receptors(sol, joint) ./ n_clusters, label="active fraction")
     plot!(p, t, vec(sol[end-1,:]) ./ 10000, label="Yp / (Y+Yp)")
     plot!(p, t, bound_ligands(sol, joint) ./ (lmax * n_clusters), label="bound receptor fraction")
