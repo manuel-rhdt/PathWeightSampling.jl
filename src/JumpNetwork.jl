@@ -293,7 +293,7 @@ function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, n
     result = Array{Float64,2}(undef, length(ensemble.dtimes), num_samples)
     for result_col ∈ eachcol(result)
         integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), numsteps_hint=0)
-        iter = SSAIter(integrator)
+        iter = SSAIter(integrator) |> Map((u,t,i)::Tuple -> (u,t,0))
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes, params=ensemble.p)
     end
 
@@ -338,8 +338,9 @@ function collect_samples(initial::SRXconfiguration, ensemble::ConditionalEnsembl
 
     result = Array{Float64,2}(undef, length(ensemble.dtimes), num_samples)
     for result_col ∈ eachcol(result)
+        cb.condition.index = 1
         integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=initial.s_traj.t, numsteps_hint=0)
-        iter = SSAIter(integrator)
+        iter = SSAIter(integrator) |> Map((u,t,i)::Tuple -> (u,t,0))
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes, params=ensemble.p)
     end
 
