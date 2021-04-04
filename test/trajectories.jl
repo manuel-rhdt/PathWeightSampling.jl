@@ -11,6 +11,9 @@ traj_mat = GaussianMcmc.Trajectory([1.0, 2.0, 3.0], [1 2 3; 4 5 6], [1, 1])
 
 @test length(traj) == 3 == length(traj.t)
 @test collect(traj) == [([1, 4], 1.0, 1), ([2,5], 2.0, 1), ([3, 6], 3.0, 0)]
+@test traj(0.0) == [1,4]
+@test traj(1.5) == [2,5]
+@test traj(2.9) == [3,6]
 
 sn = @reaction_network begin
     0.005, S --> ∅
