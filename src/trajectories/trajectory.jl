@@ -26,23 +26,6 @@ function (t::Trajectory)(time::Real)
     t.u[index]
 end
 
-function (t::Trajectory)(times::AbstractArray{<:Real})
-    j = 2
-    map(times) do time
-        val = nothing
-        while j <= length(t.t)
-            if t.t[j] < time
-                j += 1
-                continue
-            else
-                val = t.u[j - 1]
-                break
-            end
-        end
-        val
-    end
-end
-
 function Trajectory(t::AbstractVector{tType}, u::AbstractMatrix{T}, i=Int[]) where {tType <: Real,T <: Real}
     num_components = size(u, 1)
     if num_components > 0
