@@ -160,18 +160,9 @@ function create_chemical_reactions(reaction_system::ReactionSystem)
     _create_chemical_reactions(reaction_system, Catalyst.reactions(reaction_system)...)
 end
 
-function var2name(var)
-    ModelingToolkit.operation(var)
-end
-
 function _create_chemical_reactions(rn::ReactionSystem, r1::Catalyst.Reaction)
     smap = Catalyst.speciesmap(rn)
-    # spec = var2name.(Catalyst.species(rn))
-    # ratelaw = substitute(Catalyst.jumpratelaw(r1), Dict(Catalyst.species(rn) .=> spec))
-
     rate_fun = build_function(Catalyst.jumpratelaw(r1), Catalyst.species(rn), Catalyst.params(rn), expression=Val(false))
-    # rate_fun = eval(rate_fun)
-
     netstoich = [(smap[sub], stoich) for (sub, stoich) in r1.netstoich]
 
     du = zero(SVector{Catalyst.numspecies(rn),Int})
