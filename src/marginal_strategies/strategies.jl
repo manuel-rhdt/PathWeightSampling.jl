@@ -65,7 +65,7 @@ function mutual_information(system, algorithm; num_responses::Integer=1)
 
     # this is the outer Direct Monte-Carlo loop
     # result = Base.invokelatest(_mi_inner, compiled_system, algorithm, num_responses)
-    _mi_inner(compiled_system, algorithm, num_responses)
+    result = _mi_inner(compiled_system, algorithm, num_responses)
 
     result
 end
