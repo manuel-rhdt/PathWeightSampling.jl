@@ -1,5 +1,5 @@
 import GaussianMcmc
-using GaussianMcmc: TrajectoryCallback, SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, ConditionalEnsemble, gene_expression_system, generate_configuration, logpdf
+using GaussianMcmc: cooperative_chemotaxis_system, TrajectoryCallback, SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, ConditionalEnsemble, gene_expression_system, generate_configuration, logpdf
 using StaticArrays
 import Catalyst
 using DiffEqBase
@@ -10,11 +10,7 @@ system_fn = () -> GaussianMcmc.cooperative_chemotaxis_system(delta_e=0, delta_f=
 
 sol = begin
 system = system_fn()
-# @time conf = generate_configuration(system)
-# units μM
 step_s = GaussianMcmc.Trajectory([100.0, 200, 300.0], [SA[15.0], SA[50.0], SA[15.0]], [0])
-# conf2 = GaussianMcmc.SRXconfiguration(step_s, conf.r_traj, conf.x_traj)
-
 joint = merge(merge(system.sn, system.rn), system.xn)
 rx = merge(system.rn, system.xn)
 r_idxs = GaussianMcmc.species_indices(joint, Catalyst.species(system.rn))
@@ -87,3 +83,51 @@ end
 
 
 savefig(plot!(dpi=144), "~/Downloads/plot2.png")
+
+
+# FROM JuliaMarkdown File
+
+lmax = 1
+mmax = 3
+K_a = 500
+K_i = 25
+δg = log(K_a/K_i) # ≈ 3
+
+E0 = 2.0
+δf = -2.0
+
+n_clusters = 800
+
+p_bind = 0.05
+
+γ = 1/0.5 # 1 / (adaptation time scale)
+γ_B = γ / (mmax * abs(δf))
+γ_R = γ_B / 2
+
+params = [
+    E0,
+    0.1, # in/activation timescale
+    δg,
+    δf,
+    p_bind, # ligand binding to active receptor
+    p_bind, # ligand binding to inactive receptor
+    p_bind * K_a, # ligand dissociation from active receptor
+    p_bind * K_i, # ligand dissociation from inactive receptor
+    γ_B, # demethylation of active receptor
+    γ_R  # methylation of inactive receptor
+]
+
+system = cooperative_chemotaxis_system(lmax=lmax, mmax=mmax, n_clusters=n_clusters, mean_l=100)
+
+conf = generate_configuration(system)
+
+plot(conf.x_traj)
+
+cens = ConditionalEnsemble(system)
+mens = MarginalEnsemble(system)
+mconf = marginal_configuration(conf)
+
+smc = SMCEstimate(16)
+cr = simulate(smc, conf, cens)
+mr = simulate(smc, mconf, mens)
+plot(log_marginal(cr) - log_marginal(mr))
