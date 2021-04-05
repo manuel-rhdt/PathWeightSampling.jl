@@ -12,12 +12,12 @@ end κ λ
 s0_dist = MvNormal([50.0], 50.0 * ones((1, 1)))
 log_p0 = (s) -> logpdf(s0_dist, s)
 
-dist = GaussianMcmc.distribution(sn, log_p0)
-
-traj = GaussianMcmc.Trajectory([1.0, 2.0, 3.0], [[50.0], [51.0], [50.0]], [1, 2])
-
 κ = 0.25
 λ = 0.005
+
+dist = GaussianMcmc.distribution(sn, [κ, λ], log_p0)
+
+traj = GaussianMcmc.Trajectory([1.0, 2.0, 3.0], [[50.0], [51.0], [50.0]], [1, 2])
 
 p_wait(s, dt) = exp(- (κ + s * λ) * dt)
 

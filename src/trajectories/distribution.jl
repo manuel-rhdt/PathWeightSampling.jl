@@ -3,6 +3,7 @@ import ModelingToolkit: build_function, ReactionSystem, substitute
 import Catalyst
 using StaticArrays
 using Transducers
+import Base.show
 
 struct DirectAggregator{U}
     sumrate::Float64
@@ -11,6 +12,33 @@ struct DirectAggregator{U}
     tspan::Tuple{Float64, Float64}
     tprev::Float64
     weight::Float64
+end
+
+struct ReactionSet
+    rates::Vector{Float64}
+    rstoich::Vector{Vector{Pair{Int64, Int64}}}
+    nstoich::Vector{Vector{Pair{Int64, Int64}}}
+end
+
+function ReactionSet(js::ModelingToolkit.JumpSystem, p)
+    parammap  = map(Pair, ModelingToolkit.parameters(js), p)
+    statetoid = Dict(ModelingToolkit.value(state) => i for (i,state) in enumerate(ModelingToolkit.states(js)))
+
+    rates = Float64[]
+    rstoich_vec = Vector{Pair{Int64, Int64}}[]
+    nstoich_vec = Vector{Pair{Int64, Int64}}[]
+
+    for eq in ModelingToolkit.equations(js)
+        rate = ModelingToolkit.value(ModelingToolkit.substitute(eq.scaled_rates, parammap))
+        rstoich = sort!([statetoid[ModelingToolkit.value(spec)] => stoich for (spec, stoich) in eq.reactant_stoch])
+        nstoich = sort!([statetoid[ModelingToolkit.value(spec)] => stoich for (spec, stoich) in eq.net_stoch])
+
+        push!(rates, rate)
+        push!(rstoich_vec, rstoich)
+        push!(nstoich_vec, nstoich)
+    end
+
+    ReactionSet(rates, rstoich_vec, nstoich_vec)
 end
 
 add_weight(agg::DirectAggregator, Δweight::Float64, t::Float64) = DirectAggregator(agg.sumrate, agg.rates, agg.update_map, agg.tspan, t, agg.weight + Δweight)
@@ -33,11 +61,43 @@ struct ChemicalReaction{Rate,N}
     netstoich::SVector{N,Int}
 end
 
-struct TrajectoryDistribution{Reactions,Dist,U}
-    reactions::Reactions
+function Base.show(io::IO, r::ChemicalReaction)
+    print(io, "ChemicalReaction(")
+    i = 1
+    for (j, v) in enumerate(r.netstoich)
+        if v != 0
+            if i != 1
+                print(io, ", ")
+            end
+            i += 1
+            print(io, j, "->", v)
+        end
+    end
+    print(")")
+end
+
+struct TrajectoryDistribution{Dist,U}
+    reactions::ReactionSet
     log_p0::Dist
     aggregator::DirectAggregator{U}
 end
+
+# function Base.show(io::IO, dist::TrajectoryDistribution)
+#     print(io, "TrajectoryDistribution((")
+#     for (i, r) in enumerate(dist.reactions)
+#         if i == 1
+#             show(io, r)
+#         else
+#             print(io, ", ")
+#             show(io, r)
+#         end
+#     end
+#     print(io, "), ")
+#     show(io, dist.log_p0)
+#     print(io, ", ")
+#     show(io, dist.aggregator)
+#     print(io, ")")
+# end
 
 function TrajectoryDistribution(reactions, log_p0, update_map = 1:num_reactions)
     num_clusters = maximum(update_map)
@@ -46,9 +106,9 @@ function TrajectoryDistribution(reactions, log_p0, update_map = 1:num_reactions)
 end
 
 myzero_fn(x) = 0.0
-distribution(rn::ReactionSystem, log_p0=myzero_fn; update_map=1:Catalyst.numreactions(rn)) = TrajectoryDistribution(create_chemical_reactions(rn), log_p0, update_map)
+distribution(rn::ReactionSystem, p, log_p0=myzero_fn; update_map=1:Catalyst.numreactions(rn)) = TrajectoryDistribution(ReactionSet(convert(ModelingToolkit.JumpSystem, rn), p), log_p0, update_map)
 
-@fastmath function Distributions.logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory; params::AbstractVector{Float64}=Float64[])::Float64
+@fastmath function Distributions.logpdf(dist::TrajectoryDistribution, trajectory; params::AbstractVector{Float64}=Float64[])::Float64
     first = iterate(trajectory)
     if first === nothing
         return 0.0
@@ -62,7 +122,7 @@ distribution(rn::ReactionSystem, log_p0=myzero_fn; update_map=1:Catalyst.numreac
         if tprev == 0.0
             result = dist.log_p0(u)::Float64
         end
-        agg = update_rates(agg, u, params, dist.reactions...)
+        agg = update_rates(agg, u, dist.reactions)
 
         dt = t - tprev
         result -= dt * agg.sumrate
@@ -77,8 +137,8 @@ distribution(rn::ReactionSystem, log_p0=myzero_fn; update_map=1:Catalyst.numreac
     result
 end
 
-@fastmath @inline function fold_logpdf(dist::TrajectoryDistribution{<:Tuple}, params::AbstractVector{Float64}, agg::DirectAggregator, (u, t, i))
-    agg = update_rates(agg, u, params, dist.reactions...)
+@fastmath @inline function fold_logpdf(dist::TrajectoryDistribution, params::AbstractVector{Float64}, agg::DirectAggregator, (u, t, i))
+    agg = update_rates(agg, u, dist.reactions)
     agg_i = get_update_index(agg, i)
     dt = t - agg.tprev
     if agg_i !== nothing
@@ -90,7 +150,7 @@ end
     add_weight(agg, log_surv_prob + log_jump_prob, t)
 end
 
-function trajectory_energy(dist::TrajectoryDistribution{<:Tuple}, traj; params::AbstractVector{Float64}=Float64[], tspan=(0.0, Inf64))
+function trajectory_energy(dist::TrajectoryDistribution, traj; params::AbstractVector{Float64}=Float64[], tspan=(0.0, Inf64))
     agg = dist.aggregator
     agg = DirectAggregator(0.0, agg.rates, agg.update_map, tspan, tspan[1], 0.0)
     
@@ -112,7 +172,7 @@ function trajectory_energy(dist::TrajectoryDistribution{<:Tuple}, traj; params::
     result.weight
 end
 
-function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution{<:Tuple}, traj, dtimes::AbstractVector; params::AbstractVector{Float64}=Float64[])
+function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution, traj, dtimes::AbstractVector; params::AbstractVector{Float64}=Float64[])
     agg = dist.aggregator
     tspan = (first(dtimes), last(dtimes))
     result[1] = zero(eltype(result))
@@ -123,7 +183,7 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
         end
 
         t = min(t, agg.tspan[2])
-        agg = update_rates(agg, u, params, dist.reactions...)
+        agg = update_rates(agg, u, dist.reactions)
 
         tprev = agg.tprev
         while k <= length(dtimes) && dtimes[k] < t
@@ -154,7 +214,7 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
     result
 end
 
-cumulative_logpdf(dist::TrajectoryDistribution{<:Tuple}, trajectory, dtimes::AbstractVector; params::AbstractVector{Float64}=Float64[]) = cumulative_logpdf!(zeros(length(dtimes)), dist, trajectory, dtimes, params=params)
+cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVector; params::AbstractVector{Float64}=Float64[]) = cumulative_logpdf!(zeros(length(dtimes)), dist, trajectory, dtimes, params=params)
 
 function create_chemical_reactions(reaction_system::ReactionSystem)
     _create_chemical_reactions(reaction_system, Catalyst.reactions(reaction_system)...)
@@ -202,3 +262,29 @@ end
     update_rates(aggregator, i+1, speciesvec, params, rs...)
 end
 
+@inline @fastmath function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, rs::ReactionSet)
+    val = 1.0
+    @inbounds for specstoch in rs.rstoich[rxidx]
+        specpop = speciesvec[specstoch[1]]
+        val    *= specpop
+        @inbounds for k = 2:specstoch[2]
+            specpop -= one(specpop)
+            val     *= specpop
+        end
+    end
+
+    @inbounds return val * rs.rates[rxidx]
+end
+
+@fastmath function update_rates(aggregator::DirectAggregator, speciesvec::AbstractVector, reactions::ReactionSet)
+    sum = 0.0
+    for i in eachindex(reactions.rates)
+        agg_i = get_update_index(aggregator, i)
+        if agg_i !== nothing
+            rate = evalrxrate(speciesvec, i, reactions)
+            @inbounds aggregator.rates[agg_i] = rate
+            sum += rate
+        end
+    end
+    aggregator = DirectAggregator(sum, aggregator.rates, aggregator.update_map, aggregator.tspan, aggregator.tprev, aggregator.weight)
+end

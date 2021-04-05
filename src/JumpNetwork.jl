@@ -28,6 +28,17 @@ struct SRXconfiguration{uTs,Utr,Utx,tType}
     x_traj::Trajectory{Utx,tType}
 end
 
+ensurevec(a::AbstractVector) = a
+ensurevec(a) = SVector(a)
+
+function Base.getindex(conf::SXconfiguration, index)
+    merge_trajectories(conf.s_traj, conf.x_traj) |> Map((u,t,i)::Tuple -> (ensurevec(u[index]),t,i)) |> Thin() |> collect_trajectory
+end
+
+function Base.getindex(conf::SRXconfiguration, index)
+    merge_trajectories(conf.s_traj, conf.r_traj, conf.x_traj) |> Map((u,t,i)::Tuple -> (ensurevec(u[index]),t,i)) |> Thin() |> collect_trajectory
+end
+
 abstract type JumpNetwork end
 struct SXsystem <: JumpNetwork
     sn::ReactionSystem
@@ -41,9 +52,10 @@ struct SXsystem <: JumpNetwork
     dtimes
 
     jump_problem
+    dist::TrajectoryDistribution
 end
 
-function SXsystem(sn, xn, u0, ps, px, dtimes)
+function SXsystem(sn, xn, u0, ps, px, dtimes, dist=nothing)
     joint = merge(sn, xn)
 
     tp = (first(dtimes), last(dtimes))
@@ -51,7 +63,12 @@ function SXsystem(sn, xn, u0, ps, px, dtimes)
     dprob = DiscreteProblem(joint, copy(u0), tp, p)
     jprob = JumpProblem(joint, dprob, Direct(), save_positions=(false, false))
 
-    SXsystem(sn, xn, u0, ps, px, dtimes, jprob)
+    if dist === nothing
+        update_map = build_update_map(joint, xn)
+        dist = distribution(joint, p; update_map)
+    end
+
+    SXsystem(sn, xn, u0, ps, px, dtimes, jprob, dist)
 end
 
 struct CompiledSXsystem{JP}
@@ -77,9 +94,10 @@ struct SRXsystem <: JumpNetwork
     dtimes
 
     jump_problem
+    dist::TrajectoryDistribution
 end
 
-function SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=Direct())
+function SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())
     joint = merge(merge(sn, rn), xn)
 
     tp = (first(dtimes), last(dtimes))
@@ -87,7 +105,12 @@ function SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=Direct())
     dprob = DiscreteProblem(joint, copy(u0), tp, p)
     jprob = JumpProblem(joint, dprob, aggregator, save_positions=(false, false))
 
-    SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob)
+    if dist === nothing
+        update_map = build_update_map(joint, xn)
+        dist = distribution(joint, p; update_map)
+    end
+
+    SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob, dist)
 end
 
 struct CompiledSRXsystem{JP, JPC, IXC, DXC}
@@ -118,11 +141,11 @@ function generate_configuration(system::SXsystem)
 
 
     s_spec = independent_species(system.sn)
-    s_idxs = SVector(species_indices(joint, s_spec)...)
+    s_idxs = sort(SVector(species_indices(joint, s_spec)...))
     s_traj = sub_trajectory(trajectory, s_idxs)
 
     x_spec = independent_species(system.xn)
-    x_idxs = SVector(species_indices(joint, x_spec)...)
+    x_idxs = sort(SVector(species_indices(joint, x_spec)...))
     x_traj = sub_trajectory(trajectory, x_idxs)
 
     SXconfiguration(s_traj, x_traj)
@@ -183,9 +206,7 @@ function MarginalEnsemble(system::SXsystem)
     dprob = DiscreteProblem(system.sn, system.u0[s_idxs], tspan(system), system.ps)
     jprob = JumpProblem(system.sn, dprob, Direct(), save_positions=(false, false))
 
-    update_map = build_update_map(joint, system.xn)
-
-    MarginalEnsemble(jprob, distribution(joint; update_map), vcat(system.ps, system.px), collect(system.dtimes))
+    MarginalEnsemble(jprob, system.dist, vcat(system.ps, system.px), collect(system.dtimes))
 end
 
 function MarginalEnsemble(system::SRXsystem)
@@ -199,9 +220,7 @@ function MarginalEnsemble(system::SRXsystem)
     # dprob = remake(dprob, u0=SVector(dprob.u0...))
     jprob = JumpProblem(sr_network, dprob, Direct(), save_positions=(false, false))
 
-    update_map = build_update_map(joint, system.xn)
-
-    MarginalEnsemble(jprob, distribution(joint; update_map), vcat(system.ps, system.pr, system.px), collect(system.dtimes))
+    MarginalEnsemble(jprob, system.dist, vcat(system.ps, system.pr, system.px), collect(system.dtimes))
 end
 mutable struct TrajectoryCallback{uType,tType}
     traj::Trajectory{uType,tType}
@@ -244,9 +263,7 @@ function ConditionalEnsemble(system::SRXsystem)
     dep_species = dependent_species(system.xn)
     dep_idxs = indexin(species_indices(system.rn, dep_species), indep_idxs)
 
-    update_map = build_update_map(joint, system.xn)
-
-    ConditionalEnsemble(jprob, distribution(joint; update_map), indep_idxs, dep_idxs, vcat(system.ps, system.pr, system.px), collect(system.dtimes))
+    ConditionalEnsemble(jprob, system.dist, indep_idxs, dep_idxs, vcat(system.ps, system.pr, system.px), collect(system.dtimes))
 end
 
 # returns a list of species in `a` that also occur in `b`
