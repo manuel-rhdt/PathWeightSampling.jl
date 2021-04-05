@@ -196,11 +196,12 @@ end
 
 @fastmath function update_rates(aggregator::DirectAggregator, speciesvec::AbstractVector, reactions::ReactionSet)
     sum = 0.0
+    aggregator.rates .= 0.0
     for i in eachindex(reactions.rates)
         agg_i = get_update_index(aggregator, i)
         if agg_i !== nothing
             rate = evalrxrate(speciesvec, i, reactions)
-            @inbounds aggregator.rates[agg_i] = rate
+            @inbounds aggregator.rates[agg_i] += rate
             sum += rate
         end
     end

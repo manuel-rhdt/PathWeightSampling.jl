@@ -4,6 +4,9 @@ using Test
 using Statistics
 
 system = GaussianMcmc.chemotaxis_system(dtimes=0:0.025:0.5)
+
+@test system.dist.aggregator.update_map == [0, 0, 0, 0, 1, 2]
+
 conf = generate_configuration(system)
 mconf = marginal_configuration(conf)
 cens = ConditionalEnsemble(system)

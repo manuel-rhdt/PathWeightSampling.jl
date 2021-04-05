@@ -182,13 +182,15 @@ end
 
 function build_update_map(joint::ReactionSystem, xn::ReactionSystem)
     update_map = Int[]
+    spmap = Catalyst.speciesmap(joint)
+    mapper = (x, y)::Pair -> spmap[x] => y
 
-    unique_netstoich = unique(map(r -> r.netstoich, Catalyst.reactions(xn)))
+    unique_netstoich = unique(map(r -> mapper.(r.netstoich), Catalyst.reactions(xn)))
 
     for react in Catalyst.reactions(joint)
         new_index = 0
         for (k, un) in enumerate(unique_netstoich)
-            if react.netstoich === un
+            if mapper.(react.netstoich) == un
                 new_index = k
                 break
             end
