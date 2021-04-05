@@ -56,48 +56,11 @@ function get_update_index(agg::DirectAggregator, i::Int)
     end
 end
 
-struct ChemicalReaction{Rate,N}
-    rate::Rate
-    netstoich::SVector{N,Int}
-end
-
-function Base.show(io::IO, r::ChemicalReaction)
-    print(io, "ChemicalReaction(")
-    i = 1
-    for (j, v) in enumerate(r.netstoich)
-        if v != 0
-            if i != 1
-                print(io, ", ")
-            end
-            i += 1
-            print(io, j, "->", v)
-        end
-    end
-    print(")")
-end
-
 struct TrajectoryDistribution{Dist,U}
     reactions::ReactionSet
     log_p0::Dist
     aggregator::DirectAggregator{U}
 end
-
-# function Base.show(io::IO, dist::TrajectoryDistribution)
-#     print(io, "TrajectoryDistribution((")
-#     for (i, r) in enumerate(dist.reactions)
-#         if i == 1
-#             show(io, r)
-#         else
-#             print(io, ", ")
-#             show(io, r)
-#         end
-#     end
-#     print(io, "), ")
-#     show(io, dist.log_p0)
-#     print(io, ", ")
-#     show(io, dist.aggregator)
-#     print(io, ")")
-# end
 
 function TrajectoryDistribution(reactions, log_p0, update_map = 1:num_reactions)
     num_clusters = maximum(update_map)
@@ -216,51 +179,6 @@ end
 
 cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVector; params::AbstractVector{Float64}=Float64[]) = cumulative_logpdf!(zeros(length(dtimes)), dist, trajectory, dtimes, params=params)
 
-function create_chemical_reactions(reaction_system::ReactionSystem)
-    _create_chemical_reactions(reaction_system, Catalyst.reactions(reaction_system)...)
-end
-
-function _create_chemical_reactions(rn::ReactionSystem, r1::Catalyst.Reaction)
-    smap = Catalyst.speciesmap(rn)
-    rate_fun = build_function(Catalyst.jumpratelaw(r1), Catalyst.species(rn), Catalyst.params(rn), expression=Val(false))
-    netstoich = [(smap[sub], stoich) for (sub, stoich) in r1.netstoich]
-
-    du = zero(SVector{Catalyst.numspecies(rn),Int})
-    for (index, netstoich) in netstoich
-        du = setindex(du, netstoich, index)
-    end
-
-    (ChemicalReaction(rate_fun, du),)
-end
-
-function _create_chemical_reactions(rn::ReactionSystem, r1::Catalyst.Reaction, rs::Catalyst.Reaction...)
-    (_create_chemical_reactions(rn, r1)..., _create_chemical_reactions(rn, rs...)...)
-end
-
-
-@inline @fastmath function update_rates(aggregator::DirectAggregator, speciesvec::AbstractVector, params::AbstractVector{Float64}, rs::ChemicalReaction...)
-    aggregator = DirectAggregator(0.0, aggregator.rates, aggregator.update_map, aggregator.tspan, aggregator.tprev, aggregator.weight)
-    update_rates(aggregator, 1, speciesvec, params, rs...)
-end
-
-@inline @fastmath function evalrxrate(speciesvec::AbstractVector, reaction::ChemicalReaction, params=Float64[])::Float64
-    (reaction.rate)(speciesvec, params)
-end
-
-@inline @fastmath function update_rates(aggregator::DirectAggregator, i::Int, speciesvec::AbstractVector, params::AbstractVector{Float64}, r1::ChemicalReaction)
-    agg_i = get_update_index(aggregator, i)
-    rate = 0.0
-    if agg_i !== nothing
-        rate = evalrxrate(speciesvec, r1, params)
-        @inbounds aggregator.rates[agg_i] = rate
-    end
-    DirectAggregator(aggregator.sumrate + rate, aggregator.rates, aggregator.update_map, aggregator.tspan, aggregator.tprev, aggregator.weight)
-end
-
-@inline @fastmath function update_rates(aggregator::DirectAggregator, i::Int, speciesvec::AbstractVector, params::AbstractVector{Float64}, r1::ChemicalReaction, rs::ChemicalReaction...)
-    aggregator = update_rates(aggregator, i, speciesvec, params, r1)
-    update_rates(aggregator, i+1, speciesvec, params, rs...)
-end
 
 @inline @fastmath function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, rs::ReactionSet)
     val = 1.0
