@@ -5,7 +5,6 @@ using DiffEqJump
 struct MarginalEnsemble{JP<:DiffEqBase.AbstractJumpProblem}
     jump_problem::JP
     dist::TrajectoryDistribution
-    p::Vector{Float64}
     dtimes::Vector{Float64}
 end
 
@@ -14,7 +13,6 @@ struct ConditionalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,IX,DX}
     dist::TrajectoryDistribution
     indep_idxs::IX
     dep_idxs::DX
-    p::Vector{Float64}
     dtimes::Vector{Float64}
 end
 
@@ -208,7 +206,7 @@ function MarginalEnsemble(system::SXsystem)
     dprob = DiscreteProblem(system.sn, system.u0[s_idxs], tspan(system), system.ps)
     jprob = JumpProblem(system.sn, dprob, Direct(), save_positions=(false, false))
 
-    MarginalEnsemble(jprob, system.dist, vcat(system.ps, system.px), collect(system.dtimes))
+    MarginalEnsemble(jprob, system.dist, collect(system.dtimes))
 end
 
 function MarginalEnsemble(system::SRXsystem)
@@ -222,7 +220,7 @@ function MarginalEnsemble(system::SRXsystem)
     # dprob = remake(dprob, u0=SVector(dprob.u0...))
     jprob = JumpProblem(sr_network, dprob, Direct(), save_positions=(false, false))
 
-    MarginalEnsemble(jprob, system.dist, vcat(system.ps, system.pr, system.px), collect(system.dtimes))
+    MarginalEnsemble(jprob, system.dist, collect(system.dtimes))
 end
 mutable struct TrajectoryCallback{uType,tType}
     traj::Trajectory{uType,tType}
@@ -265,7 +263,7 @@ function ConditionalEnsemble(system::SRXsystem)
     dep_species = dependent_species(system.xn)
     dep_idxs = indexin(species_indices(system.rn, dep_species), indep_idxs)
 
-    ConditionalEnsemble(jprob, system.dist, indep_idxs, dep_idxs, vcat(system.ps, system.pr, system.px), collect(system.dtimes))
+    ConditionalEnsemble(jprob, system.dist, indep_idxs, dep_idxs, collect(system.dtimes))
 end
 
 # returns a list of species in `a` that also occur in `b`
@@ -313,7 +311,7 @@ function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, n
     for result_col ∈ eachcol(result)
         integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), numsteps_hint=0)
         iter = SSAIter(integrator) |> Map((u,t,i)::Tuple -> (u,t,0))
-        cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes, params=ensemble.p)
+        cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
     end
 
     result
@@ -326,13 +324,13 @@ function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan:
     ix1 = max(searchsortedfirst(conf.x_traj.t, tspan[1])-1, 1)
 
     iter = SSAIter(integrator) |> Map((u,t,i)::Tuple -> (u,t,0))
-    log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), params=ensemble.p, tspan=tspan)
+    log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), tspan=tspan)
 
     copy(integrator.u), log_weight
 end
 
 function energy_difference(configuration::SXconfiguration, ensemble::MarginalEnsemble)
-    -cumulative_logpdf(ensemble.dist, configuration.s_traj |> MergeWith(configuration.x_traj), ensemble.dtimes, params=ensemble.p)
+    -cumulative_logpdf(ensemble.dist, configuration.s_traj |> MergeWith(configuration.x_traj), ensemble.dtimes)
 end
 
 function sample(configuration::SRXconfiguration, system::ConditionalEnsemble; θ=0.0)
@@ -360,7 +358,7 @@ function collect_samples(initial::SRXconfiguration, ensemble::ConditionalEnsembl
         cb.condition.index = 1
         integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=initial.s_traj.t, numsteps_hint=0)
         iter = SSAIter(integrator) |> Map((u,t,i)::Tuple -> (u,t,0))
-        cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes, params=ensemble.p)
+        cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
     end
 
     result
@@ -387,14 +385,14 @@ function propagate(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, ts
     iter = SSAIter(integrator) |> Map((u,t,i)::Tuple -> (u,t,0))
     ix1 = max(searchsortedfirst(conf.x_traj.t, tspan[1]), 1)
 
-    log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), params=ensemble.p, tspan=tspan)
+    log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), tspan=tspan)
 
     copy(integrator.u), log_weight
 end
 
 function energy_difference(configuration::SRXconfiguration, ensemble::ConditionalEnsemble)
     traj = merge_trajectories(configuration.s_traj, configuration.r_traj, configuration.x_traj)
-    -cumulative_logpdf(ensemble.dist, traj, ensemble.dtimes, params=ensemble.p)
+    -cumulative_logpdf(ensemble.dist, traj, ensemble.dtimes)
 end 
 
 function marginal_configuration(conf::SRXconfiguration)

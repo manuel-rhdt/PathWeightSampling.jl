@@ -71,7 +71,7 @@ end
 myzero_fn(x) = 0.0
 distribution(rn::ReactionSystem, p, log_p0=myzero_fn; update_map=1:Catalyst.numreactions(rn)) = TrajectoryDistribution(ReactionSet(convert(ModelingToolkit.JumpSystem, rn), p), log_p0, update_map)
 
-@fastmath function Distributions.logpdf(dist::TrajectoryDistribution, trajectory; params::AbstractVector{Float64}=Float64[])::Float64
+@fastmath function Distributions.logpdf(dist::TrajectoryDistribution, trajectory)::Float64
     first = iterate(trajectory)
     if first === nothing
         return 0.0
@@ -100,7 +100,7 @@ distribution(rn::ReactionSystem, p, log_p0=myzero_fn; update_map=1:Catalyst.numr
     result
 end
 
-@fastmath @inline function fold_logpdf(dist::TrajectoryDistribution, params::AbstractVector{Float64}, agg::DirectAggregator, (u, t, i))
+@fastmath @inline function fold_logpdf(dist::TrajectoryDistribution, agg::DirectAggregator, (u, t, i))
     agg = update_rates(agg, u, dist.reactions)
     agg_i = get_update_index(agg, i)
     dt = t - agg.tprev
@@ -113,7 +113,7 @@ end
     add_weight(agg, log_surv_prob + log_jump_prob, t)
 end
 
-function trajectory_energy(dist::TrajectoryDistribution, traj; params::AbstractVector{Float64}=Float64[], tspan=(0.0, Inf64))
+function trajectory_energy(dist::TrajectoryDistribution, traj; tspan=(0.0, Inf64))
     agg = dist.aggregator
     agg = DirectAggregator(0.0, agg.rates, agg.update_map, tspan, tspan[1], 0.0)
     
@@ -123,10 +123,10 @@ function trajectory_energy(dist::TrajectoryDistribution, traj; params::AbstractV
                 return agg
             end
             if t > agg.tspan[2]
-                agg = fold_logpdf(dist, params, agg, (u, agg.tspan[2], 0))
+                agg = fold_logpdf(dist, agg, (u, agg.tspan[2], 0))
                 return Transducers.reduced(agg)
             else
-                return fold_logpdf(dist, params, agg, (u, t, i))
+                return fold_logpdf(dist, agg, (u, t, i))
             end
         end 
     end
@@ -135,7 +135,7 @@ function trajectory_energy(dist::TrajectoryDistribution, traj; params::AbstractV
     result.weight
 end
 
-function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution, traj, dtimes::AbstractVector; params::AbstractVector{Float64}=Float64[])
+function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution, traj, dtimes::AbstractVector)
     agg = dist.aggregator
     tspan = (first(dtimes), last(dtimes))
     result[1] = zero(eltype(result))
@@ -177,7 +177,7 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
     result
 end
 
-cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVector; params::AbstractVector{Float64}=Float64[]) = cumulative_logpdf!(zeros(length(dtimes)), dist, trajectory, dtimes, params=params)
+cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVector) = cumulative_logpdf!(zeros(length(dtimes)), dist, trajectory, dtimes)
 
 
 @inline @fastmath function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, rs::ReactionSet)
