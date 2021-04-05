@@ -247,3 +247,7 @@ function active_receptors(conf::SRXconfiguration, system::SRXsystem)
 
     merge_trajectories(conf.s_traj, conf.r_traj, conf.x_traj) |> Map((u,t,i)::Tuple -> (ensurevec(f(u)),t,i)) |> collect_trajectory
 end
+
+precompile(gene_expression_system, ())
+precompile(chemotaxis_system, ())
+precompile(cooperative_chemotaxis_system, ())

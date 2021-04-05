@@ -14,8 +14,6 @@ run_name = dict["run_name"]
 duration = dict["duration"]
 num_responses = dict["num_responses"]
 
-
-
 mean_L = dict["mean_L"]
 num_receptors = dict["num_receptors"]
 Y_tot = dict["Y_tot"]
@@ -56,7 +54,7 @@ tagsave(local_path, merge(dict, result), storepatch=false)
 
 # upload to SUN storage
 
-include("smbclient.jl")
-sun_path = joinpath(sun_home, "data", "chemotaxis", run_name, filename)
-mkpath(dirname(sun_path))
-cp(local_path, sun_path)
+# include("smbclient.jl")
+# sun_path = joinpath(sun_home, "data", "chemotaxis", run_name, filename)
+# mkpath(dirname(sun_path))
+# cp(local_path, sun_path)
