@@ -3,7 +3,7 @@ language: julia
 notifications:
   email: false
 julia:
-  - 1.5
+  - 1.6
   - nightly
 os:
   - linux
@@ -14,7 +14,6 @@ arch:
 cache:
   directories:
     - ~/.julia/artifacts
-script: travis_wait 60 julia --check-bounds=yes --color=yes -e "using Pkg; Pkg.test(coverage=true);"
 jobs:
   fast_finish: true   
   allow_failures:
