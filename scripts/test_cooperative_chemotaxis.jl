@@ -87,8 +87,8 @@ savefig(plot!(dpi=144), "~/Downloads/plot2.png")
 
 # FROM JuliaMarkdown File
 
-lmax = 1
-mmax = 3
+lmax = 3
+mmax = 9
 K_a = 500
 K_i = 25
 δg = log(K_a/K_i) # ≈ 3

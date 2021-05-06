@@ -1,7 +1,6 @@
 import GaussianMcmc
 using GaussianMcmc: SMCEstimate, DirectMCEstimate, marginal_configuration, ConditionalEnsemble, MarginalEnsemble, gene_expression_system, generate_configuration, log_marginal, logpdf, simulate
 
-system_fn = () -> GaussianMcmc.chemotaxis_system(dtimes=0:0.1:10.0)
 smc = SMCEstimate(16)
 dmc = DirectMCEstimate(4)
 
@@ -15,8 +14,8 @@ dmc = DirectMCEstimate(4)
 # end
 # @everywhere import GaussianMcmc
 
-system = system_fn()
-conf = generate_configuration(system)
+system = GaussianMcmc.chemotaxis_system(mean_L=50, dtimes=0:0.1:10.0)
+@time conf = generate_configuration(system)
 
 cens = ConditionalEnsemble(system)
 mens = MarginalEnsemble(system)

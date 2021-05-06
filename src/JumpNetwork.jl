@@ -376,8 +376,8 @@ function propagate(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, ts
     cb = DiscreteCallback(cb, cb, save_positions=(false, false))
     jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
 
-    i1 = max(searchsortedfirst(s_traj.t, tspan[1]), 1)
-    i2 = min(searchsortedlast(s_traj.t, tspan[2]), length(s_traj.t))
+    i1 = clamp(searchsortedfirst(s_traj.t, tspan[1]), 1, length(s_traj.t))
+    i2 = clamp(searchsortedlast(s_traj.t, tspan[2]), 1, length(s_traj.t))
 
     tstops = @view s_traj.t[i1:i2]
     integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=tstops, numsteps_hint=0)

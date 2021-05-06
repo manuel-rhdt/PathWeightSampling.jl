@@ -122,10 +122,9 @@ function Transducers.next(rf::R_{MergeWith}, result, (u, t, i))
         function (index::Int, iresult)
             merge_traj = xform(rf).traj
             ri = i
-            while index <= length(merge_traj.t) && (@inbounds merge_traj.t[index]) < t
+            @inbounds while index <= length(merge_traj.t) && merge_traj.t[index] < t
                 merge_i = merge_traj.i[index]
-                iresult = next(inner(rf), iresult, (Chain(u, (@inbounds merge_traj.u[index])), (@inbounds merge_traj.t[index]), merge_i))
-                # ri = merge_i
+                iresult = next(inner(rf), iresult, (Chain(u, merge_traj.u[index]), merge_traj.t[index], merge_i))
                 index += 1
             end
 
@@ -135,7 +134,7 @@ function Transducers.next(rf::R_{MergeWith}, result, (u, t, i))
 
             iresult = next(inner(rf), iresult, (Chain(u, (@inbounds merge_traj.u[index])), t, ri))
 
-            if index <= length(merge_traj.t) && (@inbounds merge_traj.t[index]) == t
+            @inbounds if index <= length(merge_traj.t) && merge_traj.t[index] == t
                 index += 1
             end
 
