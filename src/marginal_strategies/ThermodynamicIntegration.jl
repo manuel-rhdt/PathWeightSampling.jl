@@ -61,6 +61,7 @@ function simulate(algorithm::TIEstimate, initial, system; kwargs...)
             energies[j, i] = -energy_difference(sampler.state, system)
             accept[j, i] = was_accepted != 0
         end
+        initial = sampler.state
     end
 
     ThermodynamicIntegrationResult(weights, θrange, energies, accept)
