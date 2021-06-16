@@ -36,7 +36,7 @@ GaussianMcmc.shoot_backward!(new_traj, original_traj, jump_problem, 0.5)
 @test issorted(new_traj.t) && allunique(new_traj.t)
 @test length(new_traj.t) == length(new_traj.u) == length(new_traj.i)
 
-mchain = chain(ensemble; θ=1.0)
+mchain = GaussianMcmc.chain(ensemble; θ=1.0)
 @test GaussianMcmc.energy(conf, mchain) < 0
 
 
@@ -44,4 +44,6 @@ mchain = chain(ensemble; θ=1.0)
 
 alg = GaussianMcmc.TIEstimate(100, 16, 1000)
 result = GaussianMcmc.simulate(alg, conf, ensemble)
-@test GaussianMcmc.log_marginal(result) > 0
+@test all(GaussianMcmc.log_marginal(result) .>= 0)
+
+GaussianMcmc.mutual_information(system, alg)
