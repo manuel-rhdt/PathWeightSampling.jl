@@ -20,11 +20,15 @@ struct SXconfiguration{uTs,uTx,tType}
     s_traj::Trajectory{uTs,tType}
     x_traj::Trajectory{uTx,tType}
 end
+
+Base.copy(c::SXconfiguration) = SXconfiguration(copy(c.s_traj), copy(c.x_traj))
 struct SRXconfiguration{uTs,Utr,Utx,tType}
     s_traj::Trajectory{uTs,tType}
     r_traj::Trajectory{Utr,tType}
     x_traj::Trajectory{Utx,tType}
 end
+
+Base.copy(c::SRXconfiguration) = SXconfiguration(copy(c.s_traj), copy(c.r_traj), copy(c.x_traj))
 
 ensurevec(a::AbstractVector) = a
 ensurevec(a) = SVector(a)
@@ -59,7 +63,7 @@ function SXsystem(sn, xn, u0, ps, px, dtimes, dist=nothing)
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, px)
     dprob = DiscreteProblem(joint, copy(u0), tp, p)
-    jprob = JumpProblem(joint, dprob, Direct(), save_positions=(false, false))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, joint), dprob, Direct(), save_positions=(false, false))
 
     if dist === nothing
         update_map = build_update_map(joint, xn)
@@ -101,7 +105,7 @@ function SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, pr, px)
     dprob = DiscreteProblem(joint, copy(u0), tp, p)
-    jprob = JumpProblem(joint, dprob, aggregator, save_positions=(false, false))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, joint), dprob, aggregator, save_positions=(false, false))
 
     if dist === nothing
         update_map = build_update_map(joint, xn)
@@ -204,7 +208,7 @@ function MarginalEnsemble(system::SXsystem)
     s_idxs = species_indices(joint, Catalyst.species(system.sn))
 
     dprob = DiscreteProblem(system.sn, system.u0[s_idxs], tspan(system), system.ps)
-    jprob = JumpProblem(system.sn, dprob, Direct(), save_positions=(false, false))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.sn), dprob, Direct(), save_positions=(false, false))
 
     MarginalEnsemble(jprob, system.dist, collect(system.dtimes))
 end
@@ -215,10 +219,7 @@ function MarginalEnsemble(system::SRXsystem)
     sr_idxs = species_indices(joint, Catalyst.species(sr_network))
 
     dprob = DiscreteProblem(sr_network, system.u0[sr_idxs], tspan(system), vcat(system.ps, system.pr))
-    # we have to remake the discrete problem with u0 as StaticArray for 
-    # improved performance
-    # dprob = remake(dprob, u0=SVector(dprob.u0...))
-    jprob = JumpProblem(sr_network, dprob, Direct(), save_positions=(false, false))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, sr_network), dprob, Direct(), save_positions=(false, false))
 
     MarginalEnsemble(jprob, system.dist, collect(system.dtimes))
 end
@@ -255,7 +256,7 @@ function ConditionalEnsemble(system::SRXsystem)
     joint = merge(merge(system.sn, system.rn), system.xn)
     r_idxs = species_indices(joint, Catalyst.species(system.rn))
     dprob = DiscreteProblem(system.rn, system.u0[r_idxs], (first(system.dtimes), last(system.dtimes)), system.pr)
-    jprob = JumpProblem(system.rn, dprob, Direct(), save_positions=(false, false))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, Direct(), save_positions=(false, false))
 
     indep_species = independent_species(system.rn)
     indep_idxs = species_indices(system.rn, indep_species)
@@ -369,8 +370,7 @@ function simulate(algorithm::DirectMCEstimate, initial::Union{SXconfiguration,SR
     DirectMCResult(samples)
 end
 
-function propagate(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
-    # s_traj = get_slice(conf.s_traj, tspan)
+function create_integrator(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
     s_traj = conf.s_traj
     cb = TrajectoryCallback(s_traj)
     cb = DiscreteCallback(cb, cb, save_positions=(false, false))
@@ -381,7 +381,11 @@ function propagate(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, ts
 
     tstops = @view s_traj.t[i1:i2]
     integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=tstops, numsteps_hint=0)
+end
 
+function propagate(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
+    # s_traj = get_slice(conf.s_traj, tspan)
+    integrator = create_integrator(conf, ensemble, u0, tspan)
     iter = SSAIter(integrator) |> Map((u,t,i)::Tuple -> (u,t,0))
     ix1 = max(searchsortedfirst(conf.x_traj.t, tspan[1]), 1)
 
@@ -398,4 +402,110 @@ end
 function marginal_configuration(conf::SRXconfiguration)
     new_s = conf.s_traj |> MergeWith(conf.r_traj) |> Map((u, t, i)::Tuple -> (SVector(u...), t, i)) |> collect_trajectory
     SXconfiguration(new_s, conf.x_traj)
+end
+
+# MCMC Moves in trajectory space
+
+mutable struct TrajectoryChain{Ensemble} <: MarkovChain
+    ensemble::Ensemble
+    # interaction parameter
+    θ::Float64
+
+    # to save statistics
+    last_regrowth::Float64
+    accepted_list::Vector{Float64}
+    rejected_list::Vector{Float64}
+end
+
+chain(ensemble; θ::Real=1.0) = TrajectoryChain(ensemble, θ, 0.0, Float64[], Float64[])
+
+# reset statistics
+function reset(pot::TrajectoryChain)
+    resize!(pot.accepted_list, 0)
+    resize!(pot.rejected_list, 0)
+end
+
+function accept(pot::TrajectoryChain)
+    push!(pot.accepted_list, pot.last_regrowth)
+end
+
+function reject(pot::TrajectoryChain)
+    push!(pot.rejected_list, pot.last_regrowth)
+end
+
+function energy(conf::SXconfiguration, chain::TrajectoryChain) 
+    if chain.θ > zero(chain.θ)
+        -chain.θ * trajectory_energy(chain.ensemble.dist, conf.s_traj |> MergeWith(conf.x_traj))
+    else
+        0.0
+    end
+end
+
+function propose!(new_conf, old_conf, chain::TrajectoryChain) 
+        chain.last_regrowth = propose!(new_conf, old_conf, chain.ensemble)
+        new_conf
+end
+propose!(new_conf::SXconfiguration, old_conf::SXconfiguration, ensemble::MarginalEnsemble) = propose!(new_conf.s_traj, old_conf.s_traj, ensemble)
+
+function propose!(new_traj::Trajectory, old_traj::Trajectory, ensemble::MarginalEnsemble)
+    jump_problem = ensemble.jump_problem
+
+    regrow_duration = rand() * duration(old_traj)
+
+    if rand(Bool)
+        shoot_forward!(new_traj, old_traj, jump_problem, old_traj.t[end] - regrow_duration)
+    else
+        shoot_backward!(new_traj, old_traj, jump_problem, old_traj.t[begin] + regrow_duration)
+    end
+
+    regrow_duration
+end
+
+function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::DiffEqBase.AbstractJumpProblem, branch_time::Real)
+    branch_value = old_traj(branch_time)
+    branch_point = searchsortedfirst(old_traj.t, branch_time)
+    tspan = (branch_time, old_traj.t[end])
+
+    empty!(new_traj.u)
+    empty!(new_traj.t)
+    empty!(new_traj.i)
+    append!(new_traj.u, @view old_traj.u[begin:branch_point - 1])
+    append!(new_traj.t, @view old_traj.t[begin:branch_point - 1])
+    append!(new_traj.i, @view old_traj.i[begin:branch_point - 1])
+
+    jump_problem = DiffEqBase.remake(jump_problem; u0=branch_value, tspan=tspan)
+    integrator = DiffEqBase.init(jump_problem, SSAStepper())
+    iter = SSAIter(integrator)
+    new_branch = collect_trajectory(iter)
+
+    append!(new_traj.t, new_branch.t)
+    append!(new_traj.u, new_branch.u)
+    append!(new_traj.i, new_branch.i)
+    nothing
+end
+
+function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem::DiffEqBase.AbstractJumpProblem, branch_time::Real)
+    branch_value = old_traj(branch_time)
+    branch_point = searchsortedfirst(old_traj.t, branch_time)
+    tspan = (old_traj.t[begin], branch_time)
+
+    jump_problem = DiffEqBase.remake(jump_problem; u0=branch_value, tspan=tspan)
+    integrator = DiffEqBase.init(jump_problem, SSAStepper())
+    iter = SSAIter(integrator)
+    new_branch = collect_trajectory(iter)
+
+    empty!(new_traj.u)
+    empty!(new_traj.t)
+    empty!(new_traj.i)
+
+    append!(new_traj.u, @view new_branch.u[end - 1:-1:begin])
+    append!(new_traj.u, @view old_traj.u[branch_point:end])
+    append!(new_traj.i, @view new_branch.i[end - 1:-1:begin])
+    append!(new_traj.i, @view old_traj.i[branch_point:end])
+
+    for rtime in @view new_branch.t[end:-1:begin + 1]
+        push!(new_traj.t, branch_time - rtime)
+    end
+    append!(new_traj.t, @view old_traj.t[branch_point:end])
+    nothing
 end

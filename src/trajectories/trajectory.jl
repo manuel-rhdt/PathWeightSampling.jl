@@ -12,7 +12,7 @@ end
 
 Trajectory(t::Vector, u::Vector) = Trajectory(t, u, Int[])
 
-Base.copy(traj::Trajectory) = Trajectory(copy(traj.t), copy(traj.u), copy(traj.i))
+Base.copy(traj::Trajectory) = Trajectory(copy(traj.t), deepcopy(traj.u), copy(traj.i))
 
 Base.getindex(traj::Trajectory, i::Int) = traj.u[i]
 Base.getindex(traj::Trajectory, i::AbstractRange) = traj.u[i]
@@ -40,6 +40,13 @@ end
 Base.length(traj::AbstractTrajectory) = length(traj.u)
 Base.firstindex(traj::AbstractTrajectory) = 1
 Base.lastindex(traj::AbstractTrajectory) = length(traj)
+
+function duration(traj::AbstractTrajectory)
+    if length(traj) == 0
+        return 0.0
+    end
+    traj.t[end] - traj.t[begin]
+end
 
 function Base.iterate(traj::Trajectory, index=1)
     if index > length(traj)

@@ -51,3 +51,7 @@ subset = GaussianMcmc.cumulative_logpdf(dist, traj, 2:0.33:3)
     0.66wait3,
     0.99wait3
 ]
+
+traj2 = GaussianMcmc.Trajectory([1.0], [[50.0]], Int[])
+@test GaussianMcmc.trajectory_energy(dist, traj2, tspan=(0.0,0.5)) == -0.25
+

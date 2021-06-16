@@ -1,5 +1,6 @@
 module GaussianMcmc
 
+using DiffEqJump: DiffEqBase
 include("trajectories/trajectory.jl")
 include("EventIter.jl")
 include("MetropolisSampler.jl")

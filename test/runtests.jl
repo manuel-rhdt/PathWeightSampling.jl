@@ -1,3 +1,4 @@
+using Distributions: Gaussian
 using Test
 
 @testset "Events" begin include("events.jl") end
@@ -7,3 +8,4 @@ using Test
 @testset "SRXsystem" begin include("SRXsystem.jl") end
 @testset "SMCEstimate" begin include("SMCEstimate.jl") end
 @testset "Adaptation" begin include("adaptation.jl") end
+@testset "MCMCMoves" begin include("mcmc_moves.jl") end
