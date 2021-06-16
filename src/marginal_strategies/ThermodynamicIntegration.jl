@@ -55,7 +55,7 @@ function simulate(algorithm::TIEstimate, initial, system; kwargs...)
         chn = chain(system; θ=θrange[i], kwargs...)
         sampler = MetropolisSampler(algorithm.burn_in, 0, energy(initial, chn), copy(initial), chn)
         for (j, was_accepted) in Iterators.enumerate(Iterators.take(sampler, algorithm.num_samples))
-            energies[j, i] = -energy_difference(sampler.state, system)
+            energies[j, i] = -energy(sampler.state, chn, θ=1.0)
             accept[j, i] = was_accepted != 0
         end
     end

@@ -433,9 +433,9 @@ function reject(pot::TrajectoryChain)
     push!(pot.rejected_list, pot.last_regrowth)
 end
 
-function energy(conf::SXconfiguration, chain::TrajectoryChain) 
-    if chain.θ > zero(chain.θ)
-        -chain.θ * trajectory_energy(chain.ensemble.dist, conf.s_traj |> MergeWith(conf.x_traj))
+function energy(conf::SXconfiguration, chain::TrajectoryChain; θ=chain.θ) 
+    if θ > zero(θ)
+        -θ * trajectory_energy(chain.ensemble.dist, conf.s_traj |> MergeWith(conf.x_traj))
     else
         0.0
     end
