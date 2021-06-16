@@ -63,13 +63,20 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
             break
         end
 
-        # sample parent indices
         prob_weights = StatsBase.fweights(exp.(weights[:,i + 1] .- maximum(weights[:,i + 1])))
-        # parent_indices = StatsBase.sample(particle_indices, prob_weights, nparticles)
-        parent_indices = systematic_sample(prob_weights)
 
-        particle_bag = map(parent_indices) do k
-            new_particle(particle_bag[k], setup)
+        # We only resample if the effective sample size becomes smaller than 1/2 the number of particles
+        effective_sample_size = 1/sum((prob_weights ./ sum(prob_weights)) .^ 2)
+        if effective_sample_size < nparticles / 2
+            @info "Resample" i tspan effective_sample_size
+
+            # sample parent indices
+            parent_indices = systematic_sample(prob_weights)
+            # parent_indices = StatsBase.sample(particle_indices, prob_weights, nparticles)
+
+            particle_bag = map(parent_indices) do k
+                new_particle(particle_bag[k], setup)
+            end
         end
     end
 
