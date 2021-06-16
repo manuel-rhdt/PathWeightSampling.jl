@@ -9,10 +9,10 @@ end
 
 name(x::TIEstimate) = "TI"
 
-struct ThermodynamicIntegrationResult <: SimulationResult
+struct ThermodynamicIntegrationResult{V} <: SimulationResult
     integration_weights::Vector{Float64}
     inv_temps::Vector{Float64}
-    energies::Array{Float64,2}
+    energies::Array{V,2}
     acceptance::Array{Bool,2}
 end
 
@@ -22,7 +22,9 @@ function blocks(result::ThermodynamicIntegrationResult, block_size=2^10)
 end
 
 # perform the quadrature integral
-log_marginal(result::ThermodynamicIntegrationResult) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
+log_marginal(result::ThermodynamicIntegrationResult{<:Real}) = dot(result.integration_weights, vec(mean(result.energies, dims=1)))
+log_marginal(result::ThermodynamicIntegrationResult{<:Vector}) = sum(result.integration_weights .* vec(mean(result.energies, dims=1)))
+
 function Statistics.var(result::ThermodynamicIntegrationResult, block_size=2^10)
     b = blocks(result, block_size)
     σ² = var(b, dims=1) ./ size(b, 1)
@@ -49,13 +51,14 @@ function simulate(algorithm::TIEstimate, initial, system; kwargs...)
     # The factor 0.5 comes from rescaling the integration limits from [-1,1] to [0,1].
     weights = 0.5 .* weights
 
-    energies = zeros(Float64, algorithm.num_samples, length(θrange))
+    initial_energy = energy_difference(initial, system)
+    energies = fill(initial_energy, algorithm.num_samples, length(θrange))
     accept = Array{Bool}(undef, algorithm.num_samples, length(θrange))
     for i in eachindex(θrange)
         chn = chain(system; θ=θrange[i], kwargs...)
         sampler = MetropolisSampler(algorithm.burn_in, 0, energy(initial, chn), copy(initial), chn)
         for (j, was_accepted) in Iterators.enumerate(Iterators.take(sampler, algorithm.num_samples))
-            energies[j, i] = -energy(sampler.state, chn, θ=1.0)
+            energies[j, i] = -energy_difference(sampler.state, system)
             accept[j, i] = was_accepted != 0
         end
     end

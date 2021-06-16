@@ -45,5 +45,3 @@ mchain = GaussianMcmc.chain(ensemble; θ=1.0)
 alg = GaussianMcmc.TIEstimate(100, 16, 1000)
 result = GaussianMcmc.simulate(alg, conf, ensemble)
 @test all(GaussianMcmc.log_marginal(result) .>= 0)
-
-GaussianMcmc.mutual_information(system, alg)
