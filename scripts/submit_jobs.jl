@@ -45,7 +45,7 @@ my_args = Dict(
 
 const NCPUS = 4 * 36
 const QUEUE = "highcore"
-const NAME = "CHEMOTAXIS"
+const NAME = "DIRECTMC"
 
 function parse_commandline()
     s = ArgParseSettings()
