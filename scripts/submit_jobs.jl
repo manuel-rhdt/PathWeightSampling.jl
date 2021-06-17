@@ -17,11 +17,23 @@ using Dates
 #     "corr_time_ratio" => 10,
 # )
 
+# my_args = Dict(
+#     "script" => "simple_network.jl",
+#     "algorithm" => "smc",
+#     "smc_samples" => 2 .^ [3, 4, 5, 6, 7, 8, 9, 10, 11],
+#     "run_name" => "2021-06-17_2",
+#     "duration" => 20,
+#     "num_responses" => 10_000,
+#     "mean_s" => 50,
+#     "corr_time_s" => 1,
+#     "corr_time_ratio" => 10,
+# )
+
 my_args = Dict(
     "script" => "simple_network.jl",
-    "algorithm" => "smc",
-    "smc_samples" => 2 .^ [3, 4, 5, 6, 7, 8, 9, 10, 11],
-    "run_name" => "2021-06-17_2",
+    "algorithm" => "thermodynamic_integration",
+    "ti_samples" => 2 .^ [3, 4, 5, 6, 7, 8],
+    "run_name" => "2021-06-17_3",
     "duration" => 20,
     "num_responses" => 10_000,
     "mean_s" => 50,
