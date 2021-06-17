@@ -7,7 +7,7 @@
 end
 
 f = ARGS[1]
-dict = JSON.parsefile(projectdir("_research", "tmp", f))
+dict = JSON.parsefile(projectdir("_research", "tmp", f))["params"]
 @info "Read file" file = projectdir("_research", "tmp", f)
 
 duration = dict["duration"]
