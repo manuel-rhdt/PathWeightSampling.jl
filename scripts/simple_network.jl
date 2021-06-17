@@ -22,7 +22,7 @@ dtimes = collect(0.0:0.1:duration)
 
 save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration, "Smean" => mean_s, "Xtimescale" => corr_time_s / corr_time_ratio)
 
-if dict["algorithm"] == "thermodynamic_integration"
+if dict["algorithm"] == "ti"
     algorithm = TIEstimate(0, 16, dict["ti_samples"])
     save_dict["M"] = 16 * dict["ti_samples"]
 elseif dict["algorithm"] == "annealing"

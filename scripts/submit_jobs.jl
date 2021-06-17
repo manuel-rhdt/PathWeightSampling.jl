@@ -31,10 +31,10 @@ using Dates
 
 my_args = Dict(
     "script" => "simple_network.jl",
-    "algorithm" => "thermodynamic_integration",
-    "ti_samples" => 2 .^ [3, 4, 5, 6, 7, 8],
-    "run_name" => "2021-06-17_3",
-    "duration" => 20,
+    "algorithm" => "ti",
+    "ti_samples" => 16,
+    "run_name" => "2021-06-17_4",
+    "duration" => [1.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0],
     "num_responses" => 10_000,
     "mean_s" => 50,
     "corr_time_s" => 1,
@@ -124,7 +124,7 @@ function estimate_runtime(dict)
 
     if dict["algorithm"] == "annealing"
         factor = 0.14 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
-    elseif dict["algorithm"] == "thermodynamic_integration"
+    elseif dict["algorithm"] == "ti"
         factor = 0.05 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
     elseif dict["algorithm"] == "directmc"
         factor = 0.03 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
