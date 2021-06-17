@@ -75,7 +75,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
 
 
         julia -e "using InteractiveUtils; versioninfo(verbose=true)"
-        julia -J$(projectdir())/GMcmcSysimage.so $(filename) $(projectdir("scripts", "run_cluster.jl")) $(my_args["script"])
+        julia -J$(projectdir())/GMcmcSysimage.so $(projectdir("scripts", "run_cluster.jl")) $(filename)  $(my_args["script"])
         """
 
     name = NAME
