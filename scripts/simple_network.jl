@@ -18,16 +18,20 @@ run_name = dict["run_name"]
 mean_s = dict["mean_s"]
 corr_time_s = dict["corr_time_s"]
 corr_time_ratio = dict["corr_time_ratio"]
-dtimes = collect(0.0:0.04:duration)
+dtimes = collect(0.0:0.1:duration)
+
+save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration, "Smean" => mean_s, "Xtimescale" => corr_time_s / corr_time_ratio)
 
 if dict["algorithm"] == "thermodynamic_integration"
     algorithm = TIEstimate(1024, 6, 2^15)
 elseif dict["algorithm"] == "annealing"
     algorithm = AnnealingEstimate(5, 100, 100)
 elseif dict["algorithm"] == "directmc"
-    algorithm = DirectMCEstimate(2^16)
+    algorithm = DirectMCEstimate(dict["directmc_samples"])
+    save_dict["M"] = dict["directmc_samples"]
 elseif dict["algorithm"] == "smc"
     algorithm = SMCEstimate(dict["smc_samples"])
+    save_dict["M"] = dict["smc_samples"]
 else
     error("Unsupported algorithm " * dict["algorithm"])
 end
@@ -50,7 +54,6 @@ function DrWatson._wsave(filename, result::Dict)
     end
 end
 
-save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration, "Smean" => mean_s, "Xtimescale" => corr_time_s / corr_time_ratio)
 filename = savename(save_dict, "hdf5")
 local_path = datadir("gene_expression", run_name, filename)
 tagsave(local_path, merge(dict, result), storepatch=false)
