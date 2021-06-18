@@ -32,8 +32,8 @@ using Dates
 my_args = Dict(
     "script" => "simple_network.jl",
     "algorithm" => "ti",
-    "ti_samples" => 16,
-    "run_name" => "2021-06-17_4",
+    "ti_samples" => 256,
+    "run_name" => "2021-06-18",
     "duration" => [1.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0],
     "num_responses" => 10_000,
     "mean_s" => 50,
