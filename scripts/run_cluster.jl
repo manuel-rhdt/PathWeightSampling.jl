@@ -5,8 +5,8 @@ using Distributed
 nprocs = length(readlines(ENV["PBS_NODEFILE"]))
 manager = MPIManager(np=nprocs, master_tcp_interface=gethostname())
 
-# addprocs(manager)
-addprocs(manager, exename=`$(Sys.BINDIR)/julia -J$(pwd())/GaussianMcmc.jl/GMcmcSysimage.so`)
+addprocs(manager)
+# addprocs(manager, exename=`$(Sys.BINDIR)/julia -J$(pwd())/GaussianMcmc.jl/GMcmcSysimage.so`)
 
 using Logging
 @info "Successfully launched MPI processes"
