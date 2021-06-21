@@ -17,29 +17,29 @@ using Dates
 #     "corr_time_ratio" => 10,
 # )
 
-# my_args = Dict(
-#     "script" => "simple_network.jl",
-#     "algorithm" => "smc",
-#     "smc_samples" => 2 .^ [3, 4, 5, 6, 7, 8, 9, 10, 11],
-#     "run_name" => "2021-06-17_2",
-#     "duration" => 20,
-#     "num_responses" => 10_000,
-#     "mean_s" => 50,
-#     "corr_time_s" => 1,
-#     "corr_time_ratio" => 10,
-# )
-
 my_args = Dict(
     "script" => "simple_network.jl",
-    "algorithm" => "ti",
-    "ti_samples" => 256,
-    "run_name" => "2021-06-18",
-    "duration" => [1.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0],
+    "algorithm" => "smc",
+    "smc_samples" => 2 .^ [3, 4, 5, 6, 7, 8, 9, 10, 11],
+    "run_name" => "2021-06-21",
+    "duration" => 20,
     "num_responses" => 10_000,
     "mean_s" => 50,
     "corr_time_s" => 1,
     "corr_time_ratio" => 10,
 )
+
+# my_args = Dict(
+#     "script" => "simple_network.jl",
+#     "algorithm" => "ti",
+#     "ti_samples" => 256,
+#     "run_name" => "2021-06-18",
+#     "duration" => [1.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0],
+#     "num_responses" => 10_000,
+#     "mean_s" => 50,
+#     "corr_time_s" => 1,
+#     "corr_time_ratio" => 10,
+# )
 
 # my_args = Dict(
 #     "script" => "chemotaxis.jl",
@@ -54,9 +54,9 @@ my_args = Dict(
 #     "Y_timescale" => 0.1
 # )
 
-const NCPUS = 4 * 36
+const NCPUS = 1 * 36
 const QUEUE = "highcore"
-const NAME = "SMC"
+const NAME = "SMC_FIXED"
 
 function parse_commandline()
     s = ArgParseSettings()
