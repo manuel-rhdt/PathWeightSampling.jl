@@ -193,7 +193,7 @@ function cooperative_chemotaxis_system(;
     u0[Catalyst.speciesmap(joint)[Y]] = n_chey
 
     ps = [mean_l, 1.0]
-    pr = chemotaxis_parameters(varargs...)
+    pr = chemotaxis_parameters(; varargs...)
     px = [dephosphorylate, phosphorylate]
 
     SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=DiffEqJump.RSSACR())

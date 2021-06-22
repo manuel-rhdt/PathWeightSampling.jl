@@ -14,18 +14,29 @@ run_name = dict["run_name"]
 duration = dict["duration"]
 num_responses = dict["num_responses"]
 
-mean_L = dict["mean_L"]
-num_receptors = dict["num_receptors"]
-Y_tot = dict["Y_tot"]
+# mean_L = dict["mean_L"]
+# num_receptors = dict["num_receptors"]
+# Y_tot = dict["Y_tot"]
 
-LR_timescale = dict["LR_timescale"]
-Y_timescale = dict["Y_timescale"]
-
-dtimes = collect(0.0:0.04:duration)
-
-system_fn = () -> GaussianMcmc.cooperative_chemotaxis_system(
-    dtimes = dtimes
+params = (;
+	E₀ = 0.0,
+	lmax = 3,
+	mmax = 9,
+	Kₐ = 500,
+	Kᵢ = 25,
+	δf = -1.0,
+	n_clusters = 800,
+	a_star = 0.8,
+	k⁺ = 0.05,
+	n_chey = 10_000,
+	mean_l = 50,
 )
+
+save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration)
+
+dtimes = collect(0.0:0.5:duration)
+
+system_fn = () -> GaussianMcmc.cooperative_chemotaxis_system(dtimes = dtimes; params...)
 
 algorithm = SMCEstimate(dict["smc_samples"])
 
@@ -38,16 +49,14 @@ function DrWatson._wsave(filename, result::Dict)
     end
 end
 
-save_dict = Dict("Duration" => duration, "TauLR" => LR_timescale, "TauY" => Y_timescale)
-
 filename = savename(save_dict, "hdf5")
-local_path = datadir("chemotaxis", run_name, filename)
+local_path = datadir("coop_chemotaxis", run_name, filename)
 tagsave(local_path, merge(dict, result), storepatch=false)
 @info "Saved to" filename
 
 # upload to SUN storage
 
-# include("smbclient.jl")
-# sun_path = joinpath(sun_home, "data", "chemotaxis", run_name, filename)
-# mkpath(dirname(sun_path))
-# cp(local_path, sun_path)
+include("smbclient.jl")
+sun_path = joinpath(sun_home, "data", "coop_chemotaxis", run_name, filename)
+mkpath(dirname(sun_path))
+cp(local_path, sun_path)

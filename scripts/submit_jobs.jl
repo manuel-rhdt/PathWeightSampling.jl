@@ -54,9 +54,18 @@ my_args = Dict(
 #     "Y_timescale" => 0.1
 # )
 
-const NCPUS = 1 * 36
+my_args = Dict(
+    "script" => "cooperative_chemotaxis.jl",
+    "algorithm" => "smc",
+    "run_name" => "2021-06-22",
+    "duration" => 200,
+    "num_responses" => 7200,
+    "smc_samples" => 128,
+)
+
+const NCPUS = 8 * 36
 const QUEUE = "highcore"
-const NAME = "SMC_FIXED"
+const NAME = "COOP_CHEM"
 
 function parse_commandline()
     s = ArgParseSettings()
