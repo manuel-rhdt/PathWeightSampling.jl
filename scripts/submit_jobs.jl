@@ -128,8 +128,8 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
 end
 
 function estimate_runtime(dict)
-    if dict["script"] == "chemotaxis.jl"
-        return 48 * 60 * 60
+    if dict["script"] != "simple_network.jl"
+        return 3 * 24 * 60 * 60
     end
 
     if dict["algorithm"] == "annealing"
