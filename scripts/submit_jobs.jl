@@ -17,17 +17,17 @@ using Dates
 #     "corr_time_ratio" => 10,
 # )
 
-my_args = Dict(
-    "script" => "simple_network.jl",
-    "algorithm" => "smc",
-    "smc_samples" => 2 .^ [3, 4, 5, 6, 7, 8, 9, 10, 11],
-    "run_name" => "2021-06-21",
-    "duration" => 20,
-    "num_responses" => 10_000,
-    "mean_s" => 50,
-    "corr_time_s" => 1,
-    "corr_time_ratio" => 10,
-)
+# my_args = Dict(
+#     "script" => "simple_network.jl",
+#     "algorithm" => "smc",
+#     "smc_samples" => 2 .^ [3, 4, 5, 6, 7, 8, 9, 10, 11],
+#     "run_name" => "2021-06-21",
+#     "duration" => 20,
+#     "num_responses" => 10_000,
+#     "mean_s" => 50,
+#     "corr_time_s" => 1,
+#     "corr_time_ratio" => 10,
+# )
 
 # my_args = Dict(
 #     "script" => "simple_network.jl",
@@ -57,13 +57,13 @@ my_args = Dict(
 my_args = Dict(
     "script" => "cooperative_chemotaxis.jl",
     "algorithm" => "smc",
-    "run_name" => "2021-06-22",
+    "run_name" => "2021-06-23",
     "duration" => 200,
     "num_responses" => 7200,
-    "smc_samples" => 128,
+    "smc_samples" => [64, 128, 256, 512],
 )
 
-const NCPUS = 8 * 36
+const NCPUS = 5 * 36
 const QUEUE = "highcore"
 const NAME = "COOP_CHEM"
 
