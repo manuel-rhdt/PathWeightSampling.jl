@@ -29,7 +29,7 @@ Transducers = "28d57a85-8fef-5791-bfe6-a80928e7c999"
 
 [compat]
 ArgParse = "1.1"
-Catalyst = "6.0"
+Catalyst = "6.0, 7"
 DataFrames = "0.22, 1.0"
 DiffEqBase = "6.52"
 DiffEqJump = "6.12.1"
