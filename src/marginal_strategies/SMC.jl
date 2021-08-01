@@ -51,25 +51,24 @@ weight(p::JumpParticleSlow) = p.weight
 
 function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=JumpParticle)
     particle_bag = [new_particle(setup) for i = 1:nparticles]
-    weights = zeros(nparticles, 1)#, length(dtimes))
+    weights = zeros(nparticles)
     log_marginal_estimate = zeros(length(dtimes))
-    particle_indices = collect(1:nparticles)
     for (i, tspan) in enumerate(zip(dtimes[begin:end - 1], dtimes[begin + 1:end]))
         for j in eachindex(particle_bag)
             particle_bag[j] = propagate(particle_bag[j], tspan, setup)
-            weights[j, end] += weight(particle_bag[j])
+            weights[j] += weight(particle_bag[j])
         end
 
-        log_marginal_estimate[i+1] += logmeanexp(weights[:, end])
+        log_marginal_estimate[i+1] += logmeanexp(weights)
 
         if (i + 1) == lastindex(dtimes)
             break
         end
 
-        prob_weights = StatsBase.fweights(exp.(weights[:,end] .- maximum(weights[:,end])))
+        prob_weights = StatsBase.fweights(exp.(weights .- maximum(weights)))
 
         # We only resample if the effective sample size becomes smaller than 1/2 the number of particles
-        effective_sample_size = 1/sum((prob_weights ./ sum(prob_weights)) .^ 2)
+        effective_sample_size = 1/sum(p -> (p / sum(prob_weights)) ^ 2, prob_weights)
         if effective_sample_size < nparticles / 2
             # sample parent indices
             parent_indices = systematic_sample(prob_weights)
@@ -78,8 +77,7 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
             particle_bag = map(parent_indices) do k
                 new_particle(particle_bag[k], setup)
             end
-            # weights = hcat(weights, zeros(nparticles, 1))
-            weights[:, end] .= 0.0
+            weights .= 0.0
             log_marginal_estimate[i+1:end] .= log_marginal_estimate[i+1]
         end
     end
@@ -113,15 +111,15 @@ end
 name(x::SMCEstimate) = "SMC"
 
 struct SMCResult <: SimulationResult
-    samples::Matrix{Float64}
+    log_marginal_estimate::Vector{Float64}
 end
 
 # log_marginal(result::SMCResult) = cumsum(vec(logmeanexp(result.samples, dims=1)))
-log_marginal(result::SMCResult) = result.samples[:, 1]
+log_marginal(result::SMCResult) = result.log_marginal_estimate
 
 
 function simulate(algorithm::SMCEstimate, initial, system; kwargs...)
     setup = Setup(initial, system)
-    weights = sample(algorithm.num_particles, system.dtimes, setup; kwargs...)
-    SMCResult(reshape(weights, :, 1))
+    log_marginal_estimate = sample(algorithm.num_particles, system.dtimes, setup; kwargs...)
+    SMCResult(log_marginal_estimate)
 end
