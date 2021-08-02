@@ -15,20 +15,19 @@ log_p0 = (s) -> logpdf(s0_dist, s)
 κ = 0.25
 λ = 0.005
 
-dist = GaussianMcmc.distribution(sn, [κ, λ], log_p0)
+dist = GaussianMcmc.distribution(sn, [κ, λ])
 
 traj = GaussianMcmc.Trajectory([1.0, 2.0, 3.0], [[50.0], [51.0], [50.0]], [1, 2])
 
 p_wait(s, dt) = exp(- (κ + s * λ) * dt)
 
-p0    = log_p0([50.0])
 wait1 = log(p_wait(50, 1.0))
 wait2 = log(p_wait(51, 1.0))
 wait3 = log(p_wait(50, 1.0))
 reac1 = log(κ)
 reac2 = log(51 * λ)
 
-@test GaussianMcmc.logpdf(dist, traj) ≈ sum((p0, wait1, wait2, wait3, reac1, reac2))
+@test GaussianMcmc.logpdf(dist, traj) ≈ sum((wait1, wait2, wait3, reac1, reac2))
 @test GaussianMcmc.trajectory_energy(dist, traj) ≈ sum((wait1, wait2, wait3, reac1, reac2))
 @test GaussianMcmc.trajectory_energy(dist, traj, tspan=(1.0,2.0)) ≈ sum((wait2, reac2))
 

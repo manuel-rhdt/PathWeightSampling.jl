@@ -56,20 +56,19 @@ function get_update_index(agg::DirectAggregator, i::Int)
     end
 end
 
-struct TrajectoryDistribution{Dist,U}
+struct TrajectoryDistribution{U}
     reactions::ReactionSet
-    log_p0::Dist
     aggregator::DirectAggregator{U}
 end
 
-function TrajectoryDistribution(reactions, log_p0, update_map = 1:num_reactions)
+function TrajectoryDistribution(reactions, update_map = 1:num_reactions)
     num_clusters = maximum(update_map)
     agg = DirectAggregator(0.0, zeros(num_clusters), update_map, (0.0, 0.0), 0.0, 0.0)
-    TrajectoryDistribution(reactions, log_p0, agg)
+    TrajectoryDistribution(reactions, agg)
 end
 
 myzero_fn(x) = 0.0
-distribution(rn::ReactionSystem, p, log_p0=myzero_fn; update_map=1:Catalyst.numreactions(rn)) = TrajectoryDistribution(ReactionSet(convert(ModelingToolkit.JumpSystem, rn), p), log_p0, update_map)
+distribution(rn::ReactionSystem, p; update_map=1:Catalyst.numreactions(rn)) = TrajectoryDistribution(ReactionSet(convert(ModelingToolkit.JumpSystem, rn), p), update_map)
 
 @fastmath function Distributions.logpdf(dist::TrajectoryDistribution, trajectory)::Float64
     first = iterate(trajectory)
@@ -82,9 +81,6 @@ distribution(rn::ReactionSystem, p, log_p0=myzero_fn; update_map=1:Catalyst.numr
     
     agg = dist.aggregator
     for (u, t, i) in trajectory
-        if tprev == 0.0
-            result = dist.log_p0(u)::Float64
-        end
         agg = update_rates(agg, u, dist.reactions)
 
         dt = t - tprev
@@ -117,7 +113,7 @@ function trajectory_energy(dist::TrajectoryDistribution, traj; tspan=(0.0, Inf64
     agg = dist.aggregator
     agg = DirectAggregator(0.0, agg.rates, agg.update_map, tspan, tspan[1], 0.0)
     
-    f = let params=params, dist=dist 
+    f = let dist=dist 
         function(agg, (u, t, i))
             if t <= agg.tspan[1]
                 return agg
