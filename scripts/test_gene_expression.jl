@@ -1,9 +1,9 @@
 import GaussianMcmc
 using GaussianMcmc: SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, gene_expression_system, generate_configuration, logpdf
 
-system_fn = () -> GaussianMcmc.gene_expression_system(dtimes=0:0.1:10)
-smc = SMCEstimate(100)
-dmc = DirectMCEstimate(200)
+system_fn = () -> GaussianMcmc.gene_expression_system(dtimes=0:0.01:2)
+smc = SMCEstimate(256)
+dmc = DirectMCEstimate(256)
 
 system = system_fn()
 
@@ -13,7 +13,7 @@ ens = MarginalEnsemble(system)
 GaussianMcmc.log_marginal(GaussianMcmc.simulate(smc, conf, ens))
 GaussianMcmc.energy_difference(conf, ens)
 
-result = GaussianMcmc.mutual_information(system, smc, num_responses=20)
+result = GaussianMcmc.mutual_information(system, smc, num_responses=200)
 
 using Plots
 plot(GaussianMcmc._solve(system), xlim=(0,2), seriescolor=[:green :cornflowerblue])
@@ -43,7 +43,7 @@ plot!(system.dtimes, mean(dresult.MutualInformation), ribbon=sqrt.(var(dresult.M
 using CSVFiles, DrWatson, DataFrames
 
 zechner_res = DataFrame(load(datadir("zechner/gene_exp.csv")))
-plot!(zechner_res.Duration, zechner_res.PMI)
+plot!(zechner_res.Duration[1:20], zechner_res.PMI[1:20])
 
 
 savefig(plot!(dpi=100, size=(6*72,3.5*72)), "~/Downloads/gene_expression.pdf")

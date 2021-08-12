@@ -32,7 +32,7 @@ params = (;
 	mean_l = 50,
 )
 
-save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration)
+save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration, "M" => dict["smc_samples"])
 
 dtimes = collect(0.0:0.5:duration)
 

@@ -117,6 +117,9 @@ params = [
     γ_R  # methylation of inactive receptor
 ]
 
+system = cooperative_chemotaxis_system()
+Catalyst.numreactions(system.rn) + Catalyst.numreactions(system.xn)
+
 system = cooperative_chemotaxis_system(lmax=lmax, mmax=mmax, n_clusters=n_clusters, mean_l=100)
 
 conf = generate_configuration(system)

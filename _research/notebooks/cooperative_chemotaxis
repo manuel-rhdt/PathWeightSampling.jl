@@ -1,0 +1,286 @@
+### A Pluto.jl notebook ###
+# v0.14.7
+
+using Markdown
+using InteractiveUtils
+
+# ╔═╡ 014e809c-d341-11eb-0ea8-cf2a2adf1b17
+using CairoMakie
+
+# ╔═╡ 9f75f4f3-93eb-4191-9e51-1a6b3de4e5f0
+using GaussianMcmc
+
+# ╔═╡ 6f3b2bde-7866-4126-8daa-46de88b9a39f
+using GaussianMcmc: cooperative_chemotaxis_system, generate_configuration, reaction_network, MergeWith, ConditionalEnsemble, MarginalEnsemble, marginal_configuration
+
+# ╔═╡ 08896d8f-ac69-41c7-b952-33e8766c94b3
+using Transducers
+
+# ╔═╡ 4a124b10-d8e0-41a8-a6dc-bebd62ea1edc
+using Catalyst
+
+# ╔═╡ 70205c01-924d-44aa-b36e-94c611c3e146
+using StaticArrays: SVector
+
+# ╔═╡ f2a131e1-c63a-48c3-9c0e-4a38848eb70e
+using DiffEqJump
+
+# ╔═╡ f041c20e-7a44-4fb7-9ae0-3a443e716874
+using DiffEqBase
+
+# ╔═╡ dbd014f0-28f7-4f2f-aeaf-14c309da9793
+using Printf
+
+# ╔═╡ 7512f7ab-443f-4fd0-b8b4-4b37019968ef
+params = (;
+	E₀ = 0.0,
+	lmax = 3,
+	mmax = 9,
+	Kₐ = 500,
+	Kᵢ = 25,
+	δf = -1.0,
+	n_clusters = 800,
+	a_star = 0.8,
+	k⁺ = 0.05,
+	n_chey = 10_000,
+	mean_l = 50,
+)
+
+# ╔═╡ 23f3b279-f6e9-4f96-be70-87d478047e37
+δg = log(params.Kₐ/params.Kᵢ)
+
+# ╔═╡ ce00ed7f-2f21-4fd7-a815-5f61f06e4ab7
+begin
+	system = cooperative_chemotaxis_system(dtimes=0:1.0:200; params...)
+	nothing
+end
+
+# ╔═╡ 076aa411-77ce-4054-b111-6a567734593f
+dtimes = system.dtimes
+
+# ╔═╡ f195f8cd-5568-48f4-857a-2ba9f1da6340
+joint = reaction_network(system);
+
+# ╔═╡ 197f5e38-09f0-4794-930f-9f8ae393083f
+conf = generate_configuration(system)
+
+# ╔═╡ 98b8f7aa-6c58-480b-b37c-9c58ac15c729
+function array_from_conf(conf::GaussianMcmc.SRXconfiguration, dtimes)
+	traj_iter = conf.s_traj |> 
+		MergeWith(conf.r_traj) |> 
+		MergeWith(conf.x_traj) |> 
+		Map((u, t, i)::Tuple -> (SVector(u...), t))
+	i = firstindex(dtimes)
+	initial, state = iterate(traj_iter)
+	result = zeros(length(initial[1]), length(dtimes))
+	for (u, t) in Iterators.rest(traj_iter, state)
+		while i < length(dtimes) && t > dtimes[i]
+			result[:, i] = u
+			i += 1
+		end
+	end
+	result
+end
+
+# ╔═╡ 251c594d-0d20-4882-83d1-f09fbccd097a
+function active_indices(rs, firstletter = "A")
+    smap = Catalyst.speciesmap(rs)
+    result = Int[]
+    for (species, index) in smap
+        sname = String(ModelingToolkit.operation(species).name)
+        if startswith(sname, firstletter)
+            push!(result, index)
+        end
+    end
+    result
+end
+
+# ╔═╡ 3181377b-81cc-4bff-8288-26e5e6677ed2
+getname(sym) = String(ModelingToolkit.operation(sym).name)
+
+# ╔═╡ 22c17480-7afc-48e3-9a10-ab8a35595839
+function parse_receptor(species)
+    sname = getname(species)
+    mtch = match(r"([A-Z])_(\d+)_(\d+)", sname)
+    if mtch !== nothing
+		# a = mtch.captures[1] == "A"
+    	l = parse(Int, mtch.captures[2])
+    	m = parse(Int, mtch.captures[3])
+   		# (a, l, m) => index
+		(l, m)
+    else
+		nothing
+	end
+end
+
+# ╔═╡ b9e0aef1-7db0-4350-a37d-9fdd6889ced1
+p_active(l, m) = 1 / (1 + exp(params.E₀ + l*δg + m*params.δf))
+
+# ╔═╡ 799623fe-c3f0-4405-8943-0a8e8d8254d9
+function receptor_states(rs)
+    smap = Catalyst.speciesmap(rs)
+    xf = KeepSomething() do (species, index)
+		result = parse_receptor(species)
+		if result === nothing
+			nothing
+		else
+			result => index
+		end
+    end
+    smap |> xf
+end
+
+# ╔═╡ 98e43629-5eb5-4b68-8358-cef1ff7b005b
+function bound_ligands(sol, rs)
+    rstates = receptor_states(rs)
+    rstates |> Map(((l, m), i)::Pair -> l .* sol[i,:]) |> sum
+end
+
+# ╔═╡ 42c9c8ea-ed4d-4fb2-98a9-649c6504d309
+function bound_methyl(sol, rs)
+    rstates = receptor_states(rs)
+    rstates |> Map(((l, m), i)::Pair -> m .* sol[i,:]) |> sum
+end
+
+# ╔═╡ f1cbb965-7d17-4b6f-9bdb-3d8498051ed4
+function active_receptors(sol, rs)
+    rstates = receptor_states(rs)
+    rstates |> Map(((l, m), i)::Pair -> p_active(l, m) .* sol[i,:]) |> sum
+end
+
+# ╔═╡ e3a4f3d9-43b9-4ef7-8001-583f5eaca075
+function inactive_receptors(sol, rs)
+    rstates = receptor_states(rs)
+    rstates |> Map(((l, m), i)::Pair -> (1-p_active(l, m)) .* sol[i,:]) |> sum
+end
+
+# ╔═╡ 92a758cd-322e-4971-b8f6-5354614870ab
+sol = array_from_conf(conf, dtimes)
+
+# ╔═╡ 2b6436a1-4e31-4a38-80e9-96560ea09389
+function plot_sol(sol)
+	t = dtimes
+	lines(t, vec(sol[1,:]) ./ 100, label="ligand concentration")
+	lines!(t, active_receptors(sol, joint) ./ params.n_clusters, label="active fraction")
+	lines!(t, vec(sol[end-1,:]) ./ 10000, label="Yp / (Y+Yp)")
+	lines!(t, bound_ligands(sol, joint) ./ (params.lmax*params.n_clusters), label="bound receptor fraction")
+	lines!(t, bound_methyl(sol, joint) ./ (params.mmax*params.n_clusters), label="methylated fraction")
+	axislegend()
+	ylims!(0,1)
+	current_figure()
+end
+
+# ╔═╡ bf7055c4-d1ea-4fd0-8abd-57ca465ac813
+plot_sol(sol)
+
+# ╔═╡ 5a4f5f63-e636-4fd5-be14-f4cf857b4c7c
+step_s = GaussianMcmc.Trajectory([0, 100, 200], [[90], [90], [50]])
+
+# ╔═╡ f4b46fff-9a7d-41a7-9da2-e8b48bfef192
+function solve_system(system, s_traj, pr=system.pr)
+    rx = merge(system.rn, system.xn)
+
+    u0 = copy(system.u0)
+    u0[1] = s_traj.u[1][1]
+	dprob = DiscreteProblem(rx, u0, (0.0, dtimes[end]), vcat(pr, system.px))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, rx), dprob, RSSACR(), save_positions=(false, false))
+
+    cb = GaussianMcmc.TrajectoryCallback(s_traj)
+    cb = DiscreteCallback(cb, cb, save_positions=(false,false))
+
+	sol = solve(jprob, SSAStepper(), callback=cb, tstops=s_traj.t, saveat=dtimes)
+end
+
+# ╔═╡ 80b90343-c9d1-42f1-bf8e-aa24b0dec789
+plot_sol(solve_system(system, step_s))
+
+# ╔═╡ dff236da-99ce-42a4-a07c-1eee54ddf8a9
+system.pr
+
+# ╔═╡ b6f5a978-cf5a-4737-8293-64ef98b105ca
+begin
+	E0 = -2 # we assume every receptor has a given methylation level
+	p_bind = 0.05
+	K_a = 500
+	K_i = 25
+	δf = -1.0
+	params_no_methylation = [
+	    E0, # E0
+	    # 0.1, # in/activation timescale
+	    δg,
+	    δf,
+	    p_bind, # ligand binding to active receptor
+	    p_bind, # ligand binding to inactive receptor
+	    p_bind * K_a, # ligand dissociation from active receptor
+	    p_bind * K_i, # ligand dissociation from inactive receptor
+	    0.0, # demethylation of active receptor
+	    0.0  # methylation of inactive receptor
+	]
+end
+
+# ╔═╡ 4ab70f6c-260d-4650-8415-7221a580e236
+import PlutoUI
+
+# ╔═╡ 280a1d09-27be-4463-87bc-cd2488d802bc
+PlutoUI.with_terminal() do
+	println("R_l_k: Receptor with l bound ligands and k-times methylated")
+	for r in Catalyst.reactions(system.rn)
+		f = ModelingToolkit.build_function(r.rate, Catalyst.params(system.rn), expression=Val{false})
+		l, m = parse_receptor(r.substrates[1])
+		@printf "%s --> %s ; k = %6.3f ; p_active = %.3f\n" getname(r.substrates[1]) getname(r.products[1]) f(system.pr) p_active(l, m)
+	end
+end
+
+# ╔═╡ 6672436e-a273-4083-9436-0d5ba95119cf
+# begin
+# 	cens = ConditionalEnsemble(system)
+# 	mens = MarginalEnsemble(system)
+# 	mconf = marginal_configuration(conf)
+	
+# 	smc = SMCEstimate(16)
+# 	cr = GaussianMcmc.simulate(smc, conf, cens)
+# 	mr = GaussianMcmc.simulate(smc, mconf, mens)
+# 	(cr, mr)
+# end
+
+# ╔═╡ fed9447b-b689-49a6-b443-b35a49774f41
+# lines(dtimes, GaussianMcmc.log_marginal(cr) .- GaussianMcmc.log_marginal(mr))
+
+# ╔═╡ Cell order:
+# ╠═014e809c-d341-11eb-0ea8-cf2a2adf1b17
+# ╠═9f75f4f3-93eb-4191-9e51-1a6b3de4e5f0
+# ╠═6f3b2bde-7866-4126-8daa-46de88b9a39f
+# ╠═08896d8f-ac69-41c7-b952-33e8766c94b3
+# ╠═4a124b10-d8e0-41a8-a6dc-bebd62ea1edc
+# ╠═70205c01-924d-44aa-b36e-94c611c3e146
+# ╠═f2a131e1-c63a-48c3-9c0e-4a38848eb70e
+# ╠═f041c20e-7a44-4fb7-9ae0-3a443e716874
+# ╠═7512f7ab-443f-4fd0-b8b4-4b37019968ef
+# ╠═23f3b279-f6e9-4f96-be70-87d478047e37
+# ╠═ce00ed7f-2f21-4fd7-a815-5f61f06e4ab7
+# ╠═076aa411-77ce-4054-b111-6a567734593f
+# ╠═f195f8cd-5568-48f4-857a-2ba9f1da6340
+# ╠═197f5e38-09f0-4794-930f-9f8ae393083f
+# ╠═98b8f7aa-6c58-480b-b37c-9c58ac15c729
+# ╠═251c594d-0d20-4882-83d1-f09fbccd097a
+# ╠═3181377b-81cc-4bff-8288-26e5e6677ed2
+# ╠═22c17480-7afc-48e3-9a10-ab8a35595839
+# ╠═b9e0aef1-7db0-4350-a37d-9fdd6889ced1
+# ╠═799623fe-c3f0-4405-8943-0a8e8d8254d9
+# ╠═98e43629-5eb5-4b68-8358-cef1ff7b005b
+# ╠═42c9c8ea-ed4d-4fb2-98a9-649c6504d309
+# ╠═f1cbb965-7d17-4b6f-9bdb-3d8498051ed4
+# ╠═e3a4f3d9-43b9-4ef7-8001-583f5eaca075
+# ╠═92a758cd-322e-4971-b8f6-5354614870ab
+# ╠═2b6436a1-4e31-4a38-80e9-96560ea09389
+# ╠═bf7055c4-d1ea-4fd0-8abd-57ca465ac813
+# ╠═5a4f5f63-e636-4fd5-be14-f4cf857b4c7c
+# ╠═f4b46fff-9a7d-41a7-9da2-e8b48bfef192
+# ╠═80b90343-c9d1-42f1-bf8e-aa24b0dec789
+# ╠═dff236da-99ce-42a4-a07c-1eee54ddf8a9
+# ╠═b6f5a978-cf5a-4737-8293-64ef98b105ca
+# ╠═dbd014f0-28f7-4f2f-aeaf-14c309da9793
+# ╠═4ab70f6c-260d-4650-8415-7221a580e236
+# ╠═280a1d09-27be-4463-87bc-cd2488d802bc
+# ╠═6672436e-a273-4083-9436-0d5ba95119cf
+# ╠═fed9447b-b689-49a6-b443-b35a49774f41
