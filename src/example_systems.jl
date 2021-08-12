@@ -79,18 +79,18 @@ function chemotaxis_system(;
 end
 
 function chemotaxis_parameters(;
-    E₀ = 0.0,
+    E₀ = 3.0,
     Kₐ = 500,
     Kᵢ = 25,
     δg = log(Kₐ/Kᵢ),
-    δf = -0.5,
+    δf = -1.5,
     k⁺ = 0.05,
     k⁺ₐ = k⁺,
     k⁺ᵢ = k⁺,
     k⁻ₐ = Kₐ * k⁺ₐ,
     k⁻ᵢ = Kᵢ * k⁺ᵢ,
-    a_star = 0.8,
-    γ = 1 / 5,
+    a_star = 0.5,
+    γ = 1 / 10,
     k_B = (1 - a_star) * γ / abs(δf),
     k_R =      a_star  * γ / abs(δf)
 )

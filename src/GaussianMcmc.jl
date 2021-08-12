@@ -1,5 +1,6 @@
 module GaussianMcmc
 
+using DiffEqBase: AbstractJumpProblem
 using DiffEqJump: DiffEqBase
 include("trajectories/trajectory.jl")
 include("EventIter.jl")
@@ -7,6 +8,7 @@ include("MetropolisSampler.jl")
 include("marginal_strategies/strategies.jl")
 include("GaussianSystem.jl")
 include("trajectories/distribution.jl")
+include("EmpiricalDistribution.jl")
 include("JumpNetwork.jl")
 include("write_hdf5.jl")
 

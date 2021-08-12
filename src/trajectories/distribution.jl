@@ -8,6 +8,7 @@ import Base.show
 struct DirectAggregator{U}
     sumrate::Float64
     rates::Vector{Float64}
+    # a mapping from the trajectory's recorded reaction ids to the ReactionSet indices of the jump aggregator
     update_map::U
     tspan::Tuple{Float64, Float64}
     tprev::Float64
@@ -75,7 +76,6 @@ distribution(rn::ReactionSystem, p; update_map=1:Catalyst.numreactions(rn)) = Tr
     if first === nothing
         return 0.0
     end
-    # ((uprev, tprev, iprev), state) = first
     tprev = 0.0
     result = 0.0
     
@@ -201,5 +201,5 @@ end
             sum += rate
         end
     end
-    aggregator = DirectAggregator(sum, aggregator.rates, aggregator.update_map, aggregator.tspan, aggregator.tprev, aggregator.weight)
+    DirectAggregator(sum, aggregator.rates, aggregator.update_map, aggregator.tspan, aggregator.tprev, aggregator.weight)
 end

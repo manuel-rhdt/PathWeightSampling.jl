@@ -1,0 +1,48 @@
+using Random
+using StatsBase
+
+struct EmpiricalDistribution{Dims, T}
+    prob::Array{Float64, Dims}
+    axes::SVector{Dims, Vector{T}}
+end
+
+Base.eltype(::Type{<:EmpiricalDistribution{Dims, T}}) where {Dims, T} = Vector{T}
+
+function empirical_dist(prob::AbstractArray{Float64,N}, axes::Vararg{<:AbstractVector,N}) where {N}
+    EmpiricalDistribution{N, eltype(axes[1])}(prob ./ sum(prob), (axes...,))
+end
+
+function Random.rand(rng::AbstractRNG, d::Random.SamplerTrivial{<:EmpiricalDistribution})
+    dist = d[]
+	x = sample(rng, weights(vec(dist.prob)))
+	index = CartesianIndices(size(dist.prob))
+	i = index[x]
+	map(j->dist.axes[j][i[j]], 1:length(i))
+end
+
+function logpdf(dist::EmpiricalDistribution, v::AbstractVector)
+	indices = [findfirst(==(v[i]), dist.axes[i]) for i=eachindex(dist.axes)]
+	if nothing ∈ indices
+		-Inf64
+	else
+		log(dist.prob[indices...])
+	end
+end
+logpdf(dist::EmpiricalDistribution, v) = logpdf(dist, [v])
+
+function pdf(dist::EmpiricalDistribution, v::AbstractVector)
+	indices = [findfirst(==(v[i]), dist.axes[i]) for i=eachindex(dist.axes)]
+	if nothing ∈ indices
+		0.0
+	else
+		dist.prob[indices...]
+	end
+end
+pdf(dist::EmpiricalDistribution, v) = pdf(dist, [v])
+
+function marginalize(dist::EmpiricalDistribution, axis_index::Integer)
+	new_prob = sum(dist.prob, dims=axis_index)
+	new_prob = dropdims(new_prob, dims=axis_index)
+	new_axes = deleteat(dist.axes, axis_index)
+	EmpiricalDistribution(new_prob, new_axes)
+end

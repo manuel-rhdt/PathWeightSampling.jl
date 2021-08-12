@@ -9,9 +9,6 @@ sn = @reaction_network begin
     λ, S --> ∅
 end κ λ
 
-s0_dist = MvNormal([50.0], 50.0 * ones((1, 1)))
-log_p0 = (s) -> logpdf(s0_dist, s)
-
 κ = 0.25
 λ = 0.005
 
@@ -31,7 +28,6 @@ reac2 = log(51 * λ)
 @test GaussianMcmc.trajectory_energy(dist, traj) ≈ sum((wait1, wait2, wait3, reac1, reac2))
 @test GaussianMcmc.trajectory_energy(dist, traj, tspan=(1.0,2.0)) ≈ sum((wait2, reac2))
 
-GaussianMcmc.trajectory_energy(dist, traj)
 cumulative = GaussianMcmc.cumulative_logpdf(dist, traj, 0:0.5:3)
 @test cumulative ≈ [
     0.0,
