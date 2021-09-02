@@ -4,8 +4,8 @@ using DiffEqJump
 using Catalyst
 using StaticArrays
 
-traj = GaussianMcmc.Trajectory([1.0, 2.0, 3.0], [SA[1,4], SA[2,5], SA[3,6]], [1, 1])
-traj_mat = GaussianMcmc.Trajectory([1.0, 2.0, 3.0], [1 2 3; 4 5 6], [1, 1])
+traj = GaussianMcmc.Trajectory([SA[1,4], SA[2,5], SA[3,6]], [1.0, 2.0, 3.0], [1, 1])
+traj_mat = GaussianMcmc.Trajectory([1 2 3; 4 5 6], [1.0, 2.0, 3.0], [1, 1])
 
 @test traj == traj_mat
 
@@ -22,7 +22,7 @@ end
 
 u0 = [50.0]
 tspan = (0., 100.)
-discrete_prob = DiscreteProblem(u0, tspan)
+discrete_prob = DiscreteProblem(u0, tspan, [])
 jump_prob = JumpProblem(sn, discrete_prob, Direct())
 
 integrator = init(jump_prob, SSAStepper(), tstops=Float64[])
@@ -55,7 +55,7 @@ times = getindex.(collected_values, 2)
 @test issorted(times)
 @test allunique(times)
 
-traj2 = GaussianMcmc.Trajectory([0.5, 1.5, 2.5], [[1,4], [2,5], [3,6]], [2, 4, 0])
+traj2 = GaussianMcmc.Trajectory([[1,4], [2,5], [3,6]], [0.5, 1.5, 2.5], [2, 4, 0])
 
 joint = traj |> GaussianMcmc.MergeWith(traj2)
 
@@ -76,7 +76,7 @@ network = merge(sn, rn)
 
 u0 = [50.0,50.0]
 tspan = (0., 100.)
-discrete_prob = DiscreteProblem(u0, tspan)
+discrete_prob = DiscreteProblem(u0, tspan, [])
 jump_prob = JumpProblem(network, discrete_prob, Direct())
 integrator = init(jump_prob, SSAStepper())
 
@@ -84,33 +84,31 @@ partial = GaussianMcmc.sub_trajectory(GaussianMcmc.SSAIter(integrator), [1])
 sol = integrator.sol
 for i in eachindex(partial.t)
     @test partial.t[i] ∈ vcat(sol.t, 100.0)
-    @test partial[i][1] ∈ sol[[1],:]
+    @test partial.u[i][1] ∈ sol[[1],:]
 end
 
 
-# test trajectory callback
-using Transducers
-import GaussianMcmc: TrajectoryCallback
-import DiffEqBase: DiscreteCallback
+# test driven jump problem
+import GaussianMcmc
+using GaussianMcmc: DrivenJumpProblem
 
-cb_traj = GaussianMcmc.Trajectory([30.0, 60.0, 90.0, 100.0], [[100], [110], [120], [130]])
-cb = TrajectoryCallback(cb_traj)
-cb = DiscreteCallback(cb, cb, save_positions=(false, true))
-
+cb_traj = GaussianMcmc.Trajectory([[50], [110], [120], [130]], [30.0, 60.0, 90.0, 100.0])
 u0 = [50.0]
 tspan = (0., 100.)
-discrete_prob = DiscreteProblem(sn, u0, tspan)
+discrete_prob = DiscreteProblem(sn, u0, tspan, [])
 jump_prob = JumpProblem(sn, discrete_prob, Direct())
-integrator = init(jump_prob, SSAStepper(), callback=cb, tstops=[30.0, 60.0, 90.0])
+djp = DrivenJumpProblem(jump_prob, cb_traj)
+integrator = init(djp)
 iter = GaussianMcmc.SSAIter(integrator)
-
 traj = iter |> GaussianMcmc.collect_trajectory
-
+events[10:50]
 for t in [30, 60, 90] @test t ∈ traj.t end
-@test all([[110], [120], [130]] .∈ Ref(traj.u))
+@test traj(30.0)[1] == 110
+@test traj(60.0)[1] == 120
+@test traj(90.0)[1] == 130
 
 sol = integrator.sol
-events = traj |> Map((u,t,i)::Tuple -> (u=u,t=t)) |> collect
+events = map((u,t,i)::Tuple -> (u=u,t=t), traj) |> collect
 
 for i in eachindex(events)
     if i == length(events) continue end

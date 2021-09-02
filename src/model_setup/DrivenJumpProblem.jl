@@ -5,12 +5,18 @@ export DrivenJumpProblem
 
 using DiffEqJump
 using CommonSolve
+using GaussianMcmc: Trajectory
 
+"""
+    IdentityMap()
+
+A simple helper type that always returns `i` when indexed as `IdentityMap()[i]`.
+"""
 struct IdentityMap end
 @inline Base.getindex(x::IdentityMap, i::Integer) = i
 
-mutable struct TrajectoryCallback{Trajectory, IndexMap}
-    traj::Trajectory
+mutable struct TrajectoryCallback{T, IndexMap}
+    traj::T
     index::Int
     index_map::IndexMap
 end
@@ -20,12 +26,12 @@ TrajectoryCallback(traj, index_map = IdentityMap()) = TrajectoryCallback(traj, 1
 function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
     traj = tc.traj
     tc.index = min(tc.index + 1, length(traj.t))
-    cond_u = traj.u[tc.index-1]
+    cond_u = traj.u[tc.index]
     for i in eachindex(cond_u)
         integrator.u[tc.index_map[i]] = cond_u[i]
     end
     # it is important to call this to properly update reaction rates
-    DiffEqJump.reset_aggregated_jumps!(integrator, nothing, integrator.cb)
+    DiffEqJump.reset_aggregated_jumps!(integrator, nothing, integrator.cb, update_jump_params=false)
     nothing
 end
 
@@ -53,8 +59,8 @@ struct DrivenJumpProblem{Prob,Cb}
     callback::Cb
 
     function DrivenJumpProblem(jump_problem::JP, driving_trajectory, index_map = IdentityMap()) where {JP}
-        tcb = TrajectoryCallback(driving_trajectory, index_map)
-        callback = DiscreteCallback(tcb, tcb, save_positions=(false, false))
+        tcb = TrajectoryCallback(Trajectory(driving_trajectory), index_map)
+        callback = DiscreteCallback(tcb, tcb, save_positions=(false, true))
         new{JP, typeof(callback)}(jump_problem, callback)
     end
 end

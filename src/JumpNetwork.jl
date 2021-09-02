@@ -240,33 +240,6 @@ function MarginalEnsemble(system::SRXsystem)
 
     MarginalEnsemble(jprob, system.dist, collect(system.dtimes))
 end
-mutable struct TrajectoryCallback{uType,tType}
-    traj::Trajectory{uType,tType}
-    index::Int
-end
-
-TrajectoryCallback(traj::Trajectory) = TrajectoryCallback(traj, 1)
-
-function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
-    traj = tc.traj
-    tc.index = min(tc.index + 1, length(tc.traj.t))
-    cond_u = traj.u[tc.index]
-    for i in eachindex(cond_u)
-        integrator.u[i] = cond_u[i]
-    end
-    # it is important to call this to properly update reaction rates
-    DiffEqJump.reset_aggregated_jumps!(integrator, nothing, integrator.cb)
-    nothing
-end
-
-function (tc::TrajectoryCallback)(u, t::Real, i::DiffEqBase.DEIntegrator)::Bool # condition
-    @inbounds tcb = tc.traj.t[tc.index]
-    while tc.index < length(tc.traj.t) && t > tcb
-        tc.index += 1
-        @inbounds tcb = tc.traj.t[tc.index]
-    end
-    t == tcb
-end
 
 
 function ConditionalEnsemble(system::SRXsystem)
