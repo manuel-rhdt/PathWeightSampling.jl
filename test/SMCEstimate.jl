@@ -12,6 +12,18 @@ mconf = marginal_configuration(conf)
 cens = ConditionalEnsemble(system)
 mens = MarginalEnsemble(system)
 
+
+simulate(SMCEstimate(16), conf, cens).s
+simulate(DirectMCEstimate(16), conf, cens)
+GaussianMcmc.propagate(conf, cens, mens.u0, (0.0, 0.5))
+driven_jp = GaussianMcmc.DrivenJumpProblem(cens.jump_problem, conf.s_traj)
+integrator = init(driven_jp)
+traj = GaussianMcmc.collect_trajectory(GaussianMcmc.SSAIter(integrator))
+cens.dist
+
+plot(conf.r_traj)
+plot(GaussianMcmc.sample(conf, cens).r_traj)
+
 @test energy_difference(conf, cens) == energy_difference(mconf, mens)
 
 algs = [SMCEstimate(16), DirectMCEstimate(16)]
@@ -25,8 +37,8 @@ result = Dict(map(algs) do alg
     name(alg) => hcat(mi...)
 end)
 
-# test that all results lie within 3 standard deviations from each other
-# this should find most implementation errors for specific estimates
+# Test that all results lie within 3 standard deviations of each other.
+# This should find coarse implementation errors for specific estimates.
 for (name, mi) in result
     lower_bound = mean(mi, dims=2) - 3*std(mi, dims=2)
     for (name2, mi2) in result
@@ -37,11 +49,13 @@ end
 
 # # Some plotting routines are commented out below to see what goes wrong.
 # # Use them to see what's wrong when the tests above fail.
-
-# plot()
-# colormap = Dict("SMC" => 1, "Direct MC" => 2)
-# for (name, mi) in result
-#     plot!(system.dtimes, mean(mi, dims=2), ribbon=3*std(mi, dims=2), color=colormap[name], label=name)
-#     plot!(system.dtimes, mi, color=colormap[name], linewidth=0.3, label="")
-# end
-# plot!()
+#--
+using Plots
+plot()
+colormap = Dict("SMC" => 1, "Direct MC" => 2)
+for (name, mi) in result
+    plot!(system.dtimes, mean(mi, dims=2), ribbon=3*std(mi, dims=2), color=colormap[name], label=name)
+    plot!(system.dtimes, mi, color=colormap[name], linewidth=0.3, label="")
+end
+plot!()
+# --

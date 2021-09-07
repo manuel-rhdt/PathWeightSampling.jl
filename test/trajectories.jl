@@ -101,7 +101,7 @@ djp = DrivenJumpProblem(jump_prob, cb_traj)
 integrator = init(djp)
 iter = GaussianMcmc.SSAIter(integrator)
 traj = iter |> GaussianMcmc.collect_trajectory
-events[10:50]
+
 for t in [30, 60, 90] @test t ∈ traj.t end
 @test traj(30.0)[1] == 110
 @test traj(60.0)[1] == 120

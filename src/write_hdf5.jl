@@ -3,7 +3,7 @@ using HDF5
 function write_hdf5!(group, dict::AbstractDict)
     for (name, value) in dict
         name = String(name)
-        write_value_hdf5!(group, String(name), value)
+        write_value_hdf5!(group, name, value)
     end
 end
 

@@ -34,13 +34,17 @@ Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.t == traj2.t) && (traj
 
 function (t::Trajectory)(time::Real)
     index = searchsortedfirst(t.t, time)
-    if t.t[index] == time
+    if t.t[index] == time && index != lastindex(t.t)
         index += 1
     end
     if index > lastindex(t.t)
         error("Can't access trajectory that ends at t=$(last(t.t)) at time $time.")
     end
     t.u[index]
+end
+
+function (t::Trajectory)(times::AbstractArray{<:Real})
+    hcat(t.(times)...)
 end
 
 function Trajectory(u::AbstractMatrix{T}, t::AbstractVector{tType}, i=Int[]) where {tType <: Real,T <: Real}

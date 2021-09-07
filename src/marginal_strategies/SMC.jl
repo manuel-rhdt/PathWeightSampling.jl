@@ -1,5 +1,6 @@
 import StatsBase
 
+# Each particle represents an independently evolving trajectory.
 struct JumpParticle{uType}
     u::uType
     weight::Float64
@@ -19,6 +20,9 @@ function propagate(p::JumpParticle, tspan::Tuple{T,T}, setup) where T
     JumpParticle(u_end, weight)
 end
 
+# While this implementation of a particle is slower than the one above
+# it keeps track of the genealogy of a particle (i.e. its parent, grandparent, etc.).
+# This is useful for debugging and for collecting statistics.
 mutable struct JumpParticleSlow{uType}
     u::uType
     weight::Float64
@@ -49,10 +53,16 @@ end
 weight(p::JumpParticle) = p.weight
 weight(p::JumpParticleSlow) = p.weight
 
+# This is the main algorithm of SMC-PWS.
 function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=JumpParticle)
     particle_bag = [new_particle(setup) for i = 1:nparticles]
     weights = zeros(nparticles)
     log_marginal_estimate = zeros(length(dtimes))
+
+    # At each time we do the following steps
+    # 1) propagate all particles forwards in time and compute their weights
+    # 2) update the log_marginal_estimate
+    # 3) check whether we should resample the particle bag, and resample if needed
     for (i, tspan) in enumerate(zip(dtimes[begin:end - 1], dtimes[begin + 1:end]))
         for j in eachindex(particle_bag)
             particle_bag[j] = propagate(particle_bag[j], tspan, setup)
@@ -65,14 +75,13 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
             break
         end
 
-        prob_weights = StatsBase.fweights(exp.(weights .- maximum(weights)))
+        prob_weights = StatsBase.weights(exp.(weights .- maximum(weights)))
 
         # We only resample if the effective sample size becomes smaller than 1/2 the number of particles
         effective_sample_size = 1/sum(p -> (p / sum(prob_weights)) ^ 2, prob_weights)
         if effective_sample_size < nparticles / 2
             # sample parent indices
             parent_indices = systematic_sample(prob_weights)
-            # parent_indices = StatsBase.sample(particle_indices, prob_weights, nparticles)
 
             particle_bag = map(parent_indices) do k
                 new_particle(particle_bag[k], setup)
@@ -86,6 +95,14 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
     log_marginal_estimate
 end
 
+"""
+    systematic_sample(weights)::Vector{Int}
+
+Take random samples from `1:len(weights)` using weights given by the corresponding values
+in the `weights` array.
+
+The number of samples returned is equal to the length of `weights`.
+"""
 function systematic_sample(weights)
     N = length(weights)
     inc = 1/N

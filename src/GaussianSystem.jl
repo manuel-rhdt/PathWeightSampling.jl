@@ -1,5 +1,4 @@
 using LinearAlgebra
-using Distributions
 
 function corr_ss(κ, λ, ρ, μ)
     (t) -> κ / λ * exp(-abs(t) * λ)

@@ -14,7 +14,7 @@ end κ λ
 
 dist = GaussianMcmc.distribution(sn, [κ, λ])
 
-traj = GaussianMcmc.Trajectory([1.0, 2.0, 3.0], [[50.0], [51.0], [50.0]], [1, 2])
+traj = GaussianMcmc.Trajectory([[50.0], [51.0], [50.0]], [1.0, 2.0, 3.0], [1, 2])
 
 p_wait(s, dt) = exp(- (κ + s * λ) * dt)
 
@@ -47,6 +47,6 @@ subset = GaussianMcmc.cumulative_logpdf(dist, traj, 2:0.33:3)
     0.99wait3
 ]
 
-traj2 = GaussianMcmc.Trajectory([1.0], [[50.0]], Int[])
+traj2 = GaussianMcmc.Trajectory([[50.0]], [1.0])
 @test GaussianMcmc.trajectory_energy(dist, traj2, tspan=(0.0,0.5)) == -0.25
 

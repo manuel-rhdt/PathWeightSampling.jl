@@ -1,5 +1,5 @@
 using Random
-using StatsBase
+import StatsBase
 
 struct EmpiricalDistribution{Dims, T}
     prob::Array{Float64, Dims}
@@ -14,13 +14,13 @@ end
 
 function Random.rand(rng::AbstractRNG, d::Random.SamplerTrivial{<:EmpiricalDistribution})
     dist = d[]
-	x = sample(rng, weights(vec(dist.prob)))
+	x = StatsBase.sample(rng, StatsBase.weights(vec(dist.prob)))
 	index = CartesianIndices(size(dist.prob))
 	i = index[x]
 	map(j->dist.axes[j][i[j]], 1:length(i))
 end
 
-function logpdf(dist::EmpiricalDistribution, v::AbstractVector)
+function Distributions.logpdf(dist::EmpiricalDistribution, v::AbstractVector)
 	indices = [findfirst(==(v[i]), dist.axes[i]) for i=eachindex(dist.axes)]
 	if nothing ∈ indices
 		-Inf64
@@ -28,9 +28,9 @@ function logpdf(dist::EmpiricalDistribution, v::AbstractVector)
 		log(dist.prob[indices...])
 	end
 end
-logpdf(dist::EmpiricalDistribution, v) = logpdf(dist, [v])
+Distributions.logpdf(dist::EmpiricalDistribution, v) = logpdf(dist, [v])
 
-function pdf(dist::EmpiricalDistribution, v::AbstractVector)
+function Distributions.pdf(dist::EmpiricalDistribution, v::AbstractVector)
 	indices = [findfirst(==(v[i]), dist.axes[i]) for i=eachindex(dist.axes)]
 	if nothing ∈ indices
 		0.0
@@ -38,7 +38,7 @@ function pdf(dist::EmpiricalDistribution, v::AbstractVector)
 		dist.prob[indices...]
 	end
 end
-pdf(dist::EmpiricalDistribution, v) = pdf(dist, [v])
+Distributions.pdf(dist::EmpiricalDistribution, v) = pdf(dist, [v])
 
 function marginalize(dist::EmpiricalDistribution, axis_index::Integer)
 	new_prob = sum(dist.prob, dims=axis_index)

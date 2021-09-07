@@ -60,7 +60,7 @@ struct DrivenJumpProblem{Prob,Cb}
 
     function DrivenJumpProblem(jump_problem::JP, driving_trajectory, index_map = IdentityMap()) where {JP}
         tcb = TrajectoryCallback(Trajectory(driving_trajectory), index_map)
-        callback = DiscreteCallback(tcb, tcb, save_positions=(false, true))
+        callback = DiscreteCallback(tcb, tcb, save_positions=(false, false))
         new{JP, typeof(callback)}(jump_problem, callback)
     end
 end
@@ -70,7 +70,7 @@ function CommonSolve.init(prob::DrivenJumpProblem)
     tstops = prob.callback.condition.traj.t
     from = searchsortedfirst(tstops, prob.prob.prob.tspan[1])
     to = searchsortedlast(tstops, prob.prob.prob.tspan[2])
-    DiffEqBase.init(prob.prob, SSAStepper(), callback=prob.callback, tstops=tstops[from:to])
+    DiffEqBase.init(prob.prob, SSAStepper(), callback=prob.callback, tstops=tstops[from:to], save_start=false)
 end
 
 function CommonSolve.solve(prob::DrivenJumpProblem)
@@ -81,15 +81,7 @@ end
 
 Base.summary(io::IO, prob::DrivenJumpProblem) = string(DiffEqBase.parameterless_type(prob)," with problem ",DiffEqBase.parameterless_type(prob.prob))
 function Base.show(io::IO, mime::MIME"text/plain", A::DrivenJumpProblem)
-  println(io,summary(A))
-#   println(io,"Number of constant rate jumps: ",A.discrete_jump_aggregation === nothing ? 0 : num_constant_rate_jumps(A.discrete_jump_aggregation))
-#   println(io,"Number of variable rate jumps: ",length(A.variable_jumps))
-#   if A.regular_jump !== nothing
-    # println(io,"Have a regular jump")
-#   end
-#   if (A.massaction_jump !== nothing) && (get_num_majumps(A.massaction_jump) > 0)
-    # println(io,"Have a mass action jump")
-#   end
+    println(io,summary(A))
 end
 
 # We define a new jump aggregator to deal with a jump process that is driven

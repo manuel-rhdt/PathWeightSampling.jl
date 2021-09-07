@@ -1,4 +1,3 @@
-import Distributions:logpdf
 using Transducers
 using DiffEqJump
 
@@ -238,7 +237,7 @@ function MarginalEnsemble(system::SRXsystem)
     dprob = DiscreteProblem(sr_network, sample_initial_condition(system.u0)[sr_idxs], tspan(system), vcat(system.ps, system.pr))
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, sr_network), dprob, Direct(), save_positions=(false, false))
 
-    MarginalEnsemble(jprob, system.dist, collect(system.dtimes))
+    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), system.u0)
 end
 
 
@@ -297,7 +296,7 @@ end
 function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, num_samples::Int)
     result = Array{Float64,2}(undef, length(ensemble.dtimes), num_samples)
     for result_col ∈ eachcol(result)
-        u0 = sample_initial_condition(system.u0)
+        u0 = sample_initial_condition(ensemble.u0)
         jprob = remake(ensemble.jump_problem, u0=u0)
         integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), numsteps_hint=0)
         iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
@@ -325,7 +324,7 @@ function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan:
 end
 
 function energy_difference(configuration::SXconfiguration, ensemble::MarginalEnsemble)
-    log_p0 = initial_log_likelihood(ensemble, u0)
+    log_p0 = initial_log_likelihood(ensemble, ensemble.u0)
     - cumulative_logpdf(ensemble.dist, configuration.s_traj |> MergeWith(configuration.x_traj), ensemble.dtimes) .- log_p0
 end
 
@@ -333,26 +332,19 @@ function sample(configuration::SRXconfiguration, system::ConditionalEnsemble; θ
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
-    cb = TrajectoryCallback(configuration.s_traj)
-    cb = DiscreteCallback(cb, cb, save_positions=(false, false))
-    jprob = system.jump_problem
-    integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=configuration.s_traj.t, numsteps_hint=0)
+    driven_jp = DrivenJumpProblem(system.jump_problem, configuration.s_traj)
+    integrator = init(driven_jp)
     iter = SSAIter(integrator)
     rtraj = sub_trajectory(iter, system.indep_idxs)
     SRXconfiguration(configuration.s_traj, rtraj, configuration.x_traj)
 end
 
 function collect_samples(initial::SRXconfiguration, ensemble::ConditionalEnsemble, num_samples::Int)
-    cb = TrajectoryCallback(initial.s_traj)
-    cb = DiscreteCallback(cb, cb, save_positions=(false, false))
-    jprob = ensemble.jump_problem
-
-    idxs = ensemble.indep_idxs[ensemble.dep_idxs]
+    driven_jp = DrivenJumpProblem(ensemble.jump_problem, initial.s_traj)
 
     result = Array{Float64,2}(undef, length(ensemble.dtimes), num_samples)
     for result_col ∈ eachcol(result)
-        cb.condition.index = 1
-        integrator = DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=initial.s_traj.t, numsteps_hint=0)
+        integrator = init(driven_jp)
         iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
     end
@@ -366,20 +358,12 @@ function simulate(algorithm::DirectMCEstimate, initial::Union{SXconfiguration,SR
 end
 
 function create_integrator(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
-    s_traj = conf.s_traj
-    cb = TrajectoryCallback(s_traj)
-    cb = DiscreteCallback(cb, cb, save_positions=(false, false))
     jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
-
-    i1 = clamp(searchsortedfirst(s_traj.t, tspan[1]), 1, length(s_traj.t))
-    i2 = clamp(searchsortedlast(s_traj.t, tspan[2]), 1, length(s_traj.t))
-
-    tstops = @view s_traj.t[i1:i2]
-    DiffEqBase.init(jprob, SSAStepper(), callback=cb, tstops=tstops, numsteps_hint=0)
+    driven_jp = DrivenJumpProblem(jprob, conf.s_traj)
+    init(driven_jp)
 end
 
 function propagate(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
-    # s_traj = get_slice(conf.s_traj, tspan)
     integrator = create_integrator(conf, ensemble, u0, tspan)
     iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
     ix1 = max(searchsortedfirst(conf.x_traj.t, tspan[1]), 1)

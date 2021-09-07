@@ -6,6 +6,7 @@ version = "0.1.0"
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 Catalyst = "479239e8-5488-4da2-87a7-35f2df7eef83"
+CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
 DiffEqJump = "c894b116-72e5-5b58-be3c-e6d8d4ac2b12"
