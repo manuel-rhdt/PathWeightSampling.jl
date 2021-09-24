@@ -27,7 +27,7 @@ end
 
 Trajectory(u::Vector{<:AbstractVector}, t::Vector) = Trajectory(u, t, Int[])
 
-Base.copy(traj::Trajectory) = Trajectory(copy(traj.t), deepcopy(traj.u), copy(traj.i))
+Base.copy(traj::Trajectory) = Trajectory(copy(traj.u), deepcopy(traj.t), copy(traj.i))
 
 Base.getindex(traj::Trajectory, idx::Int) = (traj.u[idx], traj.t[idx], idx > length(traj.i) ? 0 : traj.i[idx])
 Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.t == traj2.t) && (traj1.u == traj2.u) && (traj1.i == traj2.i)
