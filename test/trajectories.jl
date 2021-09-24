@@ -107,12 +107,12 @@ for t in [30, 60, 90] @test t ∈ traj.t end
 @test traj(60.0)[1] == 120
 @test traj(90.0)[1] == 130
 
-sol = integrator.sol
-events = map((u,t,i)::Tuple -> (u=u,t=t), traj) |> collect
+# sol = integrator.sol
+# events = map((u,t,i)::Tuple -> (u=u,t=t), traj) |> collect
 
-for i in eachindex(events)
-    if i == length(events) continue end
-    @test events[i].t ∈ sol.t
-    j = searchsortedlast(sol.t, events[i].t)
-    @test events[i+1].u == sol.u[j]
-end
+# for i in eachindex(events)
+#     if i == length(events) continue end
+#     @test events[i].t ∈ sol.t
+#     j = searchsortedlast(sol.t, events[i].t)
+#     @test events[i+1].u == sol.u[j]
+# end

@@ -7,5 +7,5 @@ using Test
 @testset "Gaussian" begin include("gaussian.jl") end
 @testset "SRXsystem" begin include("SRXsystem.jl") end
 @testset "SMCEstimate" begin include("SMCEstimate.jl") end
-@testset "Adaptation" begin include("adaptation.jl") end
+# @testset "Adaptation" begin include("adaptation.jl") end
 @testset "MCMCMoves" begin include("mcmc_moves.jl") end
