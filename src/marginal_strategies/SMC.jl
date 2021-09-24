@@ -7,7 +7,7 @@ struct JumpParticle{uType}
 end
 
 function JumpParticle(setup)
-    u = setup.ensemble.jump_problem.prob.u0
+    u = sample_initial_condition(setup.ensemble)
     JumpParticle(u, 0.0)
 end
 

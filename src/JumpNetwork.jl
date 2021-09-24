@@ -55,6 +55,10 @@ end
 
 sample_initial_condition(u0::AbstractVector) = copy(u0)
 sample_initial_condition(u0::EmpiricalDistribution) = rand(u0)
+
+sample_initial_condition(ens::MarginalEnsemble) = sample_initial_condition(ens.u0)
+sample_initial_condition(ens::ConditionalEnsemble) = ens.jump_problem.prob.u0
+
 marginalize(u0::AbstractVector, axis_index::Integer) = u0[axis_index]
 
 abstract type JumpNetwork end
@@ -226,7 +230,7 @@ function MarginalEnsemble(system::SXsystem)
     dprob = DiscreteProblem(system.sn, sample_initial_condition(system.u0)[s_idxs], tspan(system), system.ps)
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.sn), dprob, Direct(), save_positions=(false, false))
 
-    MarginalEnsemble(jprob, system.dist, collect(system.dtimes))
+    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), system.u0[s_idxs])
 end
 
 function MarginalEnsemble(system::SRXsystem)
@@ -237,7 +241,7 @@ function MarginalEnsemble(system::SRXsystem)
     dprob = DiscreteProblem(sr_network, sample_initial_condition(system.u0)[sr_idxs], tspan(system), vcat(system.ps, system.pr))
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, sr_network), dprob, Direct(), save_positions=(false, false))
 
-    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), system.u0)
+    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), system.u0[sr_idxs])
 end
 
 
@@ -310,10 +314,9 @@ end
 function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan::Tuple)
     jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
     integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), numsteps_hint=0)
-
     ix1 = max(searchsortedfirst(conf.x_traj.t, tspan[1]) - 1, 1)
-
     iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
+
     log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), tspan=tspan)
 
     if tspan[1] == first(ensemble.dtimes)
