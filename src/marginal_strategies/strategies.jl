@@ -20,24 +20,24 @@ include("AIS.jl")
 include("DirectMC.jl")
 include("SMC.jl")
 
-function mutual_information(system, algorithm; num_responses::Integer=1)
+function mutual_information(system, algorithm; num_responses::Integer=1, progress=true)
     # initialize the ensembles
     compiled_system = compile(system)
 
     # this is the outer Direct Monte-Carlo loop
     # result = Base.invokelatest(_mi_inner, compiled_system, algorithm, num_responses)
-    result = _mi_inner(compiled_system, algorithm, num_responses)
+    result = _mi_inner(compiled_system, algorithm, num_responses, progress)
 
     result
 end
 
-function _mi_inner(compiled_system, algorithm, num_responses)
+function _mi_inner(compiled_system, algorithm, num_responses, show_progress)
     stats = DataFrame(
         TimeConditional=zeros(Float64, num_responses), 
         TimeMarginal=zeros(Float64, num_responses), 
     )
 
-    p = Progress(num_responses; showspeed=true)
+    p = Progress(num_responses; showspeed=true, enabled=show_progress)
     mi = progress_map(1:num_responses, progress=p) do i
         # draw an independent sample
         sample = generate_configuration(compiled_system.system)

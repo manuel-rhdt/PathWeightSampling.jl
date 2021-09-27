@@ -9,7 +9,7 @@ function reduce_results(res1, results...)
     new_res
 end
 
-function run_parallel(systemfn, algorithm, num_responses)
+function run_parallel(systemfn, algorithm, num_responses; progress=true)
     batches = Int[]
 
     batch_size = clamp(floor(num_responses / nworkers()), 1, 10)
@@ -25,8 +25,9 @@ function run_parallel(systemfn, algorithm, num_responses)
         global compiled_system = GaussianMcmc.compile(system)
     end
 
-    result = pmap(batches) do batch
-        time_stats = @timed result = _mi_inner(Main.compiled_system, algorithm, batch)
+    p = Progress(length(batches); enabled=progress)
+    result = progress_pmap(batches, progress=p) do batch
+        time_stats = @timed result = _mi_inner(Main.compiled_system, algorithm, batch, false)
         elapsed_time = time_stats.time
         hostname = gethostname()
         batch_size = batch
