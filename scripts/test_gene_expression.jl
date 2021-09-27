@@ -1,9 +1,10 @@
 import GaussianMcmc
-using GaussianMcmc: SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, gene_expression_system, generate_configuration, logpdf
+using GaussianMcmc: SMCEstimate, DirectMCEstimate, TIEstimate, marginal_configuration, MarginalEnsemble, gene_expression_system, generate_configuration, logpdf
 
-system_fn = () -> GaussianMcmc.gene_expression_system(dtimes=0:0.01:2)
+system_fn = () -> GaussianMcmc.gene_expression_system(dtimes=0:0.1:2)
 smc = SMCEstimate(256)
 dmc = DirectMCEstimate(256)
+ti  = TIEstimate(0, 8, 256)
 
 system = system_fn()
 
@@ -13,25 +14,26 @@ ens = MarginalEnsemble(system)
 GaussianMcmc.log_marginal(GaussianMcmc.simulate(smc, conf, ens))
 GaussianMcmc.energy_difference(conf, ens)
 
-result = GaussianMcmc.mutual_information(system, smc, num_responses=200)
+sresult = GaussianMcmc.mutual_information(system, smc, num_responses=200)
+@profview tresult = GaussianMcmc.mutual_information(system, ti, num_responses=5)
+dresult= GaussianMcmc.mutual_information(system, dmc, num_responses=200)
 
 using Plots
-plot(GaussianMcmc._solve(system), xlim=(0,2), seriescolor=[:green :cornflowerblue])
+plot(conf.s_traj, xlim=(0,2), seriescolor=:green, label="S")
+plot!(conf.x_traj, seriescolor=:cornflowerblue, label="X")
 savefig("~/Downloads/example_traj.pdf")
 
-using Distributed
-addprocs(4)
+# using Distributed
+# addprocs(4)
 
-@everywhere begin
-    import Pkg
-    Pkg.activate(".")
-end
-@everywhere import GaussianMcmc
+# @everywhere begin
+#     import Pkg
+#     Pkg.activate(".")
+# end
+# @everywhere import GaussianMcmc
 
-result = GaussianMcmc.run_parallel(system_fn, smc, 50)
-dresult = GaussianMcmc.run_parallel(system_fn, dmc, 50)
-
-using Plots
+# result = GaussianMcmc.run_parallel(system_fn, smc, 50)
+# dresult = GaussianMcmc.run_parallel(system_fn, dmc, 50)
 
 plot(system.dtimes, result.MutualInformation, color=:gray, legend=false)
 plot!(system.dtimes, dresult.MutualInformation, color=:pink, label="")
@@ -39,6 +41,8 @@ plot!(system.dtimes, dresult.MutualInformation, color=:pink, label="")
 using Statistics
 plot(system.dtimes, mean(result.MutualInformation), ribbon=sqrt.(var(result.MutualInformation)./size(result, 1)), label="SMC", ylabel="Path mutual information", xlabel="Trajectory length")
 plot!(system.dtimes, mean(dresult.MutualInformation), ribbon=sqrt.(var(dresult.MutualInformation)./size(dresult, 1)), label="DMC")
+plot!(system.dtimes, mean(tresult.MutualInformation), ribbon=sqrt.(var(tresult.MutualInformation)./size(tresult, 1)), label="TI")
+
 
 using CSVFiles, DrWatson, DataFrames
 
@@ -47,9 +51,6 @@ plot!(zechner_res.Duration[1:20], zechner_res.PMI[1:20])
 
 
 savefig(plot!(dpi=100, size=(6*72,3.5*72)), "~/Downloads/gene_expression.pdf")
-
-size(dresult)
-
 
 
 ens = MarginalEnsemble(system)

@@ -1,4 +1,5 @@
 using DataFrames
+using ProgressMeter
 
 abstract type SimulationResult end
 
@@ -36,7 +37,8 @@ function _mi_inner(compiled_system, algorithm, num_responses)
         TimeMarginal=zeros(Float64, num_responses), 
     )
 
-    mi = map(1:num_responses) do i
+    p = Progress(num_responses; showspeed=true)
+    mi = progress_map(1:num_responses, progress=p) do i
         # draw an independent sample
         sample = generate_configuration(compiled_system.system)
 

@@ -52,7 +52,7 @@ Create a `DrivenJumpProblem` from a base `jump_problem` and a `driving_trajector
 The optional argument `index_map` specifies how the components from `driving_trajectory`
 map onto the components of the `jump_problem`. The default `IdentityMap` maps the N components
 of the `driving_trajectory` onto the first N components of the jump problem, leaving the 
-remaining components of the jump problem unaltered by the driving force.
+remaining components of the jump problem unaltered by the driving trajectory.
 """
 struct DrivenJumpProblem{Prob,Cb}
     prob::Prob

@@ -1,6 +1,10 @@
 using Random
 import StatsBase
 
+"""
+An empirical distribution, defined by a histogram which assigns probabilities to
+a set of axis-coordinates in a (possibly high-dimensional) grid.
+"""
 struct EmpiricalDistribution{Dims, T}
     prob::Array{Float64, Dims}
     axes::SVector{Dims, Vector{T}}

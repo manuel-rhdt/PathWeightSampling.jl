@@ -29,7 +29,7 @@ mutable struct JumpParticleSlow{uType}
     parent::Union{JumpParticleSlow{uType},Nothing}
 
     function JumpParticleSlow(setup)
-        u = setup.ensemble.jump_problem.prob.u0
+        u = sample_initial_condition(setup.ensemble)
         new{typeof(u)}(u, 0.0, nothing)
     end
 
@@ -53,7 +53,7 @@ end
 weight(p::JumpParticle) = p.weight
 weight(p::JumpParticleSlow) = p.weight
 
-# This is the main algorithm of SMC-PWS.
+# This is the main routine to compute the marginal probability in SMC-PWS.
 function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=JumpParticle)
     particle_bag = [new_particle(setup) for i = 1:nparticles]
     weights = zeros(nparticles)
@@ -64,17 +64,21 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
     # 2) update the log_marginal_estimate
     # 3) check whether we should resample the particle bag, and resample if needed
     for (i, tspan) in enumerate(zip(dtimes[begin:end - 1], dtimes[begin + 1:end]))
+
+        # PROPAGATE
         for j in eachindex(particle_bag)
             particle_bag[j] = propagate(particle_bag[j], tspan, setup)
             weights[j] += weight(particle_bag[j])
         end
 
+        # UPDATE ESTIMATE
         log_marginal_estimate[i+1] += logmeanexp(weights)
 
         if (i + 1) == lastindex(dtimes)
             break
         end
 
+        # RESAMPLE IF NEEDED
         prob_weights = StatsBase.weights(exp.(weights .- maximum(weights)))
 
         # We only resample if the effective sample size becomes smaller than 1/2 the number of particles
@@ -91,7 +95,7 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
         end
     end
 
-    inspect(particle_bag)
+    inspect(particle_bag) #< useful for collecting statistics
     log_marginal_estimate
 end
 
@@ -131,7 +135,7 @@ struct SMCResult <: SimulationResult
     log_marginal_estimate::Vector{Float64}
 end
 
-# log_marginal(result::SMCResult) = cumsum(vec(logmeanexp(result.samples, dims=1)))
+
 log_marginal(result::SMCResult) = result.log_marginal_estimate
 
 
