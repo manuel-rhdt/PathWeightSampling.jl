@@ -57,13 +57,14 @@ using Dates
 my_args = Dict(
     "script" => "cooperative_chemotaxis.jl",
     "algorithm" => "smc",
-    "run_name" => "2021-06-23",
+    "run_name" => "2021-09-28",
     "duration" => 200,
+    "tau_l" => [0.1, 1.0, 10.0],
     "num_responses" => 7200,
-    "smc_samples" => [64, 128, 256, 512],
+    "smc_samples" => 128,
 )
 
-const NCPUS = 5 * 36
+const NCPUS = 2 * 36
 const QUEUE = "highcore"
 const NAME = "COOP_CHEM"
 
@@ -129,7 +130,7 @@ end
 
 function estimate_runtime(dict)
     if dict["script"] != "simple_network.jl"
-        return 3 * 24 * 60 * 60
+        return 6 * 24 * 60 * 60
     end
 
     if dict["algorithm"] == "annealing"

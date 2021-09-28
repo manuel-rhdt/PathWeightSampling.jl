@@ -114,6 +114,7 @@ function cooperative_chemotaxis_system(;
     n_chey = 10_000,
 
     mean_l = 50,
+    tau_l = 1.0,
 
     phosphorylate = 2000.0 / (n_chey * n_clusters),
     dephosphorylate = 2000.0 / (n_chey),
@@ -192,7 +193,7 @@ function cooperative_chemotaxis_system(;
     u0[Catalyst.speciesmap(joint)[spmap[(0, 0)]]] = n_clusters
     u0[Catalyst.speciesmap(joint)[Y]] = n_chey
 
-    ps = [mean_l, 1.0]
+    ps = [mean_l/tau_l, 1.0/tau_l]
     pr = chemotaxis_parameters(; varargs...)
     px = [dephosphorylate, phosphorylate]
 

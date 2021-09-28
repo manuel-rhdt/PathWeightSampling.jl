@@ -13,23 +13,28 @@ dict = JSON.parsefile(projectdir("_research", "tmp", f))["params"]
 run_name = dict["run_name"]
 duration = dict["duration"]
 num_responses = dict["num_responses"]
+tau_l = dict["tau_l"]
 
 # mean_L = dict["mean_L"]
 # num_receptors = dict["num_receptors"]
 # Y_tot = dict["Y_tot"]
 
 params = (;
-	E₀ = 0.0,
+	E₀ = 3.0,
 	lmax = 3,
 	mmax = 9,
 	Kₐ = 500,
 	Kᵢ = 25,
-	δf = -1.0,
+	δf = -1.5,
+	k_B = 0.1,
+	k_R = 0.1,
 	n_clusters = 800,
-	a_star = 0.8,
 	k⁺ = 0.05,
 	n_chey = 10_000,
 	mean_l = 50,
+	tau_l = tau_l,
+	phosphorylate = 0.25e-3,
+	dephosphorylate = 0.2
 )
 
 save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration, "M" => dict["smc_samples"])
@@ -41,7 +46,11 @@ system_fn = () -> GaussianMcmc.cooperative_chemotaxis_system(dtimes = dtimes; pa
 algorithm = SMCEstimate(dict["smc_samples"])
 
 mi = GaussianMcmc.run_parallel(system_fn, algorithm, num_responses)
-result = Dict("Samples" => mi, "DiscreteTimes" => dtimes)
+result = Dict(
+	"Samples" => mi, 
+	"DiscreteTimes" => dtimes, 
+	"Parameters" => Dict(pairs(params))
+)
 
 function DrWatson._wsave(filename, result::Dict)
     h5open(filename, "w") do file
