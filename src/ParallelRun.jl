@@ -1,5 +1,6 @@
 using Distributed
 using Logging
+using Printf
 
 function reduce_results(res1, results...)
     new_res = typeof(res1)()
@@ -9,9 +10,10 @@ function reduce_results(res1, results...)
     new_res
 end
 
-function run_parallel(systemfn, algorithm, num_responses; progress=true)
+function run_parallel(systemfn, algorithm, num_responses)
     batches = Int[]
 
+    N = num_responses
     batch_size = clamp(floor(num_responses / nworkers()), 1, 10)
 
     while num_responses > 0
@@ -25,15 +27,33 @@ function run_parallel(systemfn, algorithm, num_responses; progress=true)
         global compiled_system = GaussianMcmc.compile(system)
     end
 
-    p = Progress(length(batches); enabled=progress)
-    result = progress_pmap(batches, progress=p) do batch
-        time_stats = @timed result = _mi_inner(Main.compiled_system, algorithm, batch, false)
-        elapsed_time = time_stats.time
-        hostname = gethostname()
-        batch_size = batch
-        @info "Finished batch" hostname elapsed_time batch_size
-        result
+    channel = RemoteChannel(()->Channel())
+    @sync begin
+        # display progress
+        progress = 0
+        @async while true
+            val = take!(channel)
+            if val === nothing
+                break
+            end
+            (hostname, elapsed_time, batch_size) = val
+            progress += batch_size
+            percent_done = @sprintf "%6.2f %%" (progress / N * 100)
+            @info "Finished batch" hostname elapsed_time batch_size percent_done
+        end
+
+        @sync begin
+            result = pmap(batches) do batch
+                time_stats = @timed result = _mi_inner(Main.compiled_system, algorithm, batch, false)
+                elapsed_time = time_stats.time
+                hostname = gethostname()
+                put!(channel, (hostname, elapsed_time, batch))
+                yield()
+                result
+            end
+            put!(channel, nothing)
+            vcat(result...)
+        end
     end
-    vcat(result...)
 end
 
