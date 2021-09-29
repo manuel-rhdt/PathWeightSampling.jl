@@ -57,10 +57,10 @@ using Dates
 my_args = Dict(
     "script" => "cooperative_chemotaxis.jl",
     "algorithm" => "smc",
-    "run_name" => "2021-09-28",
+    "run_name" => "2021-09-29",
     "duration" => 200,
-    "tau_l" => [0.1, 1.0, 10.0],
-    "num_responses" => 7200,
+    "tau_l" => collect(range(0.1, 10.0, length=20)),
+    "num_responses" => 3600,
     "smc_samples" => 128,
 )
 

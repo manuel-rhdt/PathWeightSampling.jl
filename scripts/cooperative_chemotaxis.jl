@@ -37,7 +37,7 @@ params = (;
 	dephosphorylate = 0.2
 )
 
-save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration, "M" => dict["smc_samples"])
+save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration, "M" => dict["smc_samples"], "TauL" => tau_l)
 
 dtimes = collect(0.0:0.5:duration)
 
