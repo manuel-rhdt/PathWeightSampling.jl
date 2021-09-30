@@ -64,9 +64,9 @@ my_args = Dict(
     "smc_samples" => 128,
 )
 
-const NCPUS = 2 * 36
-const QUEUE = "highcore"
-const NAME = "COOP_CHEM"
+const NCPUS = 8
+const QUEUE = "highcpu"
+const NAME = "CHEM_SMALL"
 
 function parse_commandline()
     s = ArgParseSettings()
