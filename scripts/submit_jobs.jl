@@ -57,7 +57,7 @@ using Dates
 my_args = Dict(
     "script" => "cooperative_chemotaxis.jl",
     "algorithm" => "smc",
-    "run_name" => "2021-09-29",
+    "run_name" => "2021-09-30",
     "duration" => 200,
     "tau_l" => collect(range(0.1, 10.0, length=20)),
     "num_responses" => 3600,
@@ -104,11 +104,11 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
     name = NAME
     resources = `-l walltime=$runtime -l select=$NCPUS:ncpus=1:mem=4gb -l place=free`
 
-    # if job_before !== nothing
-    #     dependency = `-W depend=afterok:$job_before`
-    # else
+    if job_before !== nothing
+        dependency = `-W depend=afterok:$job_before`
+    else
         dependency = ``
-    # end
+    end
 
     cmd = `qsub -q $QUEUE -N $name $resources $dependency -j oe -o $out_dir`
 
