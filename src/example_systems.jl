@@ -3,7 +3,7 @@ import Catalyst:@reaction_network
 import ModelingToolkit
 using Transducers
 
-function gene_expression_system(; mean_s=50, corr_time_s=1.0, corr_time_x=0.1, dtimes=0:0.1:2.0)
+function gene_expression_system(; mean_s=50, corr_time_s=1.0, corr_time_x=0.1, u0=SA[mean_s, mean_s], dtimes=0:0.1:2.0)
     sn = @reaction_network begin
         κ, ∅ --> S
         λ, S --> ∅
@@ -18,9 +18,7 @@ function gene_expression_system(; mean_s=50, corr_time_s=1.0, corr_time_x=0.1, d
     κ = mean_s * λ
     μ = 1 / corr_time_x
     ρ = μ
-    mean_x = mean_s
 
-    u0 = SA[mean_s, mean_x]
     ps = [κ, λ]
     px = [ρ, μ]
 
