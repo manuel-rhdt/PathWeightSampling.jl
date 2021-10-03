@@ -32,7 +32,7 @@ struct SRXconfiguration{uTs,Utr,Utx,tType}
     x_traj::Trajectory{Utx,tType}
 end
 
-Base.copy(c::SRXconfiguration) = SXconfiguration(copy(c.s_traj), copy(c.r_traj), copy(c.x_traj))
+Base.copy(c::SRXconfiguration) = SRXconfiguration(copy(c.s_traj), copy(c.r_traj), copy(c.x_traj))
 
 ensurevec(a::AbstractVector) = a
 ensurevec(a) = SVector(a)
@@ -41,8 +41,15 @@ function initial_value(conf::SXconfiguration)
     Chain(conf.s_traj.u[0], conf.x_traj.u[0])
 end
 
-function initial_log_likelihood(ensemble::MarginalEnsemble, u0)
-    0.0
+function initial_log_likelihood(ensemble::MarginalEnsemble, u0::AbstractVector, x_traj::Trajectory)
+    s0 = u0[1]
+    x0 = x_traj.u[1][1]
+    if ensemble.u0 isa EmpiricalDistribution
+        # compute log P(x0 | s0) = log P(s0, x0) - log ∑ₓ P(s0, x)
+        logpdf(ensemble.u0, [s0, x0]) - log(sum(x -> pdf(ensemble.u0, [s0, x]), ensemble.u0.axes[2]))
+    else
+        0.0
+    end
 end
 
 function Base.getindex(conf::SXconfiguration, index)
@@ -56,10 +63,8 @@ end
 sample_initial_condition(u0::AbstractVector) = copy(u0)
 sample_initial_condition(u0::EmpiricalDistribution) = rand(u0)
 
-sample_initial_condition(ens::MarginalEnsemble) = sample_initial_condition(ens.u0)
+sample_initial_condition(ens::MarginalEnsemble) = ens.u0 isa EmpiricalDistribution ? rand(ens.u0)[1] : ens.u0
 sample_initial_condition(ens::ConditionalEnsemble) = ens.jump_problem.prob.u0
-
-marginalize(u0::AbstractVector, axis_index::Integer) = u0[axis_index]
 
 abstract type JumpNetwork end
 struct SXsystem <: JumpNetwork
@@ -230,7 +235,8 @@ function MarginalEnsemble(system::SXsystem)
     dprob = DiscreteProblem(system.sn, sample_initial_condition(system.u0)[s_idxs], tspan(system), system.ps)
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.sn), dprob, Direct(), save_positions=(false, false))
 
-    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), system.u0[s_idxs])
+    u0 = system.u0 isa EmpiricalDistribution ? system.u0 : system.u0[s_idxs]
+    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), u0)
 end
 
 function MarginalEnsemble(system::SRXsystem)
@@ -290,7 +296,7 @@ function sample(configuration::T, system::MarginalEnsemble; θ=0.0)::T where T <
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
-    jprob = remake(system.jump_problem, u0=sample_initial_condition(system.u0))
+    jprob = remake(system.jump_problem, u0=sample_initial_condition(system))
     integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), numsteps_hint=0)
     iter = SSAIter(integrator)
     s_traj = collect_trajectory(iter)
@@ -300,12 +306,12 @@ end
 function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, num_samples::Int)
     result = Array{Float64,2}(undef, length(ensemble.dtimes), num_samples)
     for result_col ∈ eachcol(result)
-        u0 = sample_initial_condition(ensemble.u0)
+        u0 = sample_initial_condition(ensemble)
         jprob = remake(ensemble.jump_problem, u0=u0)
         integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), numsteps_hint=0)
         iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
-        result_col .+= initial_log_likelihood(ensemble, u0)
+        result_col .+= initial_log_likelihood(ensemble, u0, initial.x_traj)
     end
 
     result
@@ -320,14 +326,14 @@ function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan:
     log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), tspan=tspan)
 
     if tspan[1] == first(ensemble.dtimes)
-        log_weight += initial_log_likelihood(ensemble, u0)
+        log_weight += initial_log_likelihood(ensemble, u0, conf.x_traj)
     end
 
     copy(integrator.u), log_weight
 end
 
 function energy_difference(configuration::SXconfiguration, ensemble::MarginalEnsemble)
-    log_p0 = initial_log_likelihood(ensemble, ensemble.u0)
+    log_p0 = initial_log_likelihood(ensemble, configuration.s_traj.u[1], configuration.x_traj)
     - cumulative_logpdf(ensemble.dist, configuration.s_traj |> MergeWith(configuration.x_traj), ensemble.dtimes) .- log_p0
 end
 
