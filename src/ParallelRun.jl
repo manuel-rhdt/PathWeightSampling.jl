@@ -10,11 +10,13 @@ function reduce_results(res1, results...)
     new_res
 end
 
+const MAX_BATCH_SIZE = 4
+
 function run_parallel(systemfn, algorithm, num_responses)
     batches = Int[]
 
     N = num_responses
-    batch_size = clamp(floor(num_responses / nworkers()), 1, 10)
+    batch_size = clamp(floor(num_responses / nworkers()), 1, MAX_BATCH_SIZE)
 
     while num_responses > 0
         batch = min(num_responses, batch_size)
@@ -28,7 +30,8 @@ function run_parallel(systemfn, algorithm, num_responses)
     end
 
     channel = RemoteChannel(()->Channel())
-    @sync begin
+    @info "Starting Parallel computation"
+    result = @sync begin
         # display progress
         progress = 0
         @async while true
@@ -55,5 +58,7 @@ function run_parallel(systemfn, algorithm, num_responses)
             vcat(result...)
         end
     end
+    @info "Finished Parallel computation"
+    result
 end
 

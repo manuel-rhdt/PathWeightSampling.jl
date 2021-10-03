@@ -45,7 +45,7 @@ function (tc::TrajectoryCallback)(u, t::Real, i::DiffEqBase.DEIntegrator)::Bool 
 end
 
 """
-    DrivenJumpProblem(jump_problem, driving_trajectory, index_map = IdentityMap())
+    DrivenJumpProblem(jump_problem, driving_trajectory; index_map = IdentityMap(), save_jumps=false)
 
 Create a `DrivenJumpProblem` from a base `jump_problem` and a `driving_trajectory`.
 
@@ -58,23 +58,23 @@ struct DrivenJumpProblem{Prob,Cb}
     prob::Prob
     callback::Cb
 
-    function DrivenJumpProblem(jump_problem::JP, driving_trajectory, index_map = IdentityMap()) where {JP}
+    function DrivenJumpProblem(jump_problem::JP, driving_trajectory; index_map = IdentityMap(), save_jumps=false) where {JP}
         tcb = TrajectoryCallback(Trajectory(driving_trajectory), index_map)
-        callback = DiscreteCallback(tcb, tcb, save_positions=(false, false))
+        callback = DiscreteCallback(tcb, tcb, save_positions=(false, save_jumps))
         new{JP, typeof(callback)}(jump_problem, callback)
     end
 end
 
-function CommonSolve.init(prob::DrivenJumpProblem)
+function CommonSolve.init(prob::DrivenJumpProblem; kwargs...)
     prob.callback.condition.index = 1
     tstops = prob.callback.condition.traj.t
     from = searchsortedfirst(tstops, prob.prob.prob.tspan[1])
     to = searchsortedlast(tstops, prob.prob.prob.tspan[2])
-    DiffEqBase.init(prob.prob, SSAStepper(), callback=prob.callback, tstops=tstops[from:to], save_start=false)
+    DiffEqBase.init(prob.prob, SSAStepper(), callback=prob.callback, tstops=tstops[from:to], save_start=false; kwargs...)
 end
 
-function CommonSolve.solve(prob::DrivenJumpProblem)
-    integrator = init(prob)
+function CommonSolve.solve(prob::DrivenJumpProblem; kwargs...)
+    integrator = init(prob; kwargs...)
     solve!(integrator)
     integrator.sol
 end
