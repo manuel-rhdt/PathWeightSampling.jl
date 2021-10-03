@@ -50,3 +50,6 @@ function marginalize(dist::EmpiricalDistribution, axis_index::Integer)
 	new_axes = deleteat(dist.axes, axis_index)
 	EmpiricalDistribution(new_prob, new_axes)
 end
+
+Base.getindex(dist::EmpiricalDistribution, axis_index::Integer) = marginalize(dist, axis_index)
+Base.getindex(dist::EmpiricalDistribution, axis_index::AbstractVector{<:Integer}) = marginalize(dist, axis_index...)
