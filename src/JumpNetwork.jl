@@ -325,10 +325,6 @@ function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan:
 
     log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), tspan=tspan)
 
-    if tspan[1] == first(ensemble.dtimes)
-        log_weight += initial_log_likelihood(ensemble, u0, conf.x_traj)
-    end
-
     copy(integrator.u), log_weight
 end
 

@@ -8,7 +8,8 @@ end
 
 function JumpParticle(setup)
     u = sample_initial_condition(setup.ensemble)
-    JumpParticle(u, 0.0)
+    w = initial_log_likelihood(setup.ensemble, u, setup.configuration.x_traj)
+    JumpParticle(u, w)
 end
 
 function JumpParticle(parent::JumpParticle, setup)
@@ -30,7 +31,8 @@ mutable struct JumpParticleSlow{uType}
 
     function JumpParticleSlow(setup)
         u = sample_initial_condition(setup.ensemble)
-        new{typeof(u)}(u, 0.0, nothing)
+        w = initial_log_likelihood(setup.ensemble, u, setup.configuration.x_traj)
+        new{typeof(u)}(u, w, nothing)
     end
 
     function JumpParticleSlow(parent, setup)
@@ -58,6 +60,12 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
     particle_bag = [new_particle(setup) for i = 1:nparticles]
     weights = zeros(nparticles)
     log_marginal_estimate = zeros(length(dtimes))
+
+    # First, handle initial condition
+    for j in eachindex(particle_bag)
+        weights[j] += weight(particle_bag[j])
+    end
+    log_marginal_estimate[1] = logmeanexp(weights)
 
     # At each time we do the following steps
     # 1) propagate all particles forwards in time and compute their weights
