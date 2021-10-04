@@ -63,7 +63,7 @@ end
 sample_initial_condition(u0::AbstractVector) = copy(u0)
 sample_initial_condition(u0::EmpiricalDistribution) = rand(u0)
 
-sample_initial_condition(ens::MarginalEnsemble) = ens.u0 isa EmpiricalDistribution ? rand(ens.u0)[1] : ens.u0
+sample_initial_condition(ens::MarginalEnsemble) = ens.u0 isa EmpiricalDistribution ? rand(ens.u0)[[1]] : ens.u0
 sample_initial_condition(ens::ConditionalEnsemble) = ens.jump_problem.prob.u0
 
 abstract type JumpNetwork end
@@ -424,6 +424,15 @@ end
 function energy(conf::SXconfiguration, chain::TrajectoryChain; θ=chain.θ) 
     if θ > zero(θ)
         -θ * trajectory_energy(chain.ensemble.dist, conf.s_traj |> MergeWith(conf.x_traj))
+    else
+        0.0
+    end
+end
+
+function energy(conf::SRXconfiguration, chain::TrajectoryChain; θ=chain.θ)
+    if θ > zero(θ)
+        traj = merge_trajectories(conf.s_traj, conf.r_traj, conf.x_traj)
+        θ * logpdf(chain.ensemble.dist, traj)
     else
         0.0
     end

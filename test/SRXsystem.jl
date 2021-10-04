@@ -28,10 +28,12 @@ px = [1.0, 1.0]
 
 system = SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes)
 
-algorithm = DirectMCEstimate(4_000)
+algorithms = [DirectMCEstimate(128), SMCEstimate(128)]
 
-result = mutual_information(system, algorithm, num_responses = 5)
+for algorithm in algorithms
+    result = mutual_information(system, algorithm, num_responses = 5)
 
-for v in result[!, :MutualInformation]
-    @test length(v) == length(system.dtimes)
+    for v in result[!, :MutualInformation]
+        @test length(v) == length(system.dtimes)
+    end
 end

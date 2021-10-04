@@ -22,7 +22,7 @@ algorithms = [
 ]
 
 for algorithm in algorithms
-    result = GaussianMcmc.simulate(algorithm, initial, system, scale=0.6)
+    local result = GaussianMcmc.simulate(algorithm, initial, system, scale=0.6)
     val2 = GaussianMcmc.log_marginal(result)
     @show algorithm (val2 / val1 - 1)
     if :acceptance in fieldnames(typeof(result))
