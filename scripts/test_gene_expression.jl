@@ -1,39 +1,23 @@
 import GaussianMcmc
 using GaussianMcmc: SMCEstimate, DirectMCEstimate, TIEstimate, marginal_configuration, MarginalEnsemble, gene_expression_system, generate_configuration, logpdf
 
-system_fn = () -> GaussianMcmc.gene_expression_system(dtimes=0:0.1:2)
+system_fn = () -> GaussianMcmc.gene_expression_system(dtimes=0:0.1:10)
 smc = SMCEstimate(256)
-dmc = DirectMCEstimate(256)
+dmc = DirectMCEstimate(8*256)
 ti  = TIEstimate(0, 8, 256)
 
 system = system_fn()
 
 conf = generate_configuration(system)
-ens = MarginalEnsemble(system)
-
-GaussianMcmc.log_marginal(GaussianMcmc.simulate(smc, conf, ens))
-GaussianMcmc.energy_difference(conf, ens)
 
 sresult = GaussianMcmc.mutual_information(system, smc, num_responses=200)
-@profview tresult = GaussianMcmc.mutual_information(system, ti, num_responses=5)
-dresult= GaussianMcmc.mutual_information(system, dmc, num_responses=200)
+tresult = GaussianMcmc.mutual_information(system, ti, num_responses=5)
+dresult= GaussianMcmc.mutual_information(system, dmc, num_responses=5)
 
 using Plots
 plot(conf.s_traj, xlim=(0,2), seriescolor=:green, label="S")
 plot!(conf.x_traj, seriescolor=:cornflowerblue, label="X")
 savefig("~/Downloads/example_traj.pdf")
-
-# using Distributed
-# addprocs(4)
-
-# @everywhere begin
-#     import Pkg
-#     Pkg.activate(".")
-# end
-# @everywhere import GaussianMcmc
-
-# result = GaussianMcmc.run_parallel(system_fn, smc, 50)
-# dresult = GaussianMcmc.run_parallel(system_fn, dmc, 50)
 
 plot(system.dtimes, result.MutualInformation, color=:gray, legend=false)
 plot!(system.dtimes, dresult.MutualInformation, color=:pink, label="")

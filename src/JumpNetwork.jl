@@ -37,8 +37,8 @@ Base.copy(c::SRXconfiguration) = SRXconfiguration(copy(c.s_traj), copy(c.r_traj)
 ensurevec(a::AbstractVector) = a
 ensurevec(a) = SVector(a)
 
-function initial_value(conf::SXconfiguration)
-    Chain(conf.s_traj.u[0], conf.x_traj.u[0])
+function initial_log_likelihood(ensemble::ConditionalEnsemble, u0, x_traj)
+    0.0
 end
 
 function initial_log_likelihood(ensemble::MarginalEnsemble, u0::AbstractVector, x_traj::Trajectory)

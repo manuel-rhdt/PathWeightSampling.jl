@@ -29,15 +29,20 @@ params = (;
 	k_B = 0.1,
 	k_R = 0.1,
 	n_clusters = 800,
-	k⁺ = 0.05,
+	k⁺ = 0.2,
 	n_chey = 10_000,
 	mean_l = 50,
 	tau_l = tau_l,
-	phosphorylate = 0.25e-3,
-	dephosphorylate = 0.2
+	phosphorylate = 3.57e-3,
+	dephosphorylate = 8.57
 )
 
-save_dict = Dict("Alg" => dict["algorithm"], "Duration" => duration, "M" => dict["smc_samples"], "TauL" => tau_l)
+save_dict = Dict(
+	"Alg" => dict["algorithm"], 
+	"Duration" => duration, 
+	"M" => dict["smc_samples"], 
+	"TauL" => tau_l
+)
 
 dtimes = collect(0.0:0.5:duration)
 

@@ -57,16 +57,16 @@ using Dates
 my_args = Dict(
     "script" => "cooperative_chemotaxis.jl",
     "algorithm" => "smc",
-    "run_name" => "2021-09-30",
+    "run_name" => "2021-10-12",
     "duration" => 200,
-    "tau_l" => collect(range(0.1, 10.0, length=20)),
+    "tau_l" => collect(range(0.1, 10.0, length=10)),
     "num_responses" => 3600,
     "smc_samples" => 128,
 )
 
-const NCPUS = 8
-const QUEUE = "highcpu"
-const NAME = "CHEM_SMALL"
+const NCPUS = 36 * 5
+const QUEUE = "highcore"
+const NAME = "CHEM_BIG"
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -110,7 +110,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         dependency = ``
     end
 
-    cmd = `qsub -q $QUEUE -N $name $resources $dependency -j oe -o $out_dir`
+    cmd = `qsub -q $QUEUE -N $name $resources $dependency -o $out_dir -e $out_dir`
 
     if dry_run
         println(cmd)
