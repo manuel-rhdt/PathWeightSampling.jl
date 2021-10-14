@@ -1,4 +1,4 @@
-using GaussianMcmc
+using PWS
 using Catalyst
 using DrWatson
 using LinearAlgebra
@@ -20,7 +20,7 @@ function get_system(mean_s, mean_x, tau_s, tau_x, duration=tau_s)
     λ = 1 / tau_s
     ρ = (mean_x / mean_s) / tau_x
     μ = 1 / tau_x
-    GaussianMcmc.JumpSystem(sn, rn, [κ, λ], [ρ, μ], mean_s, mean_x, duration)
+    PWS.JumpSystem(sn, rn, [κ, λ], [ρ, μ], mean_s, mean_x, duration)
 end
 
 nothing

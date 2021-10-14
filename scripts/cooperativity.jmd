@@ -7,8 +7,8 @@ date: 2021-03-24
 # Chemotaxis Network
 
 ```julia; echo = false; results = "hidden"
-import GaussianMcmc
-using GaussianMcmc: TrajectoryCallback, Trajectory, SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, ConditionalEnsemble, gene_expression_system, generate_configuration, logpdf, cooperative_chemotaxis_system, reaction_network
+import PWS
+using PWS: TrajectoryCallback, Trajectory, SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, ConditionalEnsemble, gene_expression_system, generate_configuration, logpdf, cooperative_chemotaxis_system, reaction_network
 using StaticArrays
 import Catalyst
 using DiffEqBase

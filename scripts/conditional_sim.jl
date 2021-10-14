@@ -2,7 +2,7 @@ using Plots
 using DifferentialEquations
 using Catalyst
 using ModelingToolkit
-using GaussianMcmc.Trajectories
+using PWS.Trajectories
 
 sn = @reaction_network begin
     0.005, S --> ∅

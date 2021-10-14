@@ -1,4 +1,4 @@
-module GaussianMcmc
+module PWS
 
 using Distributions
 using DiffEqBase: AbstractJumpProblem

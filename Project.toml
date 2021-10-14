@@ -1,4 +1,4 @@
-name = "GaussianMcmc"
+name = "PWS"
 uuid = "e595aebf-dd45-48e4-a6c3-f40ecff26dc3"
 authors = ["Manuel Reinhardt <manuel.rhdt@gmail.com>"]
 version = "0.1.0"

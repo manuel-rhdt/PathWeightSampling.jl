@@ -2,8 +2,8 @@
 #
 # Creates plots for the sequential Monte-Carlo algorithm
 
-import GaussianMcmc
-using GaussianMcmc: ConditionalEnsemble, gene_expression_system, marginal_configuration, MarginalEnsemble, SMCEstimate, chemotaxis_system, generate_configuration
+import PWS
+using PWS: ConditionalEnsemble, gene_expression_system, marginal_configuration, MarginalEnsemble, SMCEstimate, chemotaxis_system, generate_configuration
 using Plots
 
 system = gene_expression_system(dtimes=0:0.1:5.0)
@@ -15,7 +15,7 @@ marg_ens = MarginalEnsemble(system)
 algorithm = SMCEstimate(256)
 
 particles = []
-GaussianMcmc.simulate(algorithm, conf, marg_ens; inspect=x -> push!(particles, x), new_particle=GaussianMcmc.JumpParticleSlow)
+PWS.simulate(algorithm, conf, marg_ens; inspect=x -> push!(particles, x), new_particle=PWS.JumpParticleSlow)
 
 function ancestors(particle)
     if particle.parent !== nothing

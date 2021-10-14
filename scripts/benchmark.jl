@@ -1,13 +1,13 @@
 using BenchmarkTools
-using GaussianMcmc
+using PWS
 
-system = GaussianMcmc.chemotaxis_system()
+system = PWS.chemotaxis_system()
 algorithm = DirectMCEstimate(10_000)
 dtimes = collect(range(0.0, 2.0, length=51)[2:end])
 initial = generate_configuration(system)
 
-cond_ensemble = GaussianMcmc.ConditionalEnsemble(system)
-marg_ensemble = GaussianMcmc.MarginalEnsemble(system)
+cond_ensemble = PWS.ConditionalEnsemble(system)
+marg_ensemble = PWS.MarginalEnsemble(system)
 
-@benchmark GaussianMcmc.simulate(algorithm, initial, cond_ensemble, dtimes)
-@benchmark GaussianMcmc.simulate(algorithm, GaussianMcmc.marginal_configuration(initial), marg_ensemble, dtimes)
+@benchmark PWS.simulate(algorithm, initial, cond_ensemble, dtimes)
+@benchmark PWS.simulate(algorithm, PWS.marginal_configuration(initial), marg_ensemble, dtimes)

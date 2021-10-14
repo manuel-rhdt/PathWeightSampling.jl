@@ -3,7 +3,7 @@
     import JSON
     using Logging
     using HDF5
-    using GaussianMcmc
+    using PWS
 end
 
 f = ARGS[1]
@@ -23,7 +23,7 @@ Y_timescale = dict["Y_timescale"]
 
 dtimes = collect(0.0:0.04:duration)
 
-system_fn = () -> GaussianMcmc.chemotaxis_system(
+system_fn = () -> PWS.chemotaxis_system(
     mean_L = mean_L,
     num_receptors = num_receptors,
     Y_tot = Y_tot,
@@ -36,12 +36,12 @@ system_fn = () -> GaussianMcmc.chemotaxis_system(
 
 algorithm = SMCEstimate(dict["smc_samples"])
 
-mi = GaussianMcmc.run_parallel(system_fn, algorithm, num_responses)
+mi = PWS.run_parallel(system_fn, algorithm, num_responses)
 result = Dict("Samples" => mi, "DiscreteTimes" => dtimes)
 
 function DrWatson._wsave(filename, result::Dict)
     h5open(filename, "w") do file
-        GaussianMcmc.write_hdf5!(file, result)
+        PWS.write_hdf5!(file, result)
     end
 end
 

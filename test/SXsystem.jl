@@ -1,5 +1,5 @@
 using Catalyst
-using GaussianMcmc
+using PWS
 using StaticArrays
 using Test
 
@@ -18,7 +18,7 @@ dtimes = 0:0.5:10.0
 ps = [5.0, 1.0]
 px = [3.0, 0.1]
 
-system = GaussianMcmc.SXsystem(sn, xn, u0, ps, px, dtimes)
+system = PWS.SXsystem(sn, xn, u0, ps, px, dtimes)
 
 algorithms = [DirectMCEstimate(128), SMCEstimate(128), TIEstimate(0, 4, 128)]
 for algorithm in algorithms
@@ -28,9 +28,9 @@ for algorithm in algorithms
         @test length(v) == length(system.dtimes)
     end
 
-    initial_condition = GaussianMcmc.empirical_dist(rand(50, 50), 0:49, 0:49)
+    initial_condition = PWS.empirical_dist(rand(50, 50), 0:49, 0:49)
 
-    system2 = GaussianMcmc.SXsystem(sn, xn, initial_condition, ps, px, dtimes)
+    system2 = PWS.SXsystem(sn, xn, initial_condition, ps, px, dtimes)
     result2 = mutual_information(system2, algorithm, num_responses = 10)
     for v in result2[!, :MutualInformation]
         @test v[1] != 0

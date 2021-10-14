@@ -8,15 +8,15 @@ using LaTeXStrings
 
 
 durations = range(0.2, 2.0, length=4)
-results = Vector{GaussianMcmc.ThermodynamicIntegrationResult}(undef, length(durations))
+results = Vector{PWS.ThermodynamicIntegrationResult}(undef, length(durations))
 log_likelihoods = Vector{Float64}(undef, length(durations))
 
 Threads.@threads for i ∈ eachindex(durations)
     system = get_system(20.0, 20.0, 1.0, 0.1, durations[i])
-    initial = GaussianMcmc.generate_configuration(system)
-    result = Base.invokelatest(GaussianMcmc.simulate, algorithm, initial, system)
+    initial = PWS.generate_configuration(system)
+    result = Base.invokelatest(PWS.simulate, algorithm, initial, system)
     results[i] = result
-    log_likelihoods[i] = -Base.invokelatest(GaussianMcmc.energy, initial, system, 1.0)
+    log_likelihoods[i] = -Base.invokelatest(PWS.energy, initial, system, 1.0)
 end
 
 p = plot()

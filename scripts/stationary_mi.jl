@@ -2,7 +2,7 @@
 using Catalyst
 using Distributions: Normal, logpdf, pdf, MvNormal
 using StatsBase
-using GaussianMcmc.Trajectories
+using PWS.Trajectories
 using StaticArrays
 
 corr_time_s = 100

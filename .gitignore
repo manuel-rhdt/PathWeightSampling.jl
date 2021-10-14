@@ -5,3 +5,4 @@ test.jl
 plots/*.mp4
 plots/*.gif
 *.pdf
+docs/build

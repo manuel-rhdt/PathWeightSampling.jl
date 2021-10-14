@@ -1,4 +1,4 @@
-using GaussianMcmc
+using PWS
 using Distributions
 using Test
 using LinearAlgebra
@@ -22,8 +22,8 @@ algorithms = [
 ]
 
 for algorithm in algorithms
-    local result = GaussianMcmc.simulate(algorithm, initial, system, scale=0.6)
-    val2 = GaussianMcmc.log_marginal(result)
+    local result = PWS.simulate(algorithm, initial, system, scale=0.6)
+    val2 = PWS.log_marginal(result)
     @show algorithm (val2 / val1 - 1)
     if :acceptance in fieldnames(typeof(result))
         @show mean(result.acceptance)

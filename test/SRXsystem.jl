@@ -1,5 +1,5 @@
 using Catalyst
-using GaussianMcmc
+using PWS
 using StaticArrays
 using Test
 

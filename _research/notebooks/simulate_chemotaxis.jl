@@ -9,8 +9,8 @@ using Revise
 
 # ╔═╡ 3dd034e0-95f0-11eb-0285-7fa1f7afbcae
 begin
-	import GaussianMcmc
-	using GaussianMcmc: TrajectoryCallback, Trajectory, SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, ConditionalEnsemble, gene_expression_system, generate_configuration, mutual_information, logpdf, simulate, cooperative_chemotaxis_system, reaction_network, collect_trajectory, log_marginal
+	import PWS
+	using PWS: TrajectoryCallback, Trajectory, SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, ConditionalEnsemble, gene_expression_system, generate_configuration, mutual_information, logpdf, simulate, cooperative_chemotaxis_system, reaction_network, collect_trajectory, log_marginal
 	using StaticArrays
 	import Catalyst
 	using DiffEqBase
@@ -33,7 +33,7 @@ conf = generate_configuration(system)
 # ╔═╡ b46de91d-350d-48f6-bdf3-d0bc9fcf4632
 begin
 	plot(conf.s_traj |> Map((u,t,i)::Tuple -> (u ./ 100, t, i)) |> collect_trajectory, label="Ligand concentration")
-	plot!(GaussianMcmc.active_receptors(conf, system) |> Map((u,t,i)::Tuple -> (u ./ n_clusters, t, i)) |> collect_trajectory, label="active fraction")
+	plot!(PWS.active_receptors(conf, system) |> Map((u,t,i)::Tuple -> (u ./ n_clusters, t, i)) |> collect_trajectory, label="active fraction")
 	plot!(conf.x_traj |> Map((u,t,i)::Tuple -> (u[SA[1]] ./ 10000, t, i)) |> collect_trajectory)
 	plot!(fmt=:png, legend=:bottomright, dpi=300)
 end

@@ -1,5 +1,5 @@
 using LinearAlgebra: iszero
-using GaussianMcmc
+using PWS
 using Distributions
 using LinearAlgebra
 using DataFrames

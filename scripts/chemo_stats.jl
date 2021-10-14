@@ -1,7 +1,7 @@
-using GaussianMcmc
+using PWS
 using Plots
 
-system = GaussianMcmc.chemotaxis_system(
+system = PWS.chemotaxis_system(
     mean_L = 20,
     num_receptors = 10_000,
     Y_tot = 5_000,
@@ -13,17 +13,17 @@ system = GaussianMcmc.chemotaxis_system(
     dtimes = 0:0.04:2
 )
 
-@time sol = GaussianMcmc._solve(system)
+@time sol = PWS._solve(system)
 
 p = plot(sol)
 
-@time conf = GaussianMcmc.generate_configuration(system)
+@time conf = PWS.generate_configuration(system)
 
-cond_ens = GaussianMcmc.ConditionalEnsemble(system)
+cond_ens = PWS.ConditionalEnsemble(system)
 
-alg = GaussianMcmc.SMCEstimate(256)
+alg = PWS.SMCEstimate(256)
 
-@profview result = GaussianMcmc.simulate(alg, conf, cond_ens).samples
+@profview result = PWS.simulate(alg, conf, cond_ens).samples
 
 result
 
@@ -62,9 +62,9 @@ function bootstrap(f, data::AbstractVector; bsamples=100)
     end
 end
 
-GaussianMcmc.logmeanexp(result[end, :])
+PWS.logmeanexp(result[end, :])
 
-bdata = bootstrap(GaussianMcmc.logmeanexp, result[end,:], bsamples=10^4)
+bdata = bootstrap(PWS.logmeanexp, result[end,:], bsamples=10^4)
 h = histogram(bdata, title="Bootstrapping Histogram", xlabel="Path Action", ylabel="Count")
 savefig(h, "~/Downloads/bootstrap.png")
 

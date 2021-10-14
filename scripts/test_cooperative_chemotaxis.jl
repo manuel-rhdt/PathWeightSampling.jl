@@ -1,19 +1,19 @@
-import GaussianMcmc
-using GaussianMcmc: cooperative_chemotaxis_system, TrajectoryCallback, SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, ConditionalEnsemble, gene_expression_system, generate_configuration, logpdf
+import PWS
+using PWS: cooperative_chemotaxis_system, TrajectoryCallback, SMCEstimate, DirectMCEstimate, marginal_configuration, MarginalEnsemble, ConditionalEnsemble, gene_expression_system, generate_configuration, logpdf
 using StaticArrays
 import Catalyst
 using DiffEqBase
 using DiffEqJump
 import ModelingToolkit
 
-system_fn = () -> GaussianMcmc.cooperative_chemotaxis_system(delta_e=0, delta_f=-1, lmax=3, mmax=9, γ=1/5)
+system_fn = () -> PWS.cooperative_chemotaxis_system(delta_e=0, delta_f=-1, lmax=3, mmax=9, γ=1/5)
 
 sol = begin
 system = system_fn()
-step_s = GaussianMcmc.Trajectory([100.0, 200, 300.0], [SA[15.0], SA[50.0], SA[15.0]], [0])
+step_s = PWS.Trajectory([100.0, 200, 300.0], [SA[15.0], SA[50.0], SA[15.0]], [0])
 joint = merge(merge(system.sn, system.rn), system.xn)
 rx = merge(system.rn, system.xn)
-r_idxs = GaussianMcmc.species_indices(joint, Catalyst.species(system.rn))
+r_idxs = PWS.species_indices(joint, Catalyst.species(system.rn))
 u0 = system.u0
 u0[1] = step_s.u[1][1]
 dprob = DiscreteProblem(rx, u0, (0.0, 100.0), vcat(system.pr, system.px))
@@ -131,6 +131,6 @@ mens = MarginalEnsemble(system)
 mconf = marginal_configuration(conf)
 
 smc = SMCEstimate(128)
-cr = GaussianMcmc.simulate(smc, conf, cens)
-mr = GaussianMcmc.simulate(smc, mconf, mens)
-plot(GaussianMcmc.log_marginal(cr) - GaussianMcmc.log_marginal(mr))
+cr = PWS.simulate(smc, conf, cens)
+mr = PWS.simulate(smc, mconf, mens)
+plot(PWS.log_marginal(cr) - PWS.log_marginal(mr))
