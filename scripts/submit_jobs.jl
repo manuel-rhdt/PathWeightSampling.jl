@@ -134,7 +134,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
 end
 
 function estimate_runtime(dict)
-    if dict["script"] == "coopperative_chemotaxis.jl"
+    if dict["script"] == "cooperative_chemotaxis.jl"
         factor = 2.0 # gives us some head room
 
         # we take roughly one hour per sample for the chemotaxis system at SMC M=128
