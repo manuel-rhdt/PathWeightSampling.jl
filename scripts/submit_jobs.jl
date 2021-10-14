@@ -142,11 +142,11 @@ function estimate_runtime(dict)
             factor *= dict["smc_samples"] / 128
         end
 
-        cput_per_sample = 60 * 60 # very rough
+        cput_per_sample = 3800 # very rough
          
         factor *= dict["duration"] / 200
 
-        return factor * cput_per_sample * dict["num_responses"]
+        return round(Int, factor * cput_per_sample * dict["num_responses"] / NCPUS)
     end
 
     if dict["script"] == "simple_network.jl"
