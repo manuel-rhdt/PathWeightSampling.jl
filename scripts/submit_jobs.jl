@@ -77,6 +77,9 @@ function parse_commandline()
         "--time"
             help = "only show estimated runtime"
             action = :store_true
+        "--hold"
+            help = "apply user hold at submission"
+            action = :store_true
     end
     parse_args(ARGS, s)
 end
@@ -205,7 +208,7 @@ function main()
     if parsed_args["time"]
         print_times()
     else
-        submit_sims(dry_run = parsed_args["dry-run"])
+        submit_sims(dry_run = parsed_args["dry-run"], hold=parsed_args["hold"])
     end
 end
 
