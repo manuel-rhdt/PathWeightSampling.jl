@@ -67,7 +67,7 @@ sample_initial_condition(ens::MarginalEnsemble) = ens.u0 isa EmpiricalDistributi
 sample_initial_condition(ens::ConditionalEnsemble) = ens.jump_problem.prob.u0
 
 abstract type JumpNetwork end
-struct SXsystem <: JumpNetwork
+struct SimpleSystem <: JumpNetwork
     sn::ReactionSystem
     xn::ReactionSystem
 
@@ -82,7 +82,7 @@ struct SXsystem <: JumpNetwork
     dist::TrajectoryDistribution
 end
 
-function SXsystem(sn, xn, u0, ps, px, dtimes, dist=nothing)
+function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist=nothing)
     joint = merge(sn, xn)
 
     tp = (first(dtimes), last(dtimes))
@@ -95,19 +95,19 @@ function SXsystem(sn, xn, u0, ps, px, dtimes, dist=nothing)
         dist = distribution(joint, p; update_map)
     end
 
-    SXsystem(sn, xn, u0, ps, px, dtimes, jprob, dist)
+    SimpleSystem(sn, xn, u0, ps, px, dtimes, jprob, dist)
 end
 
-struct CompiledSXsystem{JP}
-    system::SXsystem
+struct CompiledSimpleSystem{JP}
+    system::SimpleSystem
     marginal_ensemble::MarginalEnsemble{JP}
 end
 
-compile(s::SXsystem) = CompiledSXsystem(s, MarginalEnsemble(s))
-marginal_density(csx::CompiledSXsystem, algorithm, conf::SXconfiguration) = log_marginal(simulate(algorithm, conf, csx.marginal_ensemble))
-conditional_density(csx::CompiledSXsystem, algorithm, conf::SXconfiguration) = -energy_difference(conf, csx.marginal_ensemble)
+compile(s::SimpleSystem) = CompiledSimpleSystem(s, MarginalEnsemble(s))
+marginal_density(csx::CompiledSimpleSystem, algorithm, conf::SXconfiguration) = log_marginal(simulate(algorithm, conf, csx.marginal_ensemble))
+conditional_density(csx::CompiledSimpleSystem, algorithm, conf::SXconfiguration) = -energy_difference(conf, csx.marginal_ensemble)
 
-struct SRXsystem <: JumpNetwork
+struct ComplexSystem <: JumpNetwork
     sn::ReactionSystem
     rn::ReactionSystem
     xn::ReactionSystem
@@ -124,7 +124,7 @@ struct SRXsystem <: JumpNetwork
     dist::TrajectoryDistribution
 end
 
-function SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())
+function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())
     joint = merge(merge(sn, rn), xn)
 
     tp = (first(dtimes), last(dtimes))
@@ -137,29 +137,29 @@ function SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=
         dist = distribution(joint, p; update_map)
     end
 
-    SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob, dist)
+    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob, dist)
 end
 
-struct CompiledSRXsystem{JP,JPC,IXC,DXC}
-    system::SRXsystem
+struct CompiledComplexSystem{JP,JPC,IXC,DXC}
+    system::ComplexSystem
     marginal_ensemble::MarginalEnsemble{JP}
     conditional_ensemble::ConditionalEnsemble{JPC,IXC,DXC}
 end
 
-compile(s::SRXsystem) = CompiledSRXsystem(s, MarginalEnsemble(s), ConditionalEnsemble(s))
-marginal_density(csrx::CompiledSRXsystem, algorithm, conf::SRXconfiguration) = log_marginal(simulate(algorithm, marginal_configuration(conf), csrx.marginal_ensemble))
-conditional_density(csrx::CompiledSRXsystem, algorithm, conf::SRXconfiguration) = log_marginal(simulate(algorithm, conf, csrx.conditional_ensemble))
+compile(s::ComplexSystem) = CompiledComplexSystem(s, MarginalEnsemble(s), ConditionalEnsemble(s))
+marginal_density(csrx::CompiledComplexSystem, algorithm, conf::SRXconfiguration) = log_marginal(simulate(algorithm, marginal_configuration(conf), csrx.marginal_ensemble))
+conditional_density(csrx::CompiledComplexSystem, algorithm, conf::SRXconfiguration) = log_marginal(simulate(algorithm, conf, csrx.conditional_ensemble))
 
 tspan(sys::JumpNetwork) = (first(sys.dtimes), last(sys.dtimes))
 
-reaction_network(system::SXsystem) = merge(system.sn, system.xn)
-reaction_network(system::SRXsystem) = merge(merge(system.sn, system.rn), system.xn)
+reaction_network(system::SimpleSystem) = merge(system.sn, system.xn)
+reaction_network(system::ComplexSystem) = merge(merge(system.sn, system.rn), system.xn)
 
-function _solve(system::SXsystem)
+function _solve(system::SimpleSystem)
     sol = solve(system.jump_problem, SSAStepper())
 end
 
-function generate_configuration(system::SXsystem)
+function generate_configuration(system::SimpleSystem)
     joint = reaction_network(system)
     jp = remake(system.jump_problem, u0=sample_initial_condition(system.u0))
     integrator = init(jp, SSAStepper(), tstops=())
@@ -178,11 +178,11 @@ function generate_configuration(system::SXsystem)
     SXconfiguration(s_traj, x_traj)
 end
 
-function _solve(system::SRXsystem)
+function _solve(system::ComplexSystem)
     sol = solve(system.jump_problem, SSAStepper())
 end
 
-function generate_configuration(system::SRXsystem)
+function generate_configuration(system::ComplexSystem)
     # we first generate a joint SRX trajectory
     joint = reaction_network(system)
     jp = remake(system.jump_problem, u0=sample_initial_condition(system.u0))
@@ -228,7 +228,7 @@ function build_update_map(joint::ReactionSystem, xn::ReactionSystem)
     update_map
 end
 
-function MarginalEnsemble(system::SXsystem)
+function MarginalEnsemble(system::SimpleSystem)
     joint = reaction_network(system)
     s_idxs = species_indices(joint, Catalyst.species(system.sn))
 
@@ -239,7 +239,7 @@ function MarginalEnsemble(system::SXsystem)
     MarginalEnsemble(jprob, system.dist, collect(system.dtimes), u0)
 end
 
-function MarginalEnsemble(system::SRXsystem)
+function MarginalEnsemble(system::ComplexSystem)
     sr_network = merge(system.sn, system.rn)
     joint = merge(sr_network, system.xn)
     sr_idxs = species_indices(joint, Catalyst.species(sr_network))
@@ -251,7 +251,7 @@ function MarginalEnsemble(system::SRXsystem)
 end
 
 
-function ConditionalEnsemble(system::SRXsystem)
+function ConditionalEnsemble(system::ComplexSystem)
     joint = merge(merge(system.sn, system.rn), system.xn)
     r_idxs = species_indices(joint, Catalyst.species(system.rn))
     dprob = DiscreteProblem(system.rn, sample_initial_condition(system.u0)[r_idxs], (first(system.dtimes), last(system.dtimes)), system.pr)

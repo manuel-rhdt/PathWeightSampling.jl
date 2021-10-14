@@ -23,7 +23,7 @@ using .DrivenJumpProblems
 export JumpSystem, 
     GaussianSystem, marginal_entropy, conditional_entropy, 
     TIEstimate, AnnealingEstimate, DirectMCEstimate, SMCEstimate,
-    generate_configuration, SRXsystem,
+    generate_configuration, ComplexSystem,
     mutual_information
 
 end # module

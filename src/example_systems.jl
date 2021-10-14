@@ -22,7 +22,7 @@ function gene_expression_system(; mean_s=50, corr_time_s=1.0, corr_time_x=0.1, u
     ps = [κ, λ]
     px = [ρ, μ]
 
-    SXsystem(sn, xn, u0, ps, px, dtimes)
+    SimpleSystem(sn, xn, u0, ps, px, dtimes)
 end
 
 function chemotaxis_system(; 
@@ -73,7 +73,7 @@ function chemotaxis_system(;
 
     px = [δ, χ]
 
-    SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes)
+    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
 end
 
 function chemotaxis_parameters(;
@@ -195,7 +195,7 @@ function cooperative_chemotaxis_system(;
     pr = chemotaxis_parameters(; varargs...)
     px = [dephosphorylate, phosphorylate]
 
-    SRXsystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=DiffEqJump.RSSACR())
+    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=DiffEqJump.RSSACR())
 end
 
 getname(sym) = String(ModelingToolkit.operation(sym).name)
@@ -225,9 +225,9 @@ function receptor_states(rs::ReactionSystem)
     smap |> xf
 end
 
-receptor_states(system::SRXsystem) = receptor_states(reaction_network(system))
+receptor_states(system::ComplexSystem) = receptor_states(reaction_network(system))
 
-function active_receptors(conf::SRXconfiguration, system::SRXsystem)
+function active_receptors(conf::SRXconfiguration, system::ComplexSystem)
     rstates = receptor_states(system)
 
     E0 = system.pr[1]
