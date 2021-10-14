@@ -67,6 +67,14 @@ sample_initial_condition(ens::MarginalEnsemble) = ens.u0 isa EmpiricalDistributi
 sample_initial_condition(ens::ConditionalEnsemble) = ens.jump_problem.prob.u0
 
 abstract type JumpNetwork end
+
+"""
+    SimpleSystem(input_network, output_network, u0, ps, px, dtimes, dist=nothing)
+
+A `SimpleSystem` consists of two ModelingToolkit `ReactionSystem`s:
+One that generates the input trajectories, and one that generates the
+output trajectories.
+"""
 struct SimpleSystem <: JumpNetwork
     sn::ReactionSystem
     xn::ReactionSystem
