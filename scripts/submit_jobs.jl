@@ -59,7 +59,7 @@ my_args = Dict(
     "algorithm" => "smc",
     "run_name" => "2021-10-12",
     "duration" => 200,
-    "tau_l" => collect(range(0.1, 10.0, length=10)),
+    "tau_l" => [0.01, 0.05, 0.5],
     "num_responses" => 3600,
     "smc_samples" => 128,
 )
@@ -91,7 +91,7 @@ function DrWatson._wsave(filename, d::Dict)
     end
 end
 
-function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=false)
+function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=false, hold=false)
     jobscript = """
         export JULIA_PROJECT=$(projectdir())
 
@@ -102,7 +102,7 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         """
 
     name = NAME
-    resources = `-l walltime=$runtime -l select=$NCPUS:ncpus=1:mem=4gb -l place=free`
+    resources = `-l walltime=$runtime -l select=$NCPUS:ncpus=1:mem=6gb -l place=free`
 
     if job_before !== nothing
         dependency = `-W depend=afterok:$job_before`
@@ -110,7 +110,9 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
         dependency = ``
     end
 
-    cmd = `qsub -q $QUEUE -N $name $resources $dependency -o $out_dir -e $out_dir`
+    extra_args = hold ? `-h` : ``
+
+    cmd = `qsub -q $QUEUE -N $name $resources $extra_args $dependency -o $out_dir -e $out_dir`
 
     if dry_run
         println(cmd)
@@ -129,30 +131,46 @@ function submit_job(out_dir, filename, runtime; job_before = nothing, dry_run=fa
 end
 
 function estimate_runtime(dict)
-    if dict["script"] != "simple_network.jl"
-        return 6 * 24 * 60 * 60
+    if dict["script"] == "coopperative_chemotaxis.jl"
+        factor = 2.0 # gives us some head room
+
+        # we take roughly one hour per sample for the chemotaxis system at SMC M=128
+        if dict["algorithm"] == "smc"
+            factor *= dict["smc_samples"] / 128
+        end
+
+        cput_per_sample = 60 * 60 # very rough
+         
+        factor *= dict["duration"] / 200
+
+        return factor * cput_per_sample * dict["num_responses"]
     end
 
-    if dict["algorithm"] == "annealing"
-        factor = 0.14 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
-    elseif dict["algorithm"] == "ti"
-        factor = 0.05 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
-    elseif dict["algorithm"] == "directmc"
-        factor = 0.03 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
-    elseif dict["algorithm"] == "smc"
-        factor = 0.1 * 2
-    else
-        error("unknown algorithm $(dict["algorithm"])")
+    if dict["script"] == "simple_network.jl"
+        if dict["algorithm"] == "annealing"
+            factor = 0.14 * 1.5 # empirical factor from AMOLF cluster. The 1.5 is to make sure adequate headroom
+        elseif dict["algorithm"] == "ti"
+            factor = 0.05 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
+        elseif dict["algorithm"] == "directmc"
+            factor = 0.03 * 2.0 # empirical factor from AMOLF cluster. The 2.0 is to make sure adequate headroom
+        elseif dict["algorithm"] == "smc"
+            factor = 0.1 * 2
+        else
+            error("unknown algorithm $(dict["algorithm"])")
+        end
+        constant = 20 * 60 + NCPUS * 5 # just make sure we have an extra buffer
+
+        num_reactions = dict["duration"] * dict["mean_s"] * (1 / dict["corr_time_s"]) * (1 + dict["corr_time_ratio"])
+
+        val = factor * (num_reactions + 10) * dict["num_responses"]
+        return round(Int, val / NCPUS + constant)
     end
-    constant = 20 * 60 + NCPUS * 5 # just make sure we have an extra buffer
 
-    num_reactions = dict["duration"] * dict["mean_s"] * (1 / dict["corr_time_s"]) * (1 + dict["corr_time_ratio"])
-
-    val = factor * (num_reactions + 10) * dict["num_responses"]
-    round(Int, val / NCPUS + constant)
+    # be very conservative by default
+    return 6 * 24 * 60 * 60
 end
 
-function submit_sims(; job_before=nothing, dry_run=false)
+function submit_sims(; job_before=nothing, dry_run=false, hold=false)
     dicts = dict_list(my_args)
 
     out_dir = projectdir("data", "output")
@@ -165,7 +183,7 @@ function submit_sims(; job_before=nothing, dry_run=false)
 
     for (d, f) in zip(dicts, filenames)
         runtime = estimate_runtime(d)
-        job_before = submit_job(out_dir, f, runtime, job_before=job_before, dry_run=dry_run)
+        job_before = submit_job(out_dir, f, runtime, job_before=job_before, dry_run=dry_run, hold=hold)
     end
 end
 
