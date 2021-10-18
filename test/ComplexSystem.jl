@@ -26,7 +26,7 @@ ps = [5.0, 1.0]
 pr = [1.0, 4.0, 1.0, 2.0]
 px = [1.0, 1.0]
 
-system = ComlexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
+system = ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
 
 algorithms = [DirectMCEstimate(128), SMCEstimate(128)]
 
