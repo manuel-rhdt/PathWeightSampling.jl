@@ -1,4 +1,4 @@
-import GaussianMcmc: DirectMCEstimate, chemotaxis_system, ConditionalEnsemble, MarginalEnsemble, marginal_configuration, generate_configuration, collect_samples, mutual_information
+import PWS: DirectMCEstimate, chemotaxis_system, ConditionalEnsemble, MarginalEnsemble, marginal_configuration, generate_configuration, collect_samples, mutual_information
 using Test
 using Statistics
 

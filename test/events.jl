@@ -1,4 +1,4 @@
-import GaussianMcmc: collect_trajectory, Thin, MergeWith, sub_trajectory, merge_trajectories
+import PWS: collect_trajectory, Thin, MergeWith, sub_trajectory, merge_trajectories
 using Test
 using StaticArrays
 

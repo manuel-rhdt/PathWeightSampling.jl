@@ -1,7 +1,7 @@
-import GaussianMcmc
-using GaussianMcmc: SMCEstimate, DirectMCEstimate, TIEstimate, marginal_configuration, MarginalEnsemble, gene_expression_system, generate_configuration, logpdf
+import PWS
+using PWS: SMCEstimate, DirectMCEstimate, TIEstimate, marginal_configuration, MarginalEnsemble, gene_expression_system, generate_configuration, logpdf
 
-system_fn = () -> GaussianMcmc.gene_expression_system(dtimes=0:0.1:10)
+system_fn = () -> PWS.gene_expression_system(dtimes=0:0.1:10)
 smc = SMCEstimate(256)
 dmc = DirectMCEstimate(8*256)
 ti  = TIEstimate(0, 8, 256)
@@ -10,9 +10,9 @@ system = system_fn()
 
 conf = generate_configuration(system)
 
-sresult = GaussianMcmc.mutual_information(system, smc, num_responses=200)
-tresult = GaussianMcmc.mutual_information(system, ti, num_responses=5)
-dresult= GaussianMcmc.mutual_information(system, dmc, num_responses=5)
+sresult = PWS.mutual_information(system, smc, num_responses=200)
+tresult = PWS.mutual_information(system, ti, num_responses=5)
+dresult= PWS.mutual_information(system, dmc, num_responses=5)
 
 using Plots
 plot(conf.s_traj, xlim=(0,2), seriescolor=:green, label="S")
@@ -40,10 +40,10 @@ savefig(plot!(dpi=100, size=(6*72,3.5*72)), "~/Downloads/gene_expression.pdf")
 ens = MarginalEnsemble(system)
 r = map(1:50) do i
     smc = SMCEstimate(100)
-    a = GaussianMcmc.log_marginal(GaussianMcmc.simulate(smc, conf, ens))[end]
+    a = PWS.log_marginal(PWS.simulate(smc, conf, ens))[end]
 
     dmc = DirectMCEstimate(100)
-    b = GaussianMcmc.log_marginal(GaussianMcmc.simulate(dmc, conf, ens))[end]
+    b = PWS.log_marginal(PWS.simulate(dmc, conf, ens))[end]
     (a, b)
 end
 
@@ -57,18 +57,18 @@ mean(getindex.(r, 1))
 mean(getindex.(r, 2))
 
 smc = SMCEstimate(10000)
-GaussianMcmc.log_marginal(GaussianMcmc.simulate(smc, conf, ens))[end]
+PWS.log_marginal(PWS.simulate(smc, conf, ens))[end]
 
 dmc = DirectMCEstimate(10000)
-GaussianMcmc.log_marginal(GaussianMcmc.simulate(dmc, conf, ens))[end]
+PWS.log_marginal(PWS.simulate(dmc, conf, ens))[end]
 
 
-cond = -GaussianMcmc.energy_difference(conf, ens)
+cond = -PWS.energy_difference(conf, ens)
 
 
-histogram(GaussianMcmc.simulate(dmc, conf, ens).samples[end,:])
+histogram(PWS.simulate(dmc, conf, ens).samples[end,:])
 
 r = map(1:1000) do i
-    result = GaussianMcmc.sample(conf, ens)
-    GaussianMcmc.energy_difference(result, ens) => result
+    result = PWS.sample(conf, ens)
+    PWS.energy_difference(result, ens) => result
 end

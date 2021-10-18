@@ -3,7 +3,7 @@
     import JSON
     using Logging
     using HDF5
-    using GaussianMcmc
+    using PWS
 end
 
 f = ARGS[1]
@@ -39,19 +39,19 @@ end
 
 @info "Parameters" run_name duration num_responses algorithm mean_s corr_time_s corr_time_ratio
 
-system_fn = () -> GaussianMcmc.gene_expression_system(
+system_fn = () -> PWS.gene_expression_system(
     mean_s=mean_s,
     corr_time_s = corr_time_s,
     corr_time_x = corr_time_s / corr_time_ratio,
     dtimes=dtimes
 )
 
-mi = GaussianMcmc.run_parallel(system_fn, algorithm, num_responses)
+mi = PWS.run_parallel(system_fn, algorithm, num_responses)
 result = Dict("Samples" => mi, "DiscreteTimes" => dtimes)
 
 function DrWatson._wsave(filename, result::Dict)
     h5open(filename, "w") do file
-        GaussianMcmc.write_hdf5!(file, result)
+        PWS.write_hdf5!(file, result)
     end
 end
 

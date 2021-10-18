@@ -2,7 +2,7 @@ using Plots
 using Statistics
 using StatsBase
 using LaTeXStrings
-using GaussianMcmc
+using PWS
 
 system = GaussianSystem(delta_t=0.05, duration=2.0)
 initial = generate_configuration(system)
@@ -30,13 +30,13 @@ function plot_block_averages!(p, values; kwargs...)
     plot!(p, block_size, y_vals, yerror=y_err; kwargs...)
 end
 
-signal = GaussianMcmc.sample(initial, system)
+signal = PWS.sample(initial, system)
 energies_list = []
 num_samples_list = [16, 20, 22]
 for num_samples ∈ num_samples_list
-    chain = GaussianMcmc.chain(system, θ=1.0, scale=0.1)
-    sampler = GaussianMcmc.MetropolisSampler(signal, chain, burn_in=2^14)
-    samples = GaussianMcmc.sample(x->GaussianMcmc.energy(x, chain), sampler, 2^num_samples)
+    chain = PWS.chain(system, θ=1.0, scale=0.1)
+    sampler = PWS.MetropolisSampler(signal, chain, burn_in=2^14)
+    samples = PWS.sample(x->PWS.energy(x, chain), sampler, 2^num_samples)
     push!(energies_list, samples)
 end
 

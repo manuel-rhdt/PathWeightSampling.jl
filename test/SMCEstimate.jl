@@ -1,9 +1,9 @@
-import GaussianMcmc
-using GaussianMcmc: SMCEstimate, name, propagate, DirectMCEstimate, marginal_configuration, ConditionalEnsemble, MarginalEnsemble, energy_difference, generate_configuration, log_marginal, logpdf, simulate
+import PWS
+using PWS: SMCEstimate, name, propagate, DirectMCEstimate, marginal_configuration, ConditionalEnsemble, MarginalEnsemble, energy_difference, generate_configuration, log_marginal, logpdf, simulate
 using Test
 using Statistics
 
-system = GaussianMcmc.chemotaxis_system(dtimes=0:0.025:0.5)
+system = PWS.chemotaxis_system(dtimes=0:0.025:0.5)
 
 @test system.dist.aggregator.update_map == [0, 0, 0, 0, 1, 2]
 

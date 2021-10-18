@@ -3,7 +3,7 @@
     import JSON
     using Logging
     using HDF5
-    using GaussianMcmc
+    using PWS
 end
 
 f = ARGS[1]
@@ -46,11 +46,11 @@ save_dict = Dict(
 
 dtimes = collect(0.0:0.5:duration)
 
-system_fn = () -> GaussianMcmc.cooperative_chemotaxis_system(dtimes = dtimes; params...)
+system_fn = () -> PWS.cooperative_chemotaxis_system(dtimes = dtimes; params...)
 
 algorithm = SMCEstimate(dict["smc_samples"])
 
-mi = GaussianMcmc.run_parallel(system_fn, algorithm, num_responses)
+mi = PWS.run_parallel(system_fn, algorithm, num_responses)
 result = Dict(
 	"Samples" => mi, 
 	"DiscreteTimes" => dtimes, 
@@ -59,7 +59,7 @@ result = Dict(
 
 function DrWatson._wsave(filename, result::Dict)
     h5open(filename, "w") do file
-        GaussianMcmc.write_hdf5!(file, result)
+        PWS.write_hdf5!(file, result)
     end
 end
 

@@ -1,5 +1,5 @@
-import GaussianMcmc
-using GaussianMcmc: SMCEstimate, DirectMCEstimate, marginal_configuration, ConditionalEnsemble, MarginalEnsemble, gene_expression_system, generate_configuration, log_marginal, logpdf, simulate
+import PWS
+using PWS: SMCEstimate, DirectMCEstimate, marginal_configuration, ConditionalEnsemble, MarginalEnsemble, gene_expression_system, generate_configuration, log_marginal, logpdf, simulate
 
 smc = SMCEstimate(16)
 dmc = DirectMCEstimate(4)
@@ -12,9 +12,9 @@ dmc = DirectMCEstimate(4)
 #     import Pkg
 #     Pkg.activate(".")
 # end
-# @everywhere import GaussianMcmc
+# @everywhere import PWS
 
-system = GaussianMcmc.chemotaxis_system(mean_L=50, dtimes=0:0.1:10.0)
+system = PWS.chemotaxis_system(mean_L=50, dtimes=0:0.1:10.0)
 @time conf = generate_configuration(system)
 
 cens = ConditionalEnsemble(system)
@@ -26,10 +26,10 @@ mr = simulate(smc, mconf, mens)
 log_marginal(cr) - log_marginal(mr)
 
 
-result = GaussianMcmc.mutual_information(system, smc, num_responses=10)
+result = PWS.mutual_information(system, smc, num_responses=10)
 
 
-# @time result = GaussianMcmc.run_parallel(system_fn, smc, 80)
+# @time result = PWS.run_parallel(system_fn, smc, 80)
 
 using Plots
 # using Statistics

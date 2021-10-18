@@ -26,7 +26,7 @@ function run_parallel(systemfn, algorithm, num_responses)
 
     @everywhere begin
         system = $systemfn()
-        global compiled_system = GaussianMcmc.compile(system)
+        global compiled_system = PWS.compile(system)
     end
 
     channel = RemoteChannel(()->Channel())

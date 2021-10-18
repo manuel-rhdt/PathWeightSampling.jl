@@ -5,7 +5,7 @@ export DrivenJumpProblem
 
 using DiffEqJump
 using CommonSolve
-using GaussianMcmc: Trajectory
+using PWS: Trajectory
 
 """
     IdentityMap()

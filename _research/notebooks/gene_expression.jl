@@ -11,10 +11,10 @@ using CairoMakie
 using Statistics
 
 # ╔═╡ dfc116e7-606b-41cc-b6e9-c3f9ea336496
-import GaussianMcmc
+import PWS
 
 # ╔═╡ 2737ac8b-c736-4a8f-a965-215b56788c05
-system = GaussianMcmc.gene_expression_system(dtimes=0:0.1:5)
+system = PWS.gene_expression_system(dtimes=0:0.1:5)
 
 # ╔═╡ 06ecfe25-740c-4267-9a2e-8ab512ba0562
 md"""
@@ -25,10 +25,10 @@ md"""
 num_responses = 10^3
 
 # ╔═╡ e6659282-7226-4b8b-a747-6478c1e2eac0
-directmc = GaussianMcmc.DirectMCEstimate(100)
+directmc = PWS.DirectMCEstimate(100)
 
 # ╔═╡ 02932bf1-28dd-45e1-89d3-6e5b63d8f34a
-directmc_result = GaussianMcmc.mutual_information(system, directmc; num_responses)
+directmc_result = PWS.mutual_information(system, directmc; num_responses)
 
 # ╔═╡ 77d74d1d-59f6-4dc4-a79e-8a49954de27d
 md"""
@@ -36,19 +36,19 @@ md"""
 """
 
 # ╔═╡ 9bbc49c1-6b3a-4a3a-9f7b-b149bb00b44f
-smc = GaussianMcmc.SMCEstimate(100)
+smc = PWS.SMCEstimate(100)
 
 # ╔═╡ 2de7c4c7-906c-4035-a0b5-d459e11229a4
-smc_result = GaussianMcmc.mutual_information(system, smc; num_responses)
+smc_result = PWS.mutual_information(system, smc; num_responses)
 
 # ╔═╡ 3a8f3d25-01b2-40fb-a367-0245a0e120d4
 md"# Thermodynamic Integration Estimate"
 
 # ╔═╡ 52f1d352-7087-459d-b5c2-ec2fffb3f4fb
-ti = GaussianMcmc.TIEstimate(0, 20, 20)
+ti = PWS.TIEstimate(0, 20, 20)
 
 # ╔═╡ f4262c1a-4df1-475c-8c3e-0a6a6f2c01b6
-ti_result = GaussianMcmc.mutual_information(system, ti; num_responses)
+ti_result = PWS.mutual_information(system, ti; num_responses)
 
 # ╔═╡ 5246f4b7-54c5-447b-b600-226357019c1e
 md"# Comparison"
