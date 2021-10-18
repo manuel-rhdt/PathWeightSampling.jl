@@ -1,6 +1,6 @@
 # PWS.jl
 
-![CI](https://github.com/manuel-rhdt/PWS.jl/workflows/CI/badge.svg)
+[![CI](https://github.com/manuel-rhdt/PWS.jl/actions/workflows/ci-pipeline.yml/badge.svg)](https://github.com/manuel-rhdt/PWS.jl/actions/workflows/ci-pipeline.yml)
 [![codecov](https://codecov.io/gh/manuel-rhdt/PWS.jl/branch/master/graph/badge.svg?token=Q0JFR9RBZ6)](https://codecov.io/gh/manuel-rhdt/PWS.jl)
 
 PWS.jl is a Julia package to compute the information transmission rates using the Path Weight Sampling (PWS) method.
