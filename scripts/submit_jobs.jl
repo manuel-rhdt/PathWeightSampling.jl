@@ -57,9 +57,9 @@ using Dates
 my_args = Dict(
     "script" => "cooperative_chemotaxis.jl",
     "algorithm" => "smc",
-    "run_name" => "2021-10-12",
+    "run_name" => "2021-10-18",
     "duration" => 200,
-    "tau_l" => [0.01, 0.05, 0.5],
+    "tau_l" => [0.02, 0.2, 1.0, 2.0, 5.0, 10.0],
     "num_responses" => 3600,
     "smc_samples" => 128,
 )
