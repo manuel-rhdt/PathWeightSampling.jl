@@ -1,4 +1,4 @@
-name: Documentation
+name: Continuous Integration
 
 on:
   push:
@@ -16,6 +16,7 @@ jobs:
         with:
           version: '1.6'
       - uses: julia-actions/julia-buildpkg@latest
+      - uses: julia-actions/julia-runtest@latest
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Deploy docs
