@@ -115,6 +115,13 @@ compile(s::SimpleSystem) = CompiledSimpleSystem(s, MarginalEnsemble(s))
 marginal_density(csx::CompiledSimpleSystem, algorithm, conf::SXconfiguration) = log_marginal(simulate(algorithm, conf, csx.marginal_ensemble))
 conditional_density(csx::CompiledSimpleSystem, algorithm, conf::SXconfiguration) = -energy_difference(conf, csx.marginal_ensemble)
 
+"""
+    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())
+
+A `ComplexSystem` consists of three ModelingToolkit `ReactionSystem`s:
+One that generates the input trajectories, and one that generates the
+output trajectories.
+"""
 struct ComplexSystem <: JumpNetwork
     sn::ReactionSystem
     rn::ReactionSystem

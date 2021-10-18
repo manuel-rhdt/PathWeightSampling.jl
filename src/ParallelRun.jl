@@ -1,6 +1,7 @@
 using Distributed
 using Logging
 using Printf
+using Dates
 
 function reduce_results(res1, results...)
     new_res = typeof(res1)()
@@ -10,7 +11,7 @@ function reduce_results(res1, results...)
     new_res
 end
 
-const MAX_BATCH_SIZE = 4
+const MAX_BATCH_SIZE = 1
 
 function run_parallel(systemfn, algorithm, num_responses)
     batches = Int[]
@@ -42,7 +43,8 @@ function run_parallel(systemfn, algorithm, num_responses)
             (hostname, elapsed_time, batch_size) = val
             progress += batch_size
             percent_done = @sprintf "%6.2f %%" (progress / N * 100)
-            @info "Finished batch" hostname elapsed_time batch_size percent_done
+            time = now()
+            @info "Finished batch" hostname time elapsed_time batch_size percent_done
         end
 
         @sync begin
