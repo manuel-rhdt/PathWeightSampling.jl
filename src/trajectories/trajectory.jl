@@ -84,6 +84,14 @@ end
 
 Base.eltype(::Type{T}) where {uType,tType,T <: AbstractTrajectory{uType,tType}} = Tuple{uType,tType,Int}
 
+"""
+    collect_trajectory(iter, nocopy=false)
+
+Create a `Trajectory` from an iterator that yields a sequence of 3-element tuples `(u, t, i)`.
+
+If `nocopy` is true, the `u` vectors of the tuple will not be copied before adding them to the
+trajectory.
+"""
 function collect_trajectory(iter, nocopy=false)
     ((u, t, i), state) = iterate(iter)
     traj = Trajectory([nocopy ? u : copy(u)], [t], Int[i])

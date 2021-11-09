@@ -12,7 +12,7 @@ dict = JSON.parsefile(projectdir("_research", "tmp", f))["params"]
 
 duration = dict["duration"]
 
-num_responses = dict["num_responses"]
+num_samples = dict["num_samples"]
 run_name = dict["run_name"]
 
 mean_s = dict["mean_s"]
@@ -37,7 +37,7 @@ else
     error("Unsupported algorithm " * dict["algorithm"])
 end
 
-@info "Parameters" run_name duration num_responses algorithm mean_s corr_time_s corr_time_ratio
+@info "Parameters" run_name duration num_samples algorithm mean_s corr_time_s corr_time_ratio
 
 system_fn = () -> PWS.gene_expression_system(
     mean_s=mean_s,
@@ -46,7 +46,7 @@ system_fn = () -> PWS.gene_expression_system(
     dtimes=dtimes
 )
 
-mi = PWS.run_parallel(system_fn, algorithm, num_responses)
+mi = PWS.run_parallel(system_fn, algorithm, num_samples)
 result = Dict("Samples" => mi, "DiscreteTimes" => dtimes)
 
 function DrWatson._wsave(filename, result::Dict)

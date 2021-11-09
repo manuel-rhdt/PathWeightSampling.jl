@@ -12,7 +12,7 @@ dict = JSON.parsefile(projectdir("_research", "tmp", f))
 
 run_name = dict["run_name"]
 duration = dict["duration"]
-num_responses = dict["num_responses"]
+num_samples = dict["num_samples"]
 
 mean_L = dict["mean_L"]
 num_receptors = dict["num_receptors"]
@@ -36,7 +36,7 @@ system_fn = () -> PWS.chemotaxis_system(
 
 algorithm = SMCEstimate(dict["smc_samples"])
 
-mi = PWS.run_parallel(system_fn, algorithm, num_responses)
+mi = PWS.run_parallel(system_fn, algorithm, num_samples)
 result = Dict("Samples" => mi, "DiscreteTimes" => dtimes)
 
 function DrWatson._wsave(filename, result::Dict)

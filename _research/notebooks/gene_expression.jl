@@ -22,13 +22,13 @@ md"""
 """
 
 # ╔═╡ 86b9980f-3da8-4c49-8791-4045fff3b283
-num_responses = 10^3
+num_samples = 10^3
 
 # ╔═╡ e6659282-7226-4b8b-a747-6478c1e2eac0
 directmc = PWS.DirectMCEstimate(100)
 
 # ╔═╡ 02932bf1-28dd-45e1-89d3-6e5b63d8f34a
-directmc_result = PWS.mutual_information(system, directmc; num_responses)
+directmc_result = PWS.mutual_information(system, directmc; num_samples)
 
 # ╔═╡ 77d74d1d-59f6-4dc4-a79e-8a49954de27d
 md"""
@@ -39,7 +39,7 @@ md"""
 smc = PWS.SMCEstimate(100)
 
 # ╔═╡ 2de7c4c7-906c-4035-a0b5-d459e11229a4
-smc_result = PWS.mutual_information(system, smc; num_responses)
+smc_result = PWS.mutual_information(system, smc; num_samples)
 
 # ╔═╡ 3a8f3d25-01b2-40fb-a367-0245a0e120d4
 md"# Thermodynamic Integration Estimate"
@@ -48,7 +48,7 @@ md"# Thermodynamic Integration Estimate"
 ti = PWS.TIEstimate(0, 20, 20)
 
 # ╔═╡ f4262c1a-4df1-475c-8c3e-0a6a6f2c01b6
-ti_result = PWS.mutual_information(system, ti; num_responses)
+ti_result = PWS.mutual_information(system, ti; num_samples)
 
 # ╔═╡ 5246f4b7-54c5-447b-b600-226357019c1e
 md"# Comparison"
@@ -60,7 +60,7 @@ function plot_comparison(results...)
 	ax2 = Axis(fig[2, 1])
 	for r in results
 		mi = mean(r.MutualInformation)
-		error = 3*(std(r.MutualInformation) / sqrt(num_responses))
+		error = 3*(std(r.MutualInformation) / sqrt(num_samples))
 		# band!(system.dtimes, mi - error/2, mi + error/2)
 		lines!(ax1, system.dtimes, mi)
 		lines!(ax2, system.dtimes, mi ./ system.dtimes)

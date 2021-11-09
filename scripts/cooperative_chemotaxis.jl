@@ -12,7 +12,7 @@ dict = JSON.parsefile(projectdir("_research", "tmp", f))["params"]
 
 run_name = dict["run_name"]
 duration = dict["duration"]
-num_responses = dict["num_responses"]
+num_samples = dict["num_samples"]
 tau_l = dict["tau_l"]
 
 # mean_L = dict["mean_L"]
@@ -50,7 +50,7 @@ system_fn = () -> PWS.cooperative_chemotaxis_system(dtimes = dtimes; params...)
 
 algorithm = SMCEstimate(dict["smc_samples"])
 
-mi = PWS.run_parallel(system_fn, algorithm, num_responses)
+mi = PWS.run_parallel(system_fn, algorithm, num_samples)
 result = Dict(
 	"Samples" => mi, 
 	"DiscreteTimes" => dtimes, 

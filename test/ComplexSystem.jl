@@ -31,7 +31,7 @@ system = ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
 algorithms = [DirectMCEstimate(128), SMCEstimate(128)]
 
 for algorithm in algorithms
-    result = mutual_information(system, algorithm, num_responses = 5)
+    result = mutual_information(system, algorithm, num_samples = 5)
 
     for v in result[!, :MutualInformation]
         @test length(v) == length(system.dtimes)

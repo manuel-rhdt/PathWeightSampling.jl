@@ -26,7 +26,7 @@ mr = simulate(smc, mconf, mens)
 log_marginal(cr) - log_marginal(mr)
 
 
-result = PWS.mutual_information(system, smc, num_responses=10)
+result = PWS.mutual_information(system, smc, num_samples=10)
 
 
 # @time result = PWS.run_parallel(system_fn, smc, 80)

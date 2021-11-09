@@ -106,6 +106,40 @@ function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist=nothing)
     SimpleSystem(sn, xn, u0, ps, px, dtimes, jprob, dist)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", system::SimpleSystem)
+    print(io, "SimpleSystem with input variables: ")
+    ivars = independent_species(system.sn)
+    print(io, ivars[1])
+    for i in 2:length(ivars)
+        print(io, ", ", ivars[i])
+    end
+    print(io,"\n                 output variables: ")
+    ovars = independent_species(system.xn)
+    print(io, ovars[1])
+    for i in 2:length(ovars)
+        print(io, ", ", ovars[i])
+    end
+    print(io, "\nInitial condition:")
+    if system.u0 isa AbstractVector
+        joint = reaction_network(system)
+        jvars = Catalyst.species(joint)
+        for i in eachindex(system.u0)
+            print(io, "\n    ", jvars[i], " = ", system.u0[i])
+        end
+    else
+        print(io, "\n", system.u0)
+    end
+    print(io, "\nParameters:")
+    p_names = Catalyst.params(system.sn)
+    for i in eachindex(p_names)
+        print(io, "\n    ", p_names[i], " = ", system.ps[i])
+    end
+    p_names = Catalyst.params(system.xn)
+    for i in eachindex(p_names)
+        print(io, "\n    ", p_names[i], " = ", system.px[i])
+    end
+end
+
 struct CompiledSimpleSystem{JP}
     system::SimpleSystem
     marginal_ensemble::MarginalEnsemble{JP}
@@ -516,4 +550,19 @@ function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_proble
     end
     append!(new_traj.t, @view old_traj.t[branch_point:end])
     nothing
+end
+
+# ========
+# PLOTTING
+# ========
+
+@recipe function f(conf::SXconfiguration)
+    @series begin
+        label := "input"
+        conf.s_traj
+    end
+    @series begin
+        label := "output"
+        conf.x_traj
+    end
 end

@@ -10,9 +10,9 @@ system = system_fn()
 
 conf = generate_configuration(system)
 
-sresult = PWS.mutual_information(system, smc, num_responses=200)
-tresult = PWS.mutual_information(system, ti, num_responses=5)
-dresult= PWS.mutual_information(system, dmc, num_responses=5)
+sresult = PWS.mutual_information(system, smc, num_samples=200)
+tresult = PWS.mutual_information(system, ti, num_samples=5)
+dresult= PWS.mutual_information(system, dmc, num_samples=5)
 
 using Plots
 plot(conf.s_traj, xlim=(0,2), seriescolor=:green, label="S")

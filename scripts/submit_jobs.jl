@@ -11,7 +11,7 @@ using Dates
 #     "directmc_samples" => 2 .^ [3, 4, 5, 6, 7, 8, 9, 10, 11],
 #     "run_name" => "2021-06-17",
 #     "duration" => 20,
-#     "num_responses" => 10_000,
+#     "num_samples" => 10_000,
 #     "mean_s" => [50],
 #     "corr_time_s" => 1,
 #     "corr_time_ratio" => 10,
@@ -23,7 +23,7 @@ using Dates
 #     "smc_samples" => 2 .^ [3, 4, 5, 6, 7, 8, 9, 10, 11],
 #     "run_name" => "2021-06-21",
 #     "duration" => 20,
-#     "num_responses" => 10_000,
+#     "num_samples" => 10_000,
 #     "mean_s" => 50,
 #     "corr_time_s" => 1,
 #     "corr_time_ratio" => 10,
@@ -35,7 +35,7 @@ using Dates
 #     "ti_samples" => 256,
 #     "run_name" => "2021-06-18",
 #     "duration" => [1.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0],
-#     "num_responses" => 10_000,
+#     "num_samples" => 10_000,
 #     "mean_s" => 50,
 #     "corr_time_s" => 1,
 #     "corr_time_ratio" => 10,
@@ -45,7 +45,7 @@ using Dates
 #     "script" => "chemotaxis.jl",
 #     "run_name" => "2021-04-05",
 #     "smc_samples" => 64,
-#     "num_responses" => 5_000,
+#     "num_samples" => 5_000,
 #     "duration" => 20,
 #     "mean_L" => 50,
 #     "num_receptors" => 10_000,
@@ -60,7 +60,7 @@ my_args = Dict(
     "run_name" => "2021-10-18",
     "duration" => 200,
     "tau_l" => [0.02, 0.2, 1.0, 2.0, 5.0, 10.0],
-    "num_responses" => 3600,
+    "num_samples" => 3600,
     "smc_samples" => 128,
 )
 
@@ -146,7 +146,7 @@ function estimate_runtime(dict)
          
         factor *= dict["duration"] / 200
 
-        return round(Int, factor * cput_per_sample * dict["num_responses"] / NCPUS)
+        return round(Int, factor * cput_per_sample * dict["num_samples"] / NCPUS)
     end
 
     if dict["script"] == "simple_network.jl"
@@ -165,7 +165,7 @@ function estimate_runtime(dict)
 
         num_reactions = dict["duration"] * dict["mean_s"] * (1 / dict["corr_time_s"]) * (1 + dict["corr_time_ratio"])
 
-        val = factor * (num_reactions + 10) * dict["num_responses"]
+        val = factor * (num_reactions + 10) * dict["num_samples"]
         return round(Int, val / NCPUS + constant)
     end
 

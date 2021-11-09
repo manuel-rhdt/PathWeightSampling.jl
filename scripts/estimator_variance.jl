@@ -1,10 +1,10 @@
 include("basic_setup.jl")
 using Statistics
 
-function estimator_variance(num_responses, integration_nodes, chain_length)
+function estimator_variance(num_samples, integration_nodes, chain_length)
     algorithm = TIEstimate(1024, integration_nodes, chain_length)
-    result = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_responses=num_responses, duration=100.0)
-    estimator_var = var(result["marginal_entropy"].Sample) / (num_responses - 1)
+    result = Trajectories.marginal_entropy(gen, algorithm=algorithm; num_samples=num_samples, duration=100.0)
+    estimator_var = var(result["marginal_entropy"].Sample) / (num_samples - 1)
     time = sum(result["marginal_entropy"].TimeElapsed)
     (estimator_var, time)
 end

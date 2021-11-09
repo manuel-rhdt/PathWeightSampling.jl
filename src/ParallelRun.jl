@@ -13,16 +13,16 @@ end
 
 const MAX_BATCH_SIZE = 1
 
-function run_parallel(systemfn, algorithm, num_responses)
+function run_parallel(systemfn, algorithm, num_samples)
     batches = Int[]
 
-    N = num_responses
-    batch_size = clamp(floor(num_responses / nworkers()), 1, MAX_BATCH_SIZE)
+    N = num_samples
+    batch_size = clamp(floor(num_samples / nworkers()), 1, MAX_BATCH_SIZE)
 
-    while num_responses > 0
-        batch = min(num_responses, batch_size)
+    while num_samples > 0
+        batch = min(num_samples, batch_size)
         push!(batches, batch)
-        num_responses -= batch
+        num_samples -= batch
     end
 
     @everywhere begin

@@ -22,7 +22,7 @@ system = PWS.SimpleSystem(sn, xn, u0, ps, px, dtimes)
 
 algorithms = [DirectMCEstimate(128), SMCEstimate(128), TIEstimate(0, 4, 128)]
 for algorithm in algorithms
-    result = mutual_information(system, algorithm, num_responses = 10)
+    result = mutual_information(system, algorithm, num_samples = 10)
     for v in result[!, :MutualInformation]
         @test v[1] == 0
         @test length(v) == length(system.dtimes)
@@ -31,7 +31,7 @@ for algorithm in algorithms
     initial_condition = PWS.empirical_dist(rand(50, 50), 0:49, 0:49)
 
     system2 = PWS.SimpleSystem(sn, xn, initial_condition, ps, px, dtimes)
-    result2 = mutual_information(system2, algorithm, num_responses = 10)
+    result2 = mutual_information(system2, algorithm, num_samples = 10)
     for v in result2[!, :MutualInformation]
         @test v[1] != 0
         @test length(v) == length(system.dtimes)

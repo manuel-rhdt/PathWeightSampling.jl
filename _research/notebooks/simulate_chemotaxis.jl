@@ -42,7 +42,7 @@ end
 alg = SMCEstimate(16)
 
 # ╔═╡ d3f75f23-4c6a-4a7d-9318-dcea0382bcf3
-mi = mutual_information(system, alg, num_responses=10)
+mi = mutual_information(system, alg, num_samples=10)
 
 # ╔═╡ 6a41ab5b-0c2c-4acd-91d4-73f8b163221a
 plot(system.dtimes, mi.MutualInformation, color=:gray, legend=false)
