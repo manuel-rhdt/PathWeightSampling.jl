@@ -133,6 +133,21 @@ function systematic_sample(weights)
     result
 end
 
+"""
+    SMCEstimate(num_particles::Int)
+
+Compute the marginal trajectory probability using a Sequential Monte Carlo (SMC)
+algorithm, more specifically using a [particle filter](https://en.wikipedia.org/wiki/Particle_filter).
+
+In a particle filter, `num_particles` trajectories are propagated in parallel. At regular
+intervals, the current set of parallel trajectories undergoes a resampling step where
+some of the trajectories get eliminated and others duplicated, depending on their accumulated
+likelihood. This resampling ensures that we don't sample trajectories that contribute only 
+very little to the marginalization integral.
+
+Due to the periodic resampling of the trajectories, this method works much better than the 
+`DirectMCEstimate` for long trajectories.
+"""
 struct SMCEstimate
     num_particles::Int
 end

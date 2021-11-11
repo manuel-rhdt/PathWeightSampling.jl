@@ -1,6 +1,11 @@
 import Statistics
 using FastGaussQuadrature
 
+"""
+    TIEstimate(burn_in::Int, integration_nodes::Int, num_samples::Int)
+
+Compute marginalization integrals using [thermodynamic integration](https://en.wikipedia.org/wiki/Thermodynamic_integration).
+"""
 struct TIEstimate
     burn_in::Int
     integration_nodes::Int

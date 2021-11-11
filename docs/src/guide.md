@@ -123,10 +123,42 @@ savefig("plot5.svg"); nothing # hide
 
 ![](plot5.svg)
 
-## Using More Advanced Marginalization Strategies
+## More Advanced Marginalization Strategies
 
 So far we computed the mutual information using the brute-force *Direct PWS* algorithm. However, we can choose a different approach to perform
-the marginalization integrals.
+the marginalization integrals. To change the marginalization strategy we simply pass a different `algorithm` as the second argument of `PWS.mutual_information`. The possible choices for the marginalization strategy are
+
+- `DirectMCEstimate(m)`: The simple brute force marginalization using a Direct Monte Carlo estimate. The integer `m` specifies the number of samples to use per brute-force computation. This method works well for short trajectories but becomes exponentially worse for longer trajectories.
+- `SMCEstimate(m)`: Improved computation of marginalization integrals using a sequential Monte Carlo technique (specifically using a particle filter). The integer `m` specifies the number of "particles" that are being propagated simultaneously. This method works much better than the `DirectMCEstimate` for long trajectories.
+- `TIEstimate(burn_in, integration_nodes, num_samples)`: Use thermodynamic integration to compute the marginalization integrals. This will set up a number of MCMC simulations in path-space to perform the TI integral. `burn_in` specifies the number of initial samples from the MCMC simulation to be discarded, `integration_nodes` specifies the number of points to use in the Gaussian quadrature, and `num_samples` specifies the number of MCMC samples per integration node to generate.
+- `AnnealingEstimate(subsample, num_temps, num_samples)`: Use annealed importance sampling to compute the marginalization integrals. This technique is very similar to thermodynamic integration and also uses MCMC simulations in path space. `subsample` specifies the number of Metropolis trials to perform before recording a new MCMC sample. `num_temps` sets how many different "temperatures" should be used for the annealing. `num_samples` is the number of MCMC samples to use per temperature setting.
+
+We can compute the mutual information using each of these strategies and compare the results:
+
+```@example 1
+strategies = [
+    DirectMCEstimate(128), 
+    SMCEstimate(128), 
+    TIEstimate(0, 8, 16), 
+    # AnnealingEstimate(0, 128, 1)
+]
+results = [PWS.mutual_information(system, strat, num_samples=100, progress=false) for strat in strategies]
+
+plot()
+for (strat, r) in zip(strategies, results)
+    plot!(
+        system.dtimes, 
+        mean(r.MutualInformation),
+        label=PWS.name(strat),
+        xlabel="trajectory duration",
+        ylabel="mutual information (nats)"
+    )
+end
+
+savefig("plot6.svg"); nothing # hide
+```
+
+![](plot6.svg)
 
 ## API Summary
 

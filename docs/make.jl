@@ -5,7 +5,7 @@ makedocs(
     pages = [
         "index.md",
         "guide.md",
-        "thermodynamic_integration.md"
+        "marginalization.md",
     ]
 )
 
