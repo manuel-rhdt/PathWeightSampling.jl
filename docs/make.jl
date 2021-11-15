@@ -5,6 +5,7 @@ makedocs(
     pages = [
         "index.md",
         "guide.md",
+        "examples.md",
         "marginalization.md",
     ]
 )
