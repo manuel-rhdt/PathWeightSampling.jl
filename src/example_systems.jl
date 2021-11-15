@@ -3,7 +3,91 @@ import Catalyst:@reaction_network
 import ModelingToolkit
 using Transducers
 
-function gene_expression_system(; mean_s=50, corr_time_s=1.0, corr_time_x=0.1, u0=SA[mean_s, mean_s], dtimes=0:0.1:2.0)
+"""
+    gene_expression_system(; mean_s=50, mean_x=mean_s, corr_time_s=1.0, corr_time_x=0.1, u0=SA[mean_s, mean_x], dtimes=0:0.1:2.0)
+
+Creates a system for a very simple model of gene expression.
+    
+# Model Description
+
+This model consists of four reactions:
+```
+                κ
+reaction 1:  ∅ ---> S
+
+                λ
+reaction 2:  S ---> ∅
+
+                ρ
+reaction 3:  S ---> S + X
+
+                μ
+reaction 4:  X ---> ∅
+```
+
+The first two reactions specify the evolution of the input signal `S`,
+and last two reactions specify the evolution of the output `X`. Thus,
+both the input and output signal are modeled as a simple birth-death 
+process, however the birth rate of `X` increases with higher copy numbers 
+of  `S`.
+
+# Examples
+
+The values of the reaction rates can be specified directly as follows:
+```jldoctest
+using PWS
+system = PWS.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 1.0)
+
+# output
+
+SimpleSystem with input variables: S(t)
+                 output variables: X(t)
+Initial condition:
+    S(t) = 50
+    X(t) = 50
+Parameters:
+    κ = 10.0
+    λ = 0.1
+    ρ = 1.0
+    μ = 1.0
+```
+
+Alternatively, the reaction rates can be specified indirectly through the following arguments:
+- `mean_s`: The average copy number of S when the system has relaxed to steady state.
+- `mean_x`: The average copy number of X when the system has relaxed to steady state.
+- `corr_time_s`: The input signal correlation time. The shorter this time is, the faster the fluctuations in the input signal.
+- `corr_time_x`: The output signal correlation time. This sets the timescale of output fluctuations.
+
+```jldoctest
+using PWS
+system = PWS.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_time_x=0.75)
+
+# output
+
+SimpleSystem with input variables: S(t)
+                 output variables: X(t)
+Initial condition:
+    S(t) = 25
+    X(t) = 50
+Parameters:
+    κ = 25.0
+    λ = 1.0
+    ρ = 2.666666666666666
+    μ = 1.3333333333333333
+```
+"""
+function gene_expression_system(;
+    mean_s=50, 
+    mean_x=mean_s,
+    corr_time_s=1.0, 
+    corr_time_x=0.1, 
+    kappa = mean_s / corr_time_s,
+    lambda = 1 / corr_time_s,
+    mu = 1 / corr_time_x,
+    rho = mu * mean_x / mean_s,
+    u0=SA[mean_s, mean_x],
+    dtimes=0:0.1:2.0
+)
     sn = @reaction_network begin
         κ, ∅ --> S
         λ, S --> ∅
@@ -14,13 +98,8 @@ function gene_expression_system(; mean_s=50, corr_time_s=1.0, corr_time_x=0.1, u
         μ, X --> ∅ 
     end ρ μ
 
-    λ = 1 / corr_time_s
-    κ = mean_s * λ
-    μ = 1 / corr_time_x
-    ρ = μ
-
-    ps = [κ, λ]
-    px = [ρ, μ]
+    ps = [kappa, lambda]
+    px = [rho, mu]
 
     SimpleSystem(sn, xn, u0, ps, px, dtimes)
 end
@@ -105,6 +184,108 @@ function chemotaxis_parameters(;
     ]
 end
 
+"""
+    cooperative_chemotaxis_system(;
+        lmax = 3,
+        mmax = 9,
+        n_clusters = 100,
+        n_chey = 10_000,
+
+        mean_l = 50,
+        tau_l = 1.0,
+
+        phosphorylate = 2000.0 / (n_chey * n_clusters),
+        dephosphorylate = 2000.0 / (n_chey),
+        dtimes = 0:0.1:20.0,
+        varargs...
+    )
+
+Create a system for a complex chemotaxis model.
+
+# Model Description
+
+This model describes the bacterial chemotaxis signaling network.
+
+```
+Rml -> Rm(l+1), with rate kon L(t) (lmax - l): ligand binding to active state
+Rm(l+1) -> Rml, with rate koff_A l: ligand unbinding
+Rml -> R(m+1)l with rate km: methylation rate
+R(m+1)l -> Rml with rate kdm: demethylation rate
+```
+
+# Examples
+
+Create a chemotaxis system with default parameters.
+```jldoctest
+using PWS
+PWS.cooperative_chemotaxis_system()
+
+# output
+
+ComplexSystem with input variables: L(t)
+                 latent variables: R_0_0(t), R_0_1(t), R_0_2(t), R_0_3(t), R_0_4(t), R_0_5(t), R_0_6(t), R_0_7(t), R_0_8(t), R_0_9(t), R_1_0(t), R_1_1(t), R_1_2(t), R_1_3(t), R_1_4(t), R_1_5(t), R_1_6(t), R_1_7(t), R_1_8(t), R_1_9(t), R_2_0(t), R_2_1(t), R_2_2(t), R_2_3(t), R_2_4(t), R_2_5(t), R_2_6(t), R_2_7(t), R_2_8(t), R_2_9(t), R_3_0(t), R_3_1(t), R_3_2(t), R_3_3(t), R_3_4(t), R_3_5(t), R_3_6(t), R_3_7(t), R_3_8(t), R_3_9(t)
+                 output variables: Yp(t), Y(t)
+Initial condition:
+    L(t) = 50
+    R_0_0(t) = 100
+    R_0_1(t) = 0
+    R_0_2(t) = 0
+    R_0_3(t) = 0
+    R_0_4(t) = 0
+    R_0_5(t) = 0
+    R_0_6(t) = 0
+    R_0_7(t) = 0
+    R_0_8(t) = 0
+    R_0_9(t) = 0
+    R_1_0(t) = 0
+    R_1_1(t) = 0
+    R_1_2(t) = 0
+    R_1_3(t) = 0
+    R_1_4(t) = 0
+    R_1_5(t) = 0
+    R_1_6(t) = 0
+    R_1_7(t) = 0
+    R_1_8(t) = 0
+    R_1_9(t) = 0
+    R_2_0(t) = 0
+    R_2_1(t) = 0
+    R_2_2(t) = 0
+    R_2_3(t) = 0
+    R_2_4(t) = 0
+    R_2_5(t) = 0
+    R_2_6(t) = 0
+    R_2_7(t) = 0
+    R_2_8(t) = 0
+    R_2_9(t) = 0
+    R_3_0(t) = 0
+    R_3_1(t) = 0
+    R_3_2(t) = 0
+    R_3_3(t) = 0
+    R_3_4(t) = 0
+    R_3_5(t) = 0
+    R_3_6(t) = 0
+    R_3_7(t) = 0
+    R_3_8(t) = 0
+    R_3_9(t) = 0
+    Yp(t) = 0
+    Y(t) = 10000
+Parameters:
+    κ = 50.0
+    λ = 1.0
+    E0 = 3.0
+    δg = 2.995732273553991
+    δf = -1.5
+    lba = 0.05
+    lbi = 0.05
+    lda = 25.0
+    ldi = 1.25
+    mda = 0.03333333333333333
+    mbi = 0.03333333333333333
+    μ = 0.2
+    ρ = 0.002
+```
+
+"""
 function cooperative_chemotaxis_system(;
     lmax = 3,
     mmax = 9,

@@ -189,6 +189,50 @@ function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggrega
     ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob, dist)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", system::ComplexSystem)
+    print(io, "ComplexSystem with input variables: ")
+    ivars = independent_species(system.sn)
+    print(io, ivars[1])
+    for i in 2:length(ivars)
+        print(io, ", ", ivars[i])
+    end
+    print(io,"\n                  latent variables: ")
+    lvars = independent_species(system.rn)
+    print(io, lvars[1])
+    for i in 2:length(lvars)
+        print(io, ", ", lvars[i])
+    end
+    print(io,"\n                  output variables: ")
+    ovars = independent_species(system.xn)
+    print(io, ovars[1])
+    for i in 2:length(ovars)
+        print(io, ", ", ovars[i])
+    end
+    print(io, "\nInitial condition:")
+    if system.u0 isa AbstractVector
+        joint = reaction_network(system)
+        jvars = Catalyst.species(joint)
+        for i in eachindex(system.u0)
+            print(io, "\n    ", jvars[i], " = ", system.u0[i])
+        end
+    else
+        print(io, "\n", system.u0)
+    end
+    print(io, "\nParameters:")
+    p_names = Catalyst.params(system.sn)
+    for i in eachindex(p_names)
+        print(io, "\n    ", p_names[i], " = ", system.ps[i])
+    end
+    p_names = Catalyst.params(system.rn)
+    for i in eachindex(p_names)
+        print(io, "\n    ", p_names[i], " = ", system.pr[i])
+    end
+    p_names = Catalyst.params(system.xn)
+    for i in eachindex(p_names)
+        print(io, "\n    ", p_names[i], " = ", system.px[i])
+    end
+end
+
 struct CompiledComplexSystem{JP,JPC,IXC,DXC}
     system::ComplexSystem
     marginal_ensemble::MarginalEnsemble{JP}
