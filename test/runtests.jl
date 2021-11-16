@@ -10,3 +10,4 @@ doctest(PWS)
 @testset "SMCEstimate" begin include("SMCEstimate.jl") end
 @testset "MCMCMoves" begin include("mcmc_moves.jl") end
 @testset "Gaussian" begin include("gaussian.jl") end
+@testset "Chemotaxis" begin include("chemotaxis.jl") end
