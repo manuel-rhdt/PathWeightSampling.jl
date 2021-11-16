@@ -240,7 +240,7 @@ system = PWS.ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
 
 ComplexSystem with 8 reactions
 Input variables: L(t)
-Latent variables: LR(t), R(t), CheYp(t), CheY(t)
+Latent variables: R(t), LR(t), CheY(t), CheYp(t)
 Output variables: X(t)
 Initial condition:
     L(t) = 10
@@ -480,10 +480,11 @@ end
 
 function independent_species(rs::ReactionSystem)
     i_spec = []
+    smap = Catalyst.speciesmap(rs)
     for r in Catalyst.reactions(rs)
         push!(i_spec, getindex.(r.netstoich, 1)...)
     end
-    unique(s for s∈i_spec)
+    sort(unique(s for s∈i_spec), by=x -> smap[x])
 end
 
 function dependent_species(rs::ReactionSystem)
