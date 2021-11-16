@@ -52,7 +52,11 @@ function Base.iterate(iter::SSAIter, state::Tuple{})
     nothing
 end
 
-function sub_trajectory(traj, indices)
+function sub_trajectory(traj, indices::SVector)
+    traj |> Map((u,t,i)::Tuple -> (u[indices], t, i)) |> Thin() |> collect_trajectory
+end
+
+function sub_trajectory(traj, indices::AbstractVector)
     traj |> Map((u,t,i)::Tuple -> ((@view u[indices]), t, i)) |> Thin() |> collect_trajectory
 end
 struct Chain{V,T <: AbstractVector,U <: AbstractVector} <: AbstractVector{V}

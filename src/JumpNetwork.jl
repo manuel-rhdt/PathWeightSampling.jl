@@ -456,9 +456,9 @@ function ConditionalEnsemble(system::ComplexSystem)
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, Direct(), save_positions=(false, false))
 
     indep_species = independent_species(system.rn)
-    indep_idxs = species_indices(system.rn, indep_species)
+    indep_idxs = SVector(species_indices(system.rn, indep_species)...)
 
-    dep_species = dependent_species(system.xn)
+    dep_species = SVector(dependent_species(system.xn)...)
     dep_idxs = indexin(species_indices(system.rn, dep_species), indep_idxs)
 
     ConditionalEnsemble(jprob, system.dist, indep_idxs, dep_idxs, collect(system.dtimes))
@@ -484,11 +484,12 @@ function independent_species(rs::ReactionSystem)
     for r in Catalyst.reactions(rs)
         push!(i_spec, getindex.(r.netstoich, 1)...)
     end
-    sort(unique(s for s∈i_spec), by=x -> smap[x])
+    sort(unique(s for s∈i_spec), by=x->smap[x])
 end
 
 function dependent_species(rs::ReactionSystem)
-    setdiff(Catalyst.species(rs), independent_species(rs))
+    smap = Catalyst.speciesmap(rs)
+    sort(setdiff(Catalyst.species(rs), independent_species(rs)), by=x->smap[x])
 end
 
 function sample(configuration::T, system::MarginalEnsemble; θ=0.0)::T where T <: SXconfiguration
@@ -532,14 +533,14 @@ function energy_difference(configuration::SXconfiguration, ensemble::MarginalEns
     - cumulative_logpdf(ensemble.dist, configuration.s_traj |> MergeWith(configuration.x_traj), ensemble.dtimes) .- log_p0
 end
 
-function sample(configuration::SRXconfiguration, system::ConditionalEnsemble; θ=0.0)
+function sample(configuration::SRXconfiguration, ensemble::ConditionalEnsemble; θ=0.0)
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
-    driven_jp = DrivenJumpProblem(system.jump_problem, configuration.s_traj)
+    driven_jp = DrivenJumpProblem(ensemble.jump_problem, configuration.s_traj)
     integrator = init(driven_jp)
     iter = SSAIter(integrator)
-    rtraj = sub_trajectory(iter, system.indep_idxs)
+    rtraj = sub_trajectory(iter, ensemble.indep_idxs)
     SRXconfiguration(configuration.s_traj, rtraj, configuration.x_traj)
 end
 
@@ -567,6 +568,7 @@ function create_integrator(conf::SRXconfiguration, ensemble::ConditionalEnsemble
     init(driven_jp)
 end
 
+# propagate the initial condition forward in time and compute the corresponding increase in log-likelihood
 function propagate(conf::SRXconfiguration, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
     integrator = create_integrator(conf, ensemble, u0, tspan)
     iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
