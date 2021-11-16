@@ -69,11 +69,58 @@ sample_initial_condition(ens::ConditionalEnsemble) = ens.jump_problem.prob.u0
 abstract type JumpNetwork end
 
 """
-    SimpleSystem(input_network, output_network, u0, ps, px, dtimes, dist=nothing)
+    SimpleSystem(input_network, output_network, u0, ps, px, dtimes)
 
-A `SimpleSystem` consists of two ModelingToolkit `ReactionSystem`s:
-One that generates the input trajectories, and one that generates the
-output trajectories.
+A `SimpleSystem` is a system used to compute the mutual information when
+there are no latent variables that need to be integrated out.
+
+A `SimpleSystem` consists of two of ModelingToolkit's `ReactionSystem`s:
+One that generates the input trajectories (`input_network`), and one that generates the
+output trajectories (`output_network`).
+
+`u0` represents the initial condition of the system.
+
+`ps` and `px` are the parameter vectors of the input and output systems, respectively.
+
+# Examples
+
+Create a `SimpleSystem` from a set of coupled birth-death processes.
+
+```jldoctest
+using PWS, Catalyst, StaticArrays
+
+sn = @reaction_network begin
+    κ, ∅ --> 2L
+    λ, L --> ∅
+end κ λ
+
+xn = @reaction_network begin
+    ρ, L --> L + 2X
+    μ, X --> ∅
+end ρ μ
+
+u0 = SA[10, 20]
+dtimes = 0:0.5:10.0
+ps = [5.0, 1.0]
+px = [3.0, 0.1]
+
+system = PWS.SimpleSystem(sn, xn, u0, ps, px, dtimes)
+
+# output
+
+SimpleSystem with 4 reactions
+Input variables: L(t)
+Output variables: X(t)
+Initial condition:
+    L(t) = 10
+    X(t) = 20
+Parameters:
+    κ = 5.0
+    λ = 1.0
+    ρ = 3.0
+    μ = 0.1
+```
+
 """
 struct SimpleSystem <: JumpNetwork
     sn::ReactionSystem
@@ -107,13 +154,14 @@ function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist=nothing)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", system::SimpleSystem)
-    print(io, "SimpleSystem with input variables: ")
+    joint = reaction_network(system)
+    print(io, "SimpleSystem with ",  Catalyst.numreactions(joint), " reactions\nInput variables: ")
     ivars = independent_species(system.sn)
     print(io, ivars[1])
     for i in 2:length(ivars)
         print(io, ", ", ivars[i])
     end
-    print(io,"\n                 output variables: ")
+    print(io,"\nOutput variables: ")
     ovars = independent_species(system.xn)
     print(io, ovars[1])
     for i in 2:length(ovars)
@@ -121,7 +169,6 @@ function Base.show(io::IO, ::MIME"text/plain", system::SimpleSystem)
     end
     print(io, "\nInitial condition:")
     if system.u0 isa AbstractVector
-        joint = reaction_network(system)
         jvars = Catalyst.species(joint)
         for i in eachindex(system.u0)
             print(io, "\n    ", jvars[i], " = ", system.u0[i])
@@ -152,9 +199,67 @@ conditional_density(csx::CompiledSimpleSystem, algorithm, conf::SXconfiguration)
 """
     ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())
 
-A `ComplexSystem` consists of three ModelingToolkit `ReactionSystem`s:
-One that generates the input trajectories, and one that generates the
-output trajectories.
+A `ComplexSystem` is a system used to compute the mutual information with 
+latent variables that need to be integrated out.
+
+Therefore, a `ComplexSystem` consists of three ModelingToolkit `ReactionSystem`s:
+One that generates the input trajectories (`sn`), one that models the latent variables (`rn`),
+and one that generates the output trajectories (`xn`).
+
+# Examples
+
+```jldoctest
+using PWS, Catalyst, StaticArrays
+
+sn = @reaction_network begin
+    κ, ∅ --> 2L
+    λ, L --> ∅
+end κ λ
+
+rn = @reaction_network begin
+    ρ, L + R --> L + LR
+    μ, LR --> R
+    ξ, R + CheY --> R + CheYp
+    ν, CheYp --> CheY
+end ρ μ ξ ν
+
+xn = @reaction_network begin
+    δ, CheYp --> CheYp + X
+    χ, X --> ∅
+end δ χ
+
+u0 = SA[10, 30, 0, 50, 0, 0]
+dtimes = 0:0.5:10.0
+ps = [5.0, 1.0]
+pr = [1.0, 4.0, 1.0, 2.0]
+px = [1.0, 1.0]
+
+system = PWS.ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
+
+# output
+
+ComplexSystem with 8 reactions
+Input variables: L(t)
+Latent variables: LR(t), R(t), CheYp(t), CheY(t)
+Output variables: X(t)
+Initial condition:
+    L(t) = 10
+    R(t) = 30
+    LR(t) = 0
+    CheY(t) = 50
+    CheYp(t) = 0
+    X(t) = 0
+Parameters:
+    κ = 5.0
+    λ = 1.0
+    ρ = 1.0
+    μ = 4.0
+    ξ = 1.0
+    ν = 2.0
+    δ = 1.0
+    χ = 1.0
+```
+
 """
 struct ComplexSystem <: JumpNetwork
     sn::ReactionSystem
@@ -190,19 +295,20 @@ function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggrega
 end
 
 function Base.show(io::IO, ::MIME"text/plain", system::ComplexSystem)
-    print(io, "ComplexSystem with input variables: ")
+    joint = reaction_network(system)
+    print(io, "ComplexSystem with ",  Catalyst.numreactions(joint), " reactions\nInput variables: ")
     ivars = independent_species(system.sn)
     print(io, ivars[1])
     for i in 2:length(ivars)
         print(io, ", ", ivars[i])
     end
-    print(io,"\n                  latent variables: ")
+    print(io,"\nLatent variables: ")
     lvars = independent_species(system.rn)
     print(io, lvars[1])
     for i in 2:length(lvars)
         print(io, ", ", lvars[i])
     end
-    print(io,"\n                  output variables: ")
+    print(io,"\nOutput variables: ")
     ovars = independent_species(system.xn)
     print(io, ovars[1])
     for i in 2:length(ovars)
@@ -210,7 +316,6 @@ function Base.show(io::IO, ::MIME"text/plain", system::ComplexSystem)
     end
     print(io, "\nInitial condition:")
     if system.u0 isa AbstractVector
-        joint = reaction_network(system)
         jvars = Catalyst.species(joint)
         for i in eachindex(system.u0)
             print(io, "\n    ", jvars[i], " = ", system.u0[i])

@@ -40,8 +40,9 @@ system = PWS.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 
 
 # output
 
-SimpleSystem with input variables: S(t)
-                 output variables: X(t)
+SimpleSystem with 4 reactions
+Input variables: S(t)
+Output variables: X(t)
 Initial condition:
     S(t) = 50
     X(t) = 50
@@ -64,8 +65,9 @@ system = PWS.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_
 
 # output
 
-SimpleSystem with input variables: S(t)
-                 output variables: X(t)
+SimpleSystem with 4 reactions
+Input variables: S(t)
+Output variables: X(t)
 Initial condition:
     S(t) = 25
     X(t) = 50
@@ -222,9 +224,10 @@ PWS.cooperative_chemotaxis_system()
 
 # output
 
-ComplexSystem with input variables: L(t)
-                 latent variables: R_0_0(t), R_0_1(t), R_0_2(t), R_0_3(t), R_0_4(t), R_0_5(t), R_0_6(t), R_0_7(t), R_0_8(t), R_0_9(t), R_1_0(t), R_1_1(t), R_1_2(t), R_1_3(t), R_1_4(t), R_1_5(t), R_1_6(t), R_1_7(t), R_1_8(t), R_1_9(t), R_2_0(t), R_2_1(t), R_2_2(t), R_2_3(t), R_2_4(t), R_2_5(t), R_2_6(t), R_2_7(t), R_2_8(t), R_2_9(t), R_3_0(t), R_3_1(t), R_3_2(t), R_3_3(t), R_3_4(t), R_3_5(t), R_3_6(t), R_3_7(t), R_3_8(t), R_3_9(t)
-                 output variables: Yp(t), Y(t)
+ComplexSystem with 175 reactions
+Input variables: L(t)
+Latent variables: R_0_0(t), R_0_1(t), R_0_2(t), R_0_3(t), R_0_4(t), R_0_5(t), R_0_6(t), R_0_7(t), R_0_8(t), R_0_9(t), R_1_0(t), R_1_1(t), R_1_2(t), R_1_3(t), R_1_4(t), R_1_5(t), R_1_6(t), R_1_7(t), R_1_8(t), R_1_9(t), R_2_0(t), R_2_1(t), R_2_2(t), R_2_3(t), R_2_4(t), R_2_5(t), R_2_6(t), R_2_7(t), R_2_8(t), R_2_9(t), R_3_0(t), R_3_1(t), R_3_2(t), R_3_3(t), R_3_4(t), R_3_5(t), R_3_6(t), R_3_7(t), R_3_8(t), R_3_9(t)
+Output variables: Yp(t), Y(t)
 Initial condition:
     L(t) = 50
     R_0_0(t) = 100

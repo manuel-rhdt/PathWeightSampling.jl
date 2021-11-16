@@ -1,7 +1,7 @@
 using Distributions: Gaussian
 using Test, Documenter, PWS
 
-doctest(PWS, fix=true)
+doctest(PWS)
 @testset "Events" begin include("events.jl") end
 @testset "TrajectoryTests" begin include("trajectories.jl") end
 @testset "TrajectoryProbability" begin include("probability.jl") end
