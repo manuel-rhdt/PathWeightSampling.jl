@@ -29,6 +29,6 @@ This work is part of the Dutch Research Council (NWO) and was performed at the r
 This project has received funding from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation program (grant agreement No.~885065)
 and was financially supported by NWO through the “Building a Synthetic Cell (BaSyC)” Gravitation grant (024.003.019).
 
-![Logo NWO](docs/src/assets/logo-nwo.svg)
-![Logo AMOLF](docs/src/assets/logo-amolf.svg)
-![Logo BaSyC](docs/src/assets/logo-basyc.png)
+[![Logo NWO](docs/src/assets/logo-nwo.svg)](https://www.nwo.nl)
+[![Logo AMOLF](docs/src/assets/logo-amolf.svg)](https://amolf.nl)
+[![Logo BaSyC](docs/src/assets/logo-basyc.png)](https://www.basyc.nl)
