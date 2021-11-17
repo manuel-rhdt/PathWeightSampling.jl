@@ -1,5 +1,5 @@
 using Catalyst
-using PWS
+using PathWeightSampling
 using StaticArrays
 using Test
 

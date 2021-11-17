@@ -1,4 +1,4 @@
-using PWS
+using PathWeightSampling
 using Distributions
 using Test
 using LinearAlgebra
@@ -22,8 +22,8 @@ algorithms = [
 ]
 
 for algorithm in algorithms
-    local result = PWS.simulate(algorithm, initial, system, scale=0.6)
-    val2 = PWS.log_marginal(result)
+    local result = PathWeightSampling.simulate(algorithm, initial, system, scale=0.6)
+    val2 = PathWeightSampling.log_marginal(result)
     @show algorithm (val2 / val1 - 1)
     if :acceptance in fieldnames(typeof(result))
         @show mean(result.acceptance)

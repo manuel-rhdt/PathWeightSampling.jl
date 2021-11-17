@@ -1,4 +1,4 @@
-import PWS: collect_trajectory, Thin, MergeWith, sub_trajectory, merge_trajectories
+import PathWeightSampling: collect_trajectory, Thin, MergeWith, sub_trajectory, merge_trajectories
 using Test
 using StaticArrays
 

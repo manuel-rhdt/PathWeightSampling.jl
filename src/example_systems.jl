@@ -35,8 +35,8 @@ of  `S`.
 
 The values of the reaction rates can be specified directly as follows:
 ```jldoctest
-using PWS
-system = PWS.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 1.0)
+using PathWeightSampling
+system = PathWeightSampling.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 1.0)
 
 # output
 
@@ -60,8 +60,8 @@ Alternatively, the reaction rates can be specified indirectly through the follow
 - `corr_time_x`: The output signal correlation time. This sets the timescale of output fluctuations.
 
 ```jldoctest
-using PWS
-system = PWS.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_time_x=0.75)
+using PathWeightSampling
+system = PathWeightSampling.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_time_x=0.75)
 
 # output
 
@@ -219,8 +219,8 @@ R(m+1)l -> Rml with rate kdm: demethylation rate
 
 Create a chemotaxis system with default parameters.
 ```jldoctest
-using PWS
-PWS.cooperative_chemotaxis_system()
+using PathWeightSampling
+PathWeightSampling.cooperative_chemotaxis_system()
 
 # output
 

@@ -1,11 +1,11 @@
 using Test
-using PWS
+using PathWeightSampling
 using DiffEqJump
 using Catalyst
 using StaticArrays
 
-traj = PWS.Trajectory([SA[1,4], SA[2,5], SA[3,6]], [1.0, 2.0, 3.0], [1, 1])
-traj_mat = PWS.Trajectory([1 2 3; 4 5 6], [1.0, 2.0, 3.0], [1, 1])
+traj = PathWeightSampling.Trajectory([SA[1,4], SA[2,5], SA[3,6]], [1.0, 2.0, 3.0], [1, 1])
+traj_mat = PathWeightSampling.Trajectory([1 2 3; 4 5 6], [1.0, 2.0, 3.0], [1, 1])
 
 @test traj == traj_mat
 
@@ -26,9 +26,9 @@ discrete_prob = DiscreteProblem(u0, tspan, [])
 jump_prob = JumpProblem(sn, discrete_prob, Direct())
 
 integrator = init(jump_prob, SSAStepper(), tstops=Float64[])
-ssa_iter = PWS.SSAIter(integrator)
+ssa_iter = PathWeightSampling.SSAIter(integrator)
 
-traj_sol = PWS.collect_trajectory(ssa_iter)
+traj_sol = PathWeightSampling.collect_trajectory(ssa_iter)
 @test length(traj_sol.i) == length(traj_sol) 
 sol = integrator.sol
 for i in eachindex(sol)
@@ -47,7 +47,7 @@ for i in 1:length(traj_sol)-1
 end
 
 # test SSAIterator
-iterator = PWS.SSAIter(init(jump_prob, SSAStepper()))
+iterator = PathWeightSampling.SSAIter(init(jump_prob, SSAStepper()))
 collected_values = collect(iterator)
 times = getindex.(collected_values, 2)
 @test times[begin] > 0.0
@@ -55,9 +55,9 @@ times = getindex.(collected_values, 2)
 @test issorted(times)
 @test allunique(times)
 
-traj2 = PWS.Trajectory([[1,4], [2,5], [3,6]], [0.5, 1.5, 2.5], [2, 4, 0])
+traj2 = PathWeightSampling.Trajectory([[1,4], [2,5], [3,6]], [0.5, 1.5, 2.5], [2, 4, 0])
 
-joint = traj |> PWS.MergeWith(traj2)
+joint = traj |> PathWeightSampling.MergeWith(traj2)
 
 @test collect(joint) == [
     ([1,4,1,4], 0.5, 2),
@@ -80,7 +80,7 @@ discrete_prob = DiscreteProblem(u0, tspan, [])
 jump_prob = JumpProblem(network, discrete_prob, Direct())
 integrator = init(jump_prob, SSAStepper())
 
-partial = PWS.sub_trajectory(PWS.SSAIter(integrator), [1])
+partial = PathWeightSampling.sub_trajectory(PathWeightSampling.SSAIter(integrator), [1])
 sol = integrator.sol
 for i in eachindex(partial.t)
     @test partial.t[i] ∈ vcat(sol.t, 100.0)
@@ -89,18 +89,18 @@ end
 
 
 # test driven jump problem
-import PWS
-using PWS: DrivenJumpProblem
+import PathWeightSampling
+using PathWeightSampling: DrivenJumpProblem
 
-cb_traj = PWS.Trajectory([[50], [110], [120], [130]], [30.0, 60.0, 90.0, 100.0])
+cb_traj = PathWeightSampling.Trajectory([[50], [110], [120], [130]], [30.0, 60.0, 90.0, 100.0])
 u0 = [50.0]
 tspan = (0., 100.)
 discrete_prob = DiscreteProblem(sn, u0, tspan, [])
 jump_prob = JumpProblem(sn, discrete_prob, Direct())
 djp = DrivenJumpProblem(jump_prob, cb_traj)
 integrator = init(djp)
-iter = PWS.SSAIter(integrator)
-traj = iter |> PWS.collect_trajectory
+iter = PathWeightSampling.SSAIter(integrator)
+traj = iter |> PathWeightSampling.collect_trajectory
 
 for t in [30, 60, 90] @test t ∈ traj.t end
 @test traj(30.0)[1] == 110

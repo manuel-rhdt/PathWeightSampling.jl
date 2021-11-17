@@ -31,7 +31,7 @@ using Distributed
     import JSON
     using Logging
     using HDF5
-    using PWS
+    using PathWeightSampling
 end
 
 f = ARGS[1]
@@ -57,14 +57,14 @@ end
 @info "Parameters" dict
 @info "Algorithm" algorithm
 
-system_fn = () -> PWS.gene_expression_system(
+system_fn = () -> PathWeightSampling.gene_expression_system(
     mean_s = dict["mean_s"],
     corr_time_s = dict["corr_time_s"],
     corr_time_x = dict["corr_time_s"] / dict["corr_time_ratio"],
     dtimes = dict["dtimes"]
 )
 
-mi = PWS.run_parallel(system_fn, algorithm, dict["num_samples"])
+mi = PathWeightSampling.run_parallel(system_fn, algorithm, dict["num_samples"])
 result = Dict(
     "Samples" => mi, 
     "Parameters" => dict
@@ -72,7 +72,7 @@ result = Dict(
 
 filename = f * ".hdf5"
 h5open(filename, "w") do file
-    PWS.write_hdf5!(file, result)
+    PathWeightSampling.write_hdf5!(file, result)
 end
 @info "Saved to" filename
 ```

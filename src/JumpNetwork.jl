@@ -87,7 +87,7 @@ output trajectories (`output_network`).
 Create a `SimpleSystem` from a set of coupled birth-death processes.
 
 ```jldoctest
-using PWS, Catalyst, StaticArrays
+using PathWeightSampling, Catalyst, StaticArrays
 
 sn = @reaction_network begin
     κ, ∅ --> 2L
@@ -104,7 +104,7 @@ dtimes = 0:0.5:10.0
 ps = [5.0, 1.0]
 px = [3.0, 0.1]
 
-system = PWS.SimpleSystem(sn, xn, u0, ps, px, dtimes)
+system = PathWeightSampling.SimpleSystem(sn, xn, u0, ps, px, dtimes)
 
 # output
 
@@ -209,7 +209,7 @@ and one that generates the output trajectories (`xn`).
 # Examples
 
 ```jldoctest
-using PWS, Catalyst, StaticArrays
+using PathWeightSampling, Catalyst, StaticArrays
 
 sn = @reaction_network begin
     κ, ∅ --> 2L
@@ -234,7 +234,7 @@ ps = [5.0, 1.0]
 pr = [1.0, 4.0, 1.0, 2.0]
 px = [1.0, 1.0]
 
-system = PWS.ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
+system = PathWeightSampling.ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
 
 # output
 

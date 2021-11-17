@@ -5,7 +5,7 @@ export DrivenJumpProblem
 
 using DiffEqJump
 using CommonSolve
-using PWS: Trajectory
+using PathWeightSampling: Trajectory
 
 """
     IdentityMap()

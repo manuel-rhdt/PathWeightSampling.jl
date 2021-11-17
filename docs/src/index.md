@@ -1,6 +1,6 @@
-# PWS.jl
+# PathWeightSampling.jl
 
-PWS.jl is a Julia package to compute information transmission rates using the Path Weight Sampling (PWS) method.
+PathWeightSampling.jl is a Julia package to compute information transmission rates using the Path Weight Sampling (PWS) method.
 
 ## Background
 
@@ -38,12 +38,12 @@ PWS is a novel method to compute the mutual information between input and output
 
 From the Julia REPL, type
 ```
-julia> import Pkg; Pkg.add("PWS")
+julia> import Pkg; Pkg.add("PathWeightSampling")
 ```
 
 Alternatively, you can install this package by starting Julia, typing `]` and then
 ```
-pkg> add PWS
+pkg> add PathWeightSampling
 ```
 
 ## Acknowledgments

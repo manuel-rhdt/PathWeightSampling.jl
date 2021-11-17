@@ -1,27 +1,27 @@
-# PWS.jl
+# PathWeightSampling.jl
 
-[![CI](https://github.com/manuel-rhdt/PWS.jl/actions/workflows/ci-pipeline.yml/badge.svg)](https://github.com/manuel-rhdt/PWS.jl/actions/workflows/ci-pipeline.yml)
-[![codecov](https://codecov.io/gh/manuel-rhdt/PWS.jl/branch/master/graph/badge.svg?token=Q0JFR9RBZ6)](https://codecov.io/gh/manuel-rhdt/PWS.jl)
+[![CI](https://github.com/manuel-rhdt/PathWeightSampling.jl/actions/workflows/ci-pipeline.yml/badge.svg)](https://github.com/manuel-rhdt/PathWeightSampling.jl/actions/workflows/ci-pipeline.yml)
+[![codecov](https://codecov.io/gh/manuel-rhdt/PathWeightSampling.jl/branch/master/graph/badge.svg?token=Q0JFR9RBZ6)](https://codecov.io/gh/manuel-rhdt/PathWeightSampling.jl)
 
-PWS.jl is a Julia package to compute information transmission rates using the novel Path Weight Sampling (PWS) method.
+PathWeightSampling.jl is a Julia package to compute information transmission rates using the novel Path Weight Sampling (PWS) method.
 
 ## Documentation
 
-The [documentation for PWS.jl](https://manuel-rhdt.github.io/PWS.jl/) is hosted on github.
+The [documentation for PathWeightSampling.jl](https://manuel-rhdt.github.io/PathWeightSampling.jl/) is hosted on github.
 
 ## Installation
 
 From the Julia REPL, type
 ```
-julia> import Pkg; Pkg.add("PWS")
+julia> import Pkg; Pkg.add("PathWeightSampling")
 ```
 
 Alternatively, you can install this package by starting Julia, typing `]` and then
 ```
-pkg> add PWS
+pkg> add PathWeightSampling
 ```
 
-Examples and a guide can be found in the [documentation](https://manuel-rhdt.github.io/PWS.jl/)
+Examples and a guide can be found in the [documentation](https://manuel-rhdt.github.io/PathWeightSampling.jl/)
 
 ## Acknowledgments
 

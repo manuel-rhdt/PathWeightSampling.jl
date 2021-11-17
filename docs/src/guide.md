@@ -1,6 +1,6 @@
 # Guide
 
-In this section we will show step by step how PWS.jl can be used to compute the mutual information for a simple model of gene expression.
+In this section we will show step by step how PathWeightSampling.jl can be used to compute the mutual information for a simple model of gene expression.
 
 ## Setting Up the System
 
@@ -20,11 +20,11 @@ reaction 4:  X ---> ∅
 ```
 The first two reactions specify the evolution of the input signal `S`, and last two reactions specify the evolution of the output `X`. Thus, both the input and output signal are modeled as a simple birth-death process, however the birth rate of `X` increases with higher copy numbers of  `S`.
 
-The first step is to create the system that we are going to use. The simple gene expression model shown above is already included as an example in PWS.jl and can be directly used as follows:
+The first step is to create the system that we are going to use. The simple gene expression model shown above is already included as an example in PathWeightSampling.jl and can be directly used as follows:
 ```@example 1
-using PWS
+using PathWeightSampling
 
-system = PWS.gene_expression_system()
+system = PathWeightSampling.gene_expression_system()
 ```
 The result is a `system` consisting of the 4 reactions mentioned above and default values for the initial condition and the parameters that specify the reaction rates.
 
@@ -61,7 +61,7 @@ savefig("plot2.svg"); nothing # hide
 
 For our system we can compute the trajectory mutual information straightforwardly. 
 ```@example 1
-result = PWS.mutual_information(system, DirectMCEstimate(256), num_samples=100)
+result = PathWeightSampling.mutual_information(system, DirectMCEstimate(256), num_samples=100)
 nothing # hide
 ```
 
@@ -142,14 +142,14 @@ strategies = [
     TIEstimate(0, 8, 16), 
     # AnnealingEstimate(0, 128, 1)
 ]
-results = [PWS.mutual_information(system, strat, num_samples=100, progress=false) for strat in strategies]
+results = [PathWeightSampling.mutual_information(system, strat, num_samples=100, progress=false) for strat in strategies]
 
 plot()
 for (strat, r) in zip(strategies, results)
     plot!(
         system.dtimes, 
         mean(r.MutualInformation),
-        label=PWS.name(strat),
+        label=PathWeightSampling.name(strat),
         xlabel="trajectory duration",
         ylabel="mutual information (nats)"
     )
@@ -162,7 +162,7 @@ savefig("plot6.svg"); nothing # hide
 
 ## API Summary
 
-Thus, the core function to estimate the trajectory mutual information is `PWS.mutual_information`. A complete description of its arguments and return value is given below.
+Thus, the core function to estimate the trajectory mutual information is `PathWeightSampling.mutual_information`. A complete description of its arguments and return value is given below.
 ```@docs
-PWS.mutual_information
+PathWeightSampling.mutual_information
 ```

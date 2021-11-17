@@ -1,4 +1,4 @@
-module PWS
+module PathWeightSampling
 
 using Distributions
 using DiffEqBase: AbstractJumpProblem

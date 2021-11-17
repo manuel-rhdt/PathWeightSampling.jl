@@ -27,7 +27,7 @@ function run_parallel(systemfn, algorithm, num_samples)
 
     @everywhere begin
         system = $systemfn()
-        global compiled_system = PWS.compile(system)
+        global compiled_system = PathWeightSampling.compile(system)
     end
 
     channel = RemoteChannel(()->Channel())

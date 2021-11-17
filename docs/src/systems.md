@@ -1,11 +1,11 @@
 
 # Systems
 
-## Example Systems included in PWS.jl
+## Example Systems included in PathWeightSampling.jl
 
 ```@docs
-PWS.gene_expression_system
-PWS.cooperative_chemotaxis_system
+PathWeightSampling.gene_expression_system
+PathWeightSampling.cooperative_chemotaxis_system
 ```
 
 ## Create a New System
@@ -22,6 +22,6 @@ constructed using the API from Catalyst.jl.
 
 
 ```@docs
-PWS.SimpleSystem
-PWS.ComplexSystem
+PathWeightSampling.SimpleSystem
+PathWeightSampling.ComplexSystem
 ```
