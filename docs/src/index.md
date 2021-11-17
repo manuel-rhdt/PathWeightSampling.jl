@@ -49,7 +49,7 @@ pkg> add PathWeightSampling
 ## Acknowledgments
 
 This work was performed at the research institute [AMOLF](https://amolf.nl).
-This project has received funding from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation program (grant agreement No.~885065)
+This project has received funding from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation program (grant agreement No. 885065)
 and was financially supported by the Dutch Research Council (NWO) through the “Building a Synthetic Cell (BaSyC)” Gravitation grant (024.003.019).
 
 [![Logo NWO](assets/logo-nwo.svg)](https://www.nwo.nl)
