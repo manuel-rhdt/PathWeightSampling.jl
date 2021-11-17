@@ -133,7 +133,7 @@ struct SimpleSystem <: JumpNetwork
 
     dtimes
 
-    jump_problem::AbstractJumpProblem
+    jump_problem::DiffEqBase.AbstractJumpProblem
     dist::TrajectoryDistribution
 end
 

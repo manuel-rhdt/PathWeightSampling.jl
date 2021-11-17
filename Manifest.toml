@@ -22,12 +22,6 @@ git-tree-sha1 = "dedbbb2ddb876f899585c4ec4433265e3017215a"
 uuid = "dce04be8-c92d-5529-be00-80e4d2c0e197"
 version = "2.1.0"
 
-[[ArgParse]]
-deps = ["Logging", "TextWrap"]
-git-tree-sha1 = "3102bce13da501c9104df33549f511cd25264d7d"
-uuid = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
-version = "1.1.4"
-
 [[ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 
@@ -204,9 +198,9 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DiffEqBase]]
 deps = ["ArrayInterface", "ChainRulesCore", "DEDataArrays", "DataStructures", "Distributions", "DocStringExtensions", "FastBroadcast", "ForwardDiff", "FunctionWrappers", "IterativeSolvers", "LabelledArrays", "LinearAlgebra", "Logging", "MuladdMacro", "NonlinearSolve", "Parameters", "PreallocationTools", "Printf", "RecursiveArrayTools", "RecursiveFactorization", "Reexport", "Requires", "SciMLBase", "Setfield", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "ZygoteRules"]
-git-tree-sha1 = "420ad175d5e420e2c55a0ed8a9c18556e6735f80"
+git-tree-sha1 = "d5bc9f2ad2166d4527f9dffc5d1ea5c9769ba79e"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "6.73.2"
+version = "6.74.0"
 
 [[DiffEqCallbacks]]
 deps = ["DataStructures", "DiffEqBase", "ForwardDiff", "LinearAlgebra", "NLsolve", "OrdinaryDiffEq", "Parameters", "RecipesBase", "RecursiveArrayTools", "StaticArrays"]
@@ -264,12 +258,6 @@ version = "0.5.7"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
-[[DrWatson]]
-deps = ["Dates", "FileIO", "LibGit2", "MacroTools", "Pkg", "Random", "Requires", "UnPack"]
-git-tree-sha1 = "d6aa02ad618cf31af9bbbf87f87baad632538211"
-uuid = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
-version = "2.5.0"
-
 [[DynamicPolynomials]]
 deps = ["DataStructures", "Future", "LinearAlgebra", "MultivariatePolynomials", "MutableArithmetics", "Pkg", "Reexport", "Test"]
 git-tree-sha1 = "05b68e727a192783be0b34bd8fee8f678505c0bf"
@@ -309,12 +297,6 @@ deps = ["LinearAlgebra", "SpecialFunctions", "StaticArrays"]
 git-tree-sha1 = "5829b25887e53fb6730a9df2ff89ed24baa6abf6"
 uuid = "442a2c76-b920-505d-bb47-c5924d526838"
 version = "0.4.7"
-
-[[FileIO]]
-deps = ["Pkg", "Requires", "UUIDs"]
-git-tree-sha1 = "3c041d2ac0a52a12a27af2782b34900d9c3ee68c"
-uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
-version = "1.11.1"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
@@ -941,11 +923,6 @@ uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 [[Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[[TextWrap]]
-git-tree-sha1 = "9250ef9b01b66667380cf3275b3f7488d0e25faf"
-uuid = "b718987f-49a8-5099-9789-dcd902bef87d"
-version = "1.0.1"
 
 [[ThreadingUtilities]]
 deps = ["ManualMemory"]

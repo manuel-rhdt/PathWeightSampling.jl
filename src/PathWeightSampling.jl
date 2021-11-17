@@ -1,8 +1,8 @@
 module PathWeightSampling
 
 using Distributions
-using DiffEqBase: AbstractJumpProblem
-using DiffEqJump: DiffEqBase
+import DiffEqBase
+using DiffEqJump
 include("trajectories/trajectory.jl")
 include("EventIter.jl")
 include("MetropolisSampler.jl")
