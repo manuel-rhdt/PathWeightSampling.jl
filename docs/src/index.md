@@ -34,4 +34,24 @@ where ``\bm{S}_T`` and ``\bm{X}_T`` are trajectory-valued random variables of tr
 
 PWS is a novel method to compute the mutual information between input and output trajectories for systems described by a master equation. 
 
+## Installation
 
+From the Julia REPL, type
+```
+julia> import Pkg; Pkg.add("PWS")
+```
+
+Alternatively, you can install this package by starting Julia, typing `]` and then
+```
+pkg> add PWS
+```
+
+## Acknowledgments
+
+This work is part of the Dutch Research Council (NWO) and was performed at the research institute [AMOLF](https://amolf.nl).
+This project has received funding from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation program (grant agreement No.~885065)
+and was financially supported by NWO through the “Building a Synthetic Cell (BaSyC)” Gravitation grant (024.003.019).
+
+![Logo NWO](assets/logo-nwo.svg)
+![Logo AMOLF](assets/logo-amolf.svg)
+![Logo BaSyC](assets/logo-basyc.png)
