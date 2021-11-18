@@ -1,5 +1,5 @@
 using Catalyst
-using PathWeightSampling
+using PathWeightSampling: ComplexSystem
 using StaticArrays
 using Test
 

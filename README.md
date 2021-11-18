@@ -60,6 +60,7 @@ a PWS simulation to compute the mutual information between its input and output 
 julia> result = mutual_information(system, DirectMCEstimate(256), num_samples=1000)
 ```
 
+Here we just made a default choice for which marginalization algorithm to use (see [documentation](https://manuel-rhdt.github.io/PathWeightSampling.jl/) for more details).
 This computation takes approximately a minute on a typical laptop. The result is a 
 `DataFrame` with three columns and 1000 rows:
 
@@ -85,7 +86,9 @@ julia> system.dtimes
 0.0:0.1:2.0
 ```
 
-We can plot the results (assuming Plots.jl is installed):
+So we computed the mutual information for trajectories of duration `0.0, 0.1, 0.2, ..., 2.0`.
+
+We can plot the results (assuming the package Plots.jl is installed):
 
 ```
 julia> using Plots, Statistics
@@ -99,6 +102,8 @@ julia> plot(
 ```
 
 ![Plot of the mutual information as a function of trajectory duration for the simple gene expression system.](docs/src/assets/example_plot.svg)
+
+Here we plot `mean(result.MutualInformation)`, i.e. we compute the average of our Monte Carlo samples, which is the PWS estimate for the mutual information.
 
 More examples and a guide can be found in the [documentation](https://manuel-rhdt.github.io/PathWeightSampling.jl/)
 
