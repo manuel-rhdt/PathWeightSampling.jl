@@ -20,10 +20,7 @@ include("ParallelRun.jl")
 
 using .DrivenJumpProblems
 
-export JumpSystem, 
-    GaussianSystem, marginal_entropy, conditional_entropy, 
-    TIEstimate, AnnealingEstimate, DirectMCEstimate, SMCEstimate,
-    generate_configuration, ComplexSystem,
-    mutual_information
+export TIEstimate, AnnealingEstimate, DirectMCEstimate, SMCEstimate,
+    generate_configuration, mutual_information
 
 end # module
