@@ -1,6 +1,7 @@
 import ModelingToolkit
-import ModelingToolkit: build_function, ReactionSystem, substitute
+import ModelingToolkit: build_function, substitute
 import Catalyst
+import Catalyst: ReactionSystem
 using StaticArrays
 using Transducers
 import Base.show

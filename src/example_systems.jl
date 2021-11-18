@@ -368,7 +368,7 @@ function cooperative_chemotaxis_system(;
         Catalyst.addreaction!(xn, phosphorylation)
     end
 
-    joint = merge(merge(sn, rn), xn)
+    joint = ModelingToolkit.extend(ModelingToolkit.extend(sn, rn), xn)
 
     u0 = zeros(Int, length(spmap) + 3)
     u0[1] = round(Int, mean_l)

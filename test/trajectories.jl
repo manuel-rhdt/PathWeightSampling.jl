@@ -72,7 +72,7 @@ rn = @reaction_network begin
     0.01, X --> ∅ 
 end
 
-network = merge(sn, rn)
+network = ModelingToolkit.extend(sn, rn)
 
 u0 = [50.0,50.0]
 tspan = (0., 100.)

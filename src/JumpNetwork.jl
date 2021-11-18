@@ -138,7 +138,7 @@ struct SimpleSystem <: JumpNetwork
 end
 
 function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist=nothing)
-    joint = merge(sn, xn)
+    joint = ModelingToolkit.extend(sn, xn)
 
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, px)
@@ -279,7 +279,7 @@ struct ComplexSystem <: JumpNetwork
 end
 
 function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())
-    joint = merge(merge(sn, rn), xn)
+    joint = ModelingToolkit.extend(ModelingToolkit.extend(sn, rn), xn)
 
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, pr, px)
@@ -350,8 +350,8 @@ conditional_density(csrx::CompiledComplexSystem, algorithm, conf::SRXconfigurati
 
 tspan(sys::JumpNetwork) = (first(sys.dtimes), last(sys.dtimes))
 
-reaction_network(system::SimpleSystem) = merge(system.sn, system.xn)
-reaction_network(system::ComplexSystem) = merge(merge(system.sn, system.rn), system.xn)
+reaction_network(system::SimpleSystem) = ModelingToolkit.extend(system.sn, system.xn)
+reaction_network(system::ComplexSystem) = ModelingToolkit.extend(ModelingToolkit.extend(system.sn, system.rn), system.xn)
 
 function _solve(system::SimpleSystem)
     sol = solve(system.jump_problem, SSAStepper())
@@ -438,8 +438,8 @@ function MarginalEnsemble(system::SimpleSystem)
 end
 
 function MarginalEnsemble(system::ComplexSystem)
-    sr_network = merge(system.sn, system.rn)
-    joint = merge(sr_network, system.xn)
+    sr_network = ModelingToolkit.extend(system.sn, system.rn)
+    joint = ModelingToolkit.extend(sr_network, system.xn)
     sr_idxs = species_indices(joint, Catalyst.species(sr_network))
 
     dprob = DiscreteProblem(sr_network, sample_initial_condition(system.u0)[sr_idxs], tspan(system), vcat(system.ps, system.pr))
@@ -450,7 +450,7 @@ end
 
 
 function ConditionalEnsemble(system::ComplexSystem)
-    joint = merge(merge(system.sn, system.rn), system.xn)
+    joint = ModelingToolkit.extend(ModelingToolkit.extend(system.sn, system.rn), system.xn)
     r_idxs = species_indices(joint, Catalyst.species(system.rn))
     dprob = DiscreteProblem(system.rn, sample_initial_condition(system.u0)[r_idxs], (first(system.dtimes), last(system.dtimes)), system.pr)
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, Direct(), save_positions=(false, false))
