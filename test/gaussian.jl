@@ -1,4 +1,4 @@
-using PathWeightSampling
+using PathWeightSampling: GaussianSystem
 using Distributions
 using Test
 using LinearAlgebra
