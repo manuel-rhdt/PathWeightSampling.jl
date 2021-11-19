@@ -17,7 +17,7 @@ end
 
 cond_ens = PathWeightSampling.ConditionalEnsemble(system)
 for t in 0:0.1:10
-    u0 = PathWeightSampling.sample_initial_condition(cond_ens)
+    local u0 = PathWeightSampling.sample_initial_condition(cond_ens)
     u_new, weight = PathWeightSampling.propagate(conf, cond_ens, u0, (0.0, t))
     @test size(u0) == size(u_new)
     @test sum(u0[2:end]) == sum(u_new[2:end]) # this is true because the total number of receptors must be a constant

@@ -138,7 +138,7 @@ struct SimpleSystem <: JumpNetwork
 end
 
 function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist=nothing)
-    joint = ModelingToolkit.extend(sn, xn)
+    joint = ModelingToolkit.extend(xn, sn)
 
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, px)
@@ -177,11 +177,11 @@ function Base.show(io::IO, ::MIME"text/plain", system::SimpleSystem)
         print(io, "\n", system.u0)
     end
     print(io, "\nParameters:")
-    p_names = Catalyst.params(system.sn)
+    p_names = Catalyst.reactionparams(system.sn)
     for i in eachindex(p_names)
         print(io, "\n    ", p_names[i], " = ", system.ps[i])
     end
-    p_names = Catalyst.params(system.xn)
+    p_names = Catalyst.reactionparams(system.xn)
     for i in eachindex(p_names)
         print(io, "\n    ", p_names[i], " = ", system.px[i])
     end
@@ -279,7 +279,7 @@ struct ComplexSystem <: JumpNetwork
 end
 
 function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())
-    joint = ModelingToolkit.extend(ModelingToolkit.extend(sn, rn), xn)
+    joint = ModelingToolkit.extend(xn, ModelingToolkit.extend(rn, sn))
 
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, pr, px)
@@ -324,15 +324,15 @@ function Base.show(io::IO, ::MIME"text/plain", system::ComplexSystem)
         print(io, "\n", system.u0)
     end
     print(io, "\nParameters:")
-    p_names = Catalyst.params(system.sn)
+    p_names = Catalyst.reactionparams(system.sn)
     for i in eachindex(p_names)
         print(io, "\n    ", p_names[i], " = ", system.ps[i])
     end
-    p_names = Catalyst.params(system.rn)
+    p_names = Catalyst.reactionparams(system.rn)
     for i in eachindex(p_names)
         print(io, "\n    ", p_names[i], " = ", system.pr[i])
     end
-    p_names = Catalyst.params(system.xn)
+    p_names = Catalyst.reactionparams(system.xn)
     for i in eachindex(p_names)
         print(io, "\n    ", p_names[i], " = ", system.px[i])
     end
@@ -350,8 +350,8 @@ conditional_density(csrx::CompiledComplexSystem, algorithm, conf::SRXconfigurati
 
 tspan(sys::JumpNetwork) = (first(sys.dtimes), last(sys.dtimes))
 
-reaction_network(system::SimpleSystem) = ModelingToolkit.extend(system.sn, system.xn)
-reaction_network(system::ComplexSystem) = ModelingToolkit.extend(ModelingToolkit.extend(system.sn, system.rn), system.xn)
+reaction_network(system::SimpleSystem) = ModelingToolkit.extend(system.xn, system.sn)
+reaction_network(system::ComplexSystem) = ModelingToolkit.extend(system.xn, ModelingToolkit.extend(system.rn, system.sn))
 
 function _solve(system::SimpleSystem)
     sol = solve(system.jump_problem, SSAStepper())
@@ -438,8 +438,8 @@ function MarginalEnsemble(system::SimpleSystem)
 end
 
 function MarginalEnsemble(system::ComplexSystem)
-    sr_network = ModelingToolkit.extend(system.sn, system.rn)
-    joint = ModelingToolkit.extend(sr_network, system.xn)
+    sr_network = ModelingToolkit.extend(system.rn, system.sn)
+    joint = ModelingToolkit.extend(system.xn, sr_network)
     sr_idxs = species_indices(joint, Catalyst.species(sr_network))
 
     dprob = DiscreteProblem(sr_network, sample_initial_condition(system.u0)[sr_idxs], tspan(system), vcat(system.ps, system.pr))
@@ -450,7 +450,7 @@ end
 
 
 function ConditionalEnsemble(system::ComplexSystem)
-    joint = ModelingToolkit.extend(ModelingToolkit.extend(system.sn, system.rn), system.xn)
+    joint = ModelingToolkit.extend(system.xn, ModelingToolkit.extend(system.rn, system.sn))
     r_idxs = species_indices(joint, Catalyst.species(system.rn))
     dprob = DiscreteProblem(system.rn, sample_initial_condition(system.u0)[r_idxs], (first(system.dtimes), last(system.dtimes)), system.pr)
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, Direct(), save_positions=(false, false))

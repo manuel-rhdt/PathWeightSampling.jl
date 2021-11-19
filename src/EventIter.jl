@@ -73,7 +73,7 @@ Base.size(ch::Chain) = size(ch.head) .+ size(ch.tail)
 Base.getindex(ch::Chain{V}, i::Int) where {V} = convert(V, i > length(ch.head) ? ch.tail[i - length(ch.head)] : ch.head[i])
 Base.setindex!(ch::Chain, v, i::Int) = i > length(ch.head) ? ch.tail[i - length(ch.head)] = v : ch.head[i] = v
 
-# ModelingToolkit.extend more than 2 trajectories using recursion
+# merge more than 2 trajectories using recursion
 merge_trajectories(traj) = traj
 function merge_trajectories(traj1, traj2)
     traj1 |> MergeWith(traj2)

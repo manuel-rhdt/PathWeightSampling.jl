@@ -1,6 +1,7 @@
 import Catalyst
 import Catalyst:@reaction_network
 import ModelingToolkit
+import ModelingToolkit: FnType
 using Transducers
 
 """
@@ -208,6 +209,8 @@ Create a system for a complex chemotaxis model.
 
 This model describes the bacterial chemotaxis signaling network.
 
+
+
 ```
 Rml -> Rm(l+1), with rate kon L(t) (lmax - l): ligand binding to active state
 Rm(l+1) -> Rml, with rate koff_A l: ligand unbinding
@@ -333,7 +336,7 @@ function cooperative_chemotaxis_system(;
 
     spmap = Dict()
     for l=0:lmax, m=0:mmax
-        receptor_species = ModelingToolkit.Num(ModelingToolkit.Variable{ModelingToolkit.FnType{Tuple{Any},Real}}(Symbol("R_", l, "_", m)))(t)
+        receptor_species = ModelingToolkit.Num(ModelingToolkit.variable(Symbol("R_", l, "_", m), T=FnType{Tuple{Any}, Real}))(t)
 
         spmap[(l, m)] = receptor_species
 
@@ -368,7 +371,7 @@ function cooperative_chemotaxis_system(;
         Catalyst.addreaction!(xn, phosphorylation)
     end
 
-    joint = ModelingToolkit.extend(ModelingToolkit.extend(sn, rn), xn)
+    joint = ModelingToolkit.extend(xn, ModelingToolkit.extend(rn, sn))
 
     u0 = zeros(Int, length(spmap) + 3)
     u0[1] = round(Int, mean_l)
