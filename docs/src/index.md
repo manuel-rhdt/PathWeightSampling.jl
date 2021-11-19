@@ -124,7 +124,7 @@ julia> plot(
        )
 ```
 
-![Plot of the mutual information as a function of trajectory duration for the simple gene expression system.](docs/src/assets/example_plot.svg)
+![Plot of the mutual information as a function of trajectory duration for the simple gene expression system.](assets/example_plot.svg)
 
 Here we plot `mean(result.MutualInformation)`, i.e. we compute the average of our Monte Carlo samples, which is the PWS estimate for the mutual information.
 
