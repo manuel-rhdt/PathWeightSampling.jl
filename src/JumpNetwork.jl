@@ -359,8 +359,9 @@ end
 
 function generate_configuration(system::SimpleSystem)
     joint = reaction_network(system)
-    jp = remake(system.jump_problem, u0=sample_initial_condition(system.u0))
-    integrator = init(jp, SSAStepper(), tstops=())
+    u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
+    jp = remake(system.jump_problem, u0 = u0)
+    integrator = init(jp, SSAStepper(), tstops = ())
     trajectory_iter = SSAIter(integrator)
     trajectory = trajectory_iter |> collect_trajectory
 
@@ -383,8 +384,9 @@ end
 function generate_configuration(system::ComplexSystem)
     # we first generate a joint SRX trajectory
     joint = reaction_network(system)
-    jp = remake(system.jump_problem, u0=sample_initial_condition(system.u0))
-    integrator = init(jp, SSAStepper(), tstops=())
+    u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
+    jp = remake(system.jump_problem, u0=u0)
+    integrator = init(jp, SSAStepper(), tstops = ())
     trajectory = SSAIter(integrator) |> collect_trajectory
 
     # then we extract the signal
@@ -396,7 +398,7 @@ function generate_configuration(system::ComplexSystem)
     r_spec = independent_species(system.rn)
     r_idxs = sort(SVector(species_indices(joint, r_spec)...))
     r_traj = sub_trajectory(trajectory, r_idxs)
-    
+
     # finally we extract the X part from the SRX trajectory
     x_spec = independent_species(system.xn)
     x_idxs = sort(SVector(species_indices(joint, x_spec)...))
