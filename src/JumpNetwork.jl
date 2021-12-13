@@ -137,7 +137,7 @@ struct SimpleSystem <: JumpNetwork
     dist::TrajectoryDistribution
 end
 
-function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist = nothing, aggregator=Direct())
+function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist = nothing; aggregator=Direct())
     joint = ModelingToolkit.extend(xn, sn)
 
     tp = (first(dtimes), last(dtimes))

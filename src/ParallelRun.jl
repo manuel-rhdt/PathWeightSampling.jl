@@ -13,7 +13,7 @@ end
 
 const MAX_BATCH_SIZE = 1
 
-function run_parallel(systemfn, algorithm, num_samples)
+function run_parallel(systemfn, algorithm, num_samples; compile_args = (;))
     batches = Int[]
 
     N = num_samples
@@ -27,10 +27,10 @@ function run_parallel(systemfn, algorithm, num_samples)
 
     @everywhere begin
         system = $systemfn()
-        global compiled_system = PathWeightSampling.compile(system)
+        global compiled_system = PathWeightSampling.compile(system; $compile_args...)
     end
 
-    channel = RemoteChannel(()->Channel())
+    channel = RemoteChannel(() -> Channel())
     @info "Starting Parallel computation"
     result = @sync begin
         # display progress
