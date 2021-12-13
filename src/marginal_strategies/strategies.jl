@@ -47,9 +47,9 @@ the columns can be accessed by:
 - `result.TimeMarginal`: A vector containing, for each sample, the CPU time in seconds used for the computation of the marginal entropy.
 - `result.TimeConditional`: A vector containing, for each sample, the CPU time in seconds used for the computation of the conditional entropy.
 """
-function mutual_information(system, algorithm; num_samples::Integer=1, progress=true)
+function mutual_information(system, algorithm; num_samples::Integer=1, progress=true, compile_args)
     # initialize the ensembles
-    compiled_system = compile(system)
+    compiled_system = compile(system; compile_args...)
 
     # this is the outer Direct Monte-Carlo loop
     # result = Base.invokelatest(_mi_inner, compiled_system, algorithm, num_samples)

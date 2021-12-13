@@ -137,13 +137,13 @@ struct SimpleSystem <: JumpNetwork
     dist::TrajectoryDistribution
 end
 
-function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist = nothing)
+function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist = nothing, aggregator=Direct())
     joint = ModelingToolkit.extend(xn, sn)
 
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, px)
     dprob = DiscreteProblem(joint, sample_initial_condition(u0), tp, p)
-    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, joint), dprob, Direct(), save_positions = (false, false))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, joint), dprob, aggregator, save_positions = (false, false))
 
     if dist === nothing
         update_map = build_update_map(joint, xn)
@@ -192,7 +192,7 @@ struct CompiledSimpleSystem{JP}
     marginal_ensemble::MarginalEnsemble{JP}
 end
 
-compile(s::SimpleSystem) = CompiledSimpleSystem(s, MarginalEnsemble(s))
+compile(s::SimpleSystem; aggregator = Direct()) = CompiledSimpleSystem(s, MarginalEnsemble(s; aggregator))
 marginal_density(csx::CompiledSimpleSystem, algorithm, conf::SXconfiguration) = log_marginal(simulate(algorithm, conf, csx.marginal_ensemble))
 conditional_density(csx::CompiledSimpleSystem, algorithm, conf::SXconfiguration) = -energy_difference(conf, csx.marginal_ensemble)
 
@@ -344,7 +344,7 @@ struct CompiledComplexSystem{JP,JPC,IXC,DXC}
     conditional_ensemble::ConditionalEnsemble{JPC,IXC,DXC}
 end
 
-compile(s::ComplexSystem) = CompiledComplexSystem(s, MarginalEnsemble(s), ConditionalEnsemble(s))
+compile(s::ComplexSystem; marginal_aggregator=Direct(), conditional_aggregator=Direct()) = CompiledComplexSystem(s, MarginalEnsemble(s; aggregator=marginal_aggregator), ConditionalEnsemble(s; aggregator=conditional_aggregator))
 marginal_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, marginal_configuration(conf), csrx.marginal_ensemble))
 conditional_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, conf, csrx.conditional_ensemble))
 
@@ -453,34 +453,34 @@ function build_update_map(joint::ReactionSystem, xn::ReactionSystem)
     update_map
 end
 
-function MarginalEnsemble(system::SimpleSystem)
+function MarginalEnsemble(system::SimpleSystem; aggregator = Direct())
     joint = reaction_network(system)
     s_idxs = species_indices(joint, Catalyst.species(system.sn))
 
     dprob = DiscreteProblem(system.sn, sample_initial_condition(system.u0)[s_idxs], tspan(system), system.ps)
-    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.sn), dprob, Direct(), save_positions = (false, false))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.sn), dprob, aggregator, save_positions = (false, false))
 
     u0 = system.u0 isa EmpiricalDistribution ? system.u0 : system.u0[s_idxs]
     MarginalEnsemble(jprob, system.dist, collect(system.dtimes), u0)
 end
 
-function MarginalEnsemble(system::ComplexSystem)
+function MarginalEnsemble(system::ComplexSystem; aggregator = Direct())
     sr_network = ModelingToolkit.extend(system.rn, system.sn)
     joint = ModelingToolkit.extend(system.xn, sr_network)
     sr_idxs = species_indices(joint, Catalyst.species(sr_network))
 
     dprob = DiscreteProblem(sr_network, sample_initial_condition(system.u0)[sr_idxs], tspan(system), vcat(system.ps, system.pr))
-    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, sr_network), dprob, Direct(), save_positions = (false, false))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, sr_network), dprob, aggregator, save_positions = (false, false))
 
     MarginalEnsemble(jprob, system.dist, collect(system.dtimes), system.u0[sr_idxs])
 end
 
 
-function ConditionalEnsemble(system::ComplexSystem)
+function ConditionalEnsemble(system::ComplexSystem; aggregator = Direct())
     joint = ModelingToolkit.extend(system.xn, ModelingToolkit.extend(system.rn, system.sn))
     r_idxs = species_indices(joint, Catalyst.species(system.rn))
     dprob = DiscreteProblem(system.rn, sample_initial_condition(system.u0)[r_idxs], (first(system.dtimes), last(system.dtimes)), system.pr)
-    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, Direct(), save_positions = (false, false))
+    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, aggregator, save_positions = (false, false))
 
     indep_species = independent_species(system.rn)
     indep_idxs = SVector(species_indices(system.rn, indep_species)...)
