@@ -69,7 +69,6 @@ function TrajectoryDistribution(reactions, update_map = 1:num_reactions)
     TrajectoryDistribution(reactions, agg)
 end
 
-myzero_fn(x) = 0.0
 distribution(rn::ReactionSystem, p; update_map=1:Catalyst.numreactions(rn)) = TrajectoryDistribution(ReactionSet(convert(ModelingToolkit.JumpSystem, rn), p), update_map)
 
 @fastmath function Distributions.logpdf(dist::TrajectoryDistribution, trajectory)::Float64
