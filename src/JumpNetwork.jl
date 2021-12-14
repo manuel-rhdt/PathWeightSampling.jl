@@ -357,7 +357,7 @@ function _solve(system::SimpleSystem)
     sol = solve(system.jump_problem, SSAStepper())
 end
 
-function generate_configuration(system::SimpleSystem)
+function generate_configuration(system::Union{SimpleSystem, ComplexSystem})
     joint = reaction_network(system)
     u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
     jp = remake(system.jump_problem, u0 = u0)
@@ -379,28 +379,6 @@ end
 
 function _solve(system::ComplexSystem)
     sol = solve(system.jump_problem, SSAStepper())
-end
-
-function generate_configuration(system::ComplexSystem)
-    joint = reaction_network(system)
-    u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
-    jp = remake(system.jump_problem, u0 = u0)
-
-    seed = rand(Int)
-
-    # then we extract the signal
-    traj1 = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
-    s_spec = independent_species(system.sn)
-    s_idxs = sort(SVector(species_indices(joint, s_spec)...))
-    s_traj = sub_trajectory(traj1, s_idxs)
-
-    # and the output trajectory
-    traj2 = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
-    x_spec = independent_species(system.xn)
-    x_idxs = sort(SVector(species_indices(joint, x_spec)...))
-    x_traj = sub_trajectory(traj2, x_idxs)
-
-    SXconfiguration(s_traj, x_traj)
 end
 
 function generate_full_configuration(system::ComplexSystem)
