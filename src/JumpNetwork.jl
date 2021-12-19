@@ -133,7 +133,7 @@ struct SimpleSystem <: JumpNetwork
 
     dtimes
 
-    jump_problem::DiffEqBase.AbstractJumpProblem
+    jump_problem
     dist::TrajectoryDistribution
 end
 
@@ -154,22 +154,21 @@ function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist = nothing; aggregator=Dir
 end
 
 function Base.show(io::IO, ::MIME"text/plain", system::SimpleSystem)
-    joint = reaction_network(system)
-    print(io, "SimpleSystem with ", Catalyst.numreactions(joint), " reactions\nInput variables: ")
-    ivars = independent_species(system.sn)
+    print(io, "SimpleSystem\nInput variables: ")
+    ivars = independent_variables(system.sn)
     print(io, ivars[1])
     for i = 2:length(ivars)
         print(io, ", ", ivars[i])
     end
     print(io, "\nOutput variables: ")
-    ovars = independent_species(system.xn)
+    ovars = independent_variables(system.xn)
     print(io, ovars[1])
     for i = 2:length(ovars)
         print(io, ", ", ovars[i])
     end
     print(io, "\nInitial condition:")
     if system.u0 isa AbstractVector
-        jvars = Catalyst.species(joint)
+        jvars = vcat(ivars, ovars)
         for i in eachindex(system.u0)
             print(io, "\n    ", jvars[i], " = ", system.u0[i])
         end
@@ -238,7 +237,7 @@ system = PathWeightSampling.ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
 
 # output
 
-ComplexSystem with 8 reactions
+ComplexSystem
 Input variables: L(t)
 Latent variables: R(t), LR(t), CheY(t), CheYp(t)
 Output variables: X(t)
@@ -262,9 +261,9 @@ Parameters:
 
 """
 struct ComplexSystem <: JumpNetwork
-    sn::ReactionSystem
-    rn::ReactionSystem
-    xn::ReactionSystem
+    sn
+    rn
+    xn
 
     u0::Union{AbstractVector,EmpiricalDistribution}
 
@@ -274,17 +273,11 @@ struct ComplexSystem <: JumpNetwork
 
     dtimes
 
-    jump_problem
     dist::TrajectoryDistribution
 end
 
 function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist = nothing; aggregator = Direct())
-    joint = ModelingToolkit.extend(xn, ModelingToolkit.extend(rn, sn))
-
     tp = (first(dtimes), last(dtimes))
-    p = vcat(ps, pr, px)
-    dprob = DiscreteProblem(joint, sample_initial_condition(u0), tp, p)
-    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, joint), dprob, aggregator, save_positions = (false, false))
 
     if dist === nothing
         update_map = build_update_map(joint, xn)
@@ -295,28 +288,27 @@ function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist = nothing; aggre
 end
 
 function Base.show(io::IO, ::MIME"text/plain", system::ComplexSystem)
-    joint = reaction_network(system)
-    print(io, "ComplexSystem with ", Catalyst.numreactions(joint), " reactions\nInput variables: ")
-    ivars = independent_species(system.sn)
+    print(io, "ComplexSystem\nInput variables: ")
+    ivars = independent_variables(system.sn)
     print(io, ivars[1])
     for i = 2:length(ivars)
         print(io, ", ", ivars[i])
     end
     print(io, "\nLatent variables: ")
-    lvars = independent_species(system.rn)
+    lvars = independent_variables(system.rn)
     print(io, lvars[1])
     for i = 2:length(lvars)
         print(io, ", ", lvars[i])
     end
     print(io, "\nOutput variables: ")
-    ovars = independent_species(system.xn)
+    ovars = independent_variables(system.xn)
     print(io, ovars[1])
     for i = 2:length(ovars)
         print(io, ", ", ovars[i])
     end
     print(io, "\nInitial condition:")
     if system.u0 isa AbstractVector
-        jvars = Catalyst.species(joint)
+        jvars = vcat(ivars, lvars, ovars)
         for i in eachindex(system.u0)
             print(io, "\n    ", jvars[i], " = ", system.u0[i])
         end
@@ -324,17 +316,10 @@ function Base.show(io::IO, ::MIME"text/plain", system::ComplexSystem)
         print(io, "\n", system.u0)
     end
     print(io, "\nParameters:")
-    p_names = Catalyst.reactionparams(system.sn)
+    p_names = vcat(Catalyst.reactionparams.([system.sn, system.rn, system.xn])...)
+    p = vcat(system.ps, system.pr, system.px)
     for i in eachindex(p_names)
-        print(io, "\n    ", p_names[i], " = ", system.ps[i])
-    end
-    p_names = Catalyst.reactionparams(system.rn)
-    for i in eachindex(p_names)
-        print(io, "\n    ", p_names[i], " = ", system.pr[i])
-    end
-    p_names = Catalyst.reactionparams(system.xn)
-    for i in eachindex(p_names)
-        print(io, "\n    ", p_names[i], " = ", system.px[i])
+        print(io, "\n    ", p_names[i], " = ", p[i])
     end
 end
 
@@ -357,20 +342,45 @@ function _solve(system::SimpleSystem)
     sol = solve(system.jump_problem, SSAStepper())
 end
 
+struct JumpModel{Prob}
+    rs::ReactionSystem
+    prob::Prob
+end
+
+function JumpModel(rs::ReactionSystem, u0::AbstractVector, tspan, p; aggregator=Direct())
+    dprob = DiscreteProblem(rs, u0, tspan, p)
+    jp = JumpProblem(convert(ModelingToolkit.JumpSystem, rs), dprob, aggregator, save_positions = (false, false))
+    JumpModel(rs, jp)
+end
+
+function generate_trajectory(mod::JumpModel, u0::AbstractVector; seed=rand(Int))
+    jp = remake(mod.prob, u0=u0)
+    SSAIter(init(jp, SSAStepper(), save_start=false, tstops = (), seed = seed))
+end
+
+function generate_driven_trajectory(mod::JumpModel, u0::AbstractVector, driving_trajectory; seed = rand(Int))
+    jp = remake(mod.prob, u0 = u0)
+    # TODO: we should probably specify the correct `index_map`
+    driven_jp = DrivenJumpProblem(jp, driving_trajectory)
+    SSAIter(init(driven_jp; seed = seed))
+end
+
 function generate_configuration(system::Union{SimpleSystem, ComplexSystem})
-    joint = reaction_network(system)
     u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
-    jp = remake(system.jump_problem, u0 = u0)
+
+    s_traj = generate_trajectory(system.smodel, u0) |> collect_trajectory
+    r_traj = generate_driven_trajectory(system.rmodel, u0, s_traj)
+    x_traj = generate_driven_trajectory(system.xmodel, u0, r_traj) |> collect_trajectory
 
     seed = rand(Int)
 
     trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
-    s_spec = independent_species(system.sn)
+    s_spec = independent_variables(system.sn)
     s_idxs = sort(SVector(species_indices(joint, s_spec)...))
     s_traj = sub_trajectory(trajectory, s_idxs)
 
     trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
-    x_spec = independent_species(system.xn)
+    x_spec = independent_variables(system.xn)
     x_idxs = sort(SVector(species_indices(joint, x_spec)...))
     x_traj = sub_trajectory(trajectory, x_idxs)
 
@@ -391,19 +401,19 @@ function generate_full_configuration(system::ComplexSystem)
 
     # then we extract the signal
     trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
-    s_spec = independent_species(system.sn)
+    s_spec = independent_variables(system.sn)
     s_idxs = sort(SVector(species_indices(joint, s_spec)...))
     s_traj = sub_trajectory(trajectory, s_idxs)
 
     # the R trajectory
     trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
-    r_spec = independent_species(system.rn)
+    r_spec = independent_variables(system.rn)
     r_idxs = sort(SVector(species_indices(joint, r_spec)...))
     r_traj = sub_trajectory(trajectory, r_idxs)
 
     # finally we extract the X part from the SRX trajectory
     trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
-    x_spec = independent_species(system.xn)
+    x_spec = independent_variables(system.xn)
     x_idxs = sort(SVector(species_indices(joint, x_spec)...))
     x_traj = sub_trajectory(trajectory, x_idxs)
 
@@ -460,7 +470,7 @@ function ConditionalEnsemble(system::ComplexSystem; aggregator = Direct())
     dprob = DiscreteProblem(system.rn, sample_initial_condition(system.u0)[r_idxs], (first(system.dtimes), last(system.dtimes)), system.pr)
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, aggregator, save_positions = (false, false))
 
-    indep_species = independent_species(system.rn)
+    indep_species = independent_variables(system.rn)
     indep_idxs = SVector(species_indices(system.rn, indep_species)...)
 
     dep_species = SVector(dependent_species(system.xn)...)
@@ -483,7 +493,7 @@ function species_indices(rs::ReactionSystem, species)
     getindex.(Ref(Catalyst.speciesmap(rs)), species)
 end
 
-function independent_species(rs::ReactionSystem)
+function independent_variables(rs::ReactionSystem)
     i_spec = []
     smap = Catalyst.speciesmap(rs)
     for r in Catalyst.reactions(rs)
@@ -494,7 +504,7 @@ end
 
 function dependent_species(rs::ReactionSystem)
     smap = Catalyst.speciesmap(rs)
-    sort(setdiff(Catalyst.species(rs), independent_species(rs)), by = x -> smap[x])
+    sort(setdiff(Catalyst.species(rs), independent_variables(rs)), by = x -> smap[x])
 end
 
 function sample(configuration::T, system::MarginalEnsemble; θ = 0.0)::T where {T<:SXconfiguration}
