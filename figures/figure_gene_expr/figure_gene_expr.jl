@@ -55,7 +55,7 @@ using CairoMakie
 # end
 # save(projectdir("plots", "figure_gene_expr", "gene-expr-figure-p.pdf"), fig1, pt_per_unit = 1)
 
-normalfont = projectdir("figures", "fonts", "NotoSans-Regular.ttf")
+normalfont = projectdir("figures", "fonts", "NotoSans-Condensed.ttf")
 titlefont = projectdir("figures", "fonts", "NotoSans-SemiBoldItalic.ttf")
 
 fontsize_theme = Theme(
@@ -131,7 +131,7 @@ fig = with_theme(fontsize_theme) do
         f[1, 2], 
         [group_color, ti_color, smc_color, approx_entry], 
         [m_label, ti_label, 
-        ["M = 128"], ["Duso, 𝘦𝘵. 𝘢𝘭. (2019)", "Gaussian"]], 
+        ["M = 128"], ["Duso, et. al. (2019)", "linear noise"]], 
         ["DPWS", "TI-PWS", "RR-PWS", "approximations"], 
     )
     xlims!(0.0, 10.2)
