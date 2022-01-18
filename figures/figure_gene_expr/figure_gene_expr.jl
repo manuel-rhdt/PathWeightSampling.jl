@@ -55,9 +55,11 @@ using CairoMakie
 # end
 # save(projectdir("plots", "figure_gene_expr", "gene-expr-figure-p.pdf"), fig1, pt_per_unit = 1)
 
+normalfont = projectdir("figures", "fonts", "NotoSans-Regular.ttf")
+titlefont = projectdir("figures", "fonts", "NotoSans-SemiBoldItalic.ttf")
 
 fontsize_theme = Theme(
-    font = "Noto Sans Regular", 
+    font = normalfont, 
     fontsize = 8, 
     colgap=3, 
     linewidth=2, 
@@ -86,7 +88,7 @@ fontsize_theme = Theme(
         linewidth=1.25,
         gridshalign=:left,
         titlehalign=:left,
-        titlefont="Noto Sans SemiBold Italic",
+        titlefont=titlefont,
         framevisible=false
     )
 )
