@@ -42,9 +42,11 @@ function run_parallel(systemfn, algorithm, num_samples; compile_args = (;))
             end
             (hostname, elapsed_time, batch_size) = val
             progress += batch_size
+            done = @sprintf "%i/%i" progress N
             percent_done = @sprintf "%6.2f %%" (progress / N * 100)
             time = now()
-            @info "Finished batch" hostname time elapsed_time batch_size percent_done
+            @info "Finished batch" hostname time elapsed_time batch_size done percent_done
+            flush(stderr)
         end
 
         @sync begin
