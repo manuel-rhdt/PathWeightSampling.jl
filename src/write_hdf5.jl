@@ -15,7 +15,7 @@ end
 
 function write_value_hdf5!(group, name::String, value)
     # for unknown datatypes write a string representation of the value as an attribute
-    attrs(group)[name] = repr(value)
+    attributes(group)[name] = repr(value)
 end
 
 function write_value_hdf5!(group, name::String, value::Union{AbstractDict, AbstractDataFrame})
@@ -27,7 +27,7 @@ end
 
 # non array values are written as attributes
 function write_value_hdf5!(group, name::String, value::Union{String,Number})
-    attrs(group)[name] = value
+    attributes(group)[name] = value
 end
 
 function write_value_hdf5!(group, name::String, value::AbstractArray{<:Number})
