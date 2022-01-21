@@ -137,7 +137,7 @@ struct SimpleSystem <: JumpNetwork
     dist::TrajectoryDistribution
 end
 
-function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist = nothing; aggregator=Direct())
+function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist = nothing; aggregator = Direct())
     joint = ModelingToolkit.extend(xn, sn)
 
     tp = (first(dtimes), last(dtimes))
@@ -344,7 +344,7 @@ struct CompiledComplexSystem{JP,JPC,IXC,DXC}
     conditional_ensemble::ConditionalEnsemble{JPC,IXC,DXC}
 end
 
-compile(s::ComplexSystem; marginal_aggregator=Direct(), conditional_aggregator=Direct()) = CompiledComplexSystem(s, MarginalEnsemble(s; aggregator=marginal_aggregator), ConditionalEnsemble(s; aggregator=conditional_aggregator))
+compile(s::ComplexSystem; marginal_aggregator = Direct(), conditional_aggregator = Direct()) = CompiledComplexSystem(s, MarginalEnsemble(s; aggregator = marginal_aggregator), ConditionalEnsemble(s; aggregator = conditional_aggregator))
 marginal_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, marginal_configuration(conf), csrx.marginal_ensemble))
 conditional_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, conf, csrx.conditional_ensemble))
 
@@ -357,22 +357,72 @@ function _solve(system::SimpleSystem)
     sol = solve(system.jump_problem, SSAStepper())
 end
 
-function generate_configuration(system::Union{SimpleSystem, ComplexSystem})
+
+function start_collect(::Nothing, indices)
+    # return empty trajectory
+    Trajectory(Vector{Int16}[], Float64[], Int[])
+end
+
+function start_collect(((u, t, i), state)::Tuple, indices)
+    Trajectory([u[indices]], typeof(t)[], typeof(i)[])
+end
+
+function step_collect!(result::Trajectory, ::Nothing, (uprev, tprev, iprev)::Tuple, indices)
+    # end trajectory
+    push!(result.t, tprev)
+    push!(result.i, iprev)
+    result
+end
+
+function step_collect!(
+    result::Trajectory,
+    ((u, t, i), state)::Tuple,
+    (uprev, tprev, iprev)::Tuple,
+    indices
+)
+    if (@view u[indices]) != result.u[end]
+        push!(result.u, u[indices])
+        push!(result.t, tprev)
+        push!(result.i, iprev)
+    end
+    result
+end
+
+function collect_sub_trajectory(iter, indices)
+    f = iterate(iter)
+    traj = start_collect(f, indices)
+    while f !== nothing
+        val, state = f
+        f = iterate(iter, state)
+        traj = step_collect!(traj, f, val, indices)
+    end
+    traj
+end
+
+function collect_sub_trajectories(iter, indices_list...)
+    f = iterate(iter)
+    trajs = map(indices -> start_collect(f, indices), indices_list)
+    while f !== nothing
+        val, state = f
+        f = iterate(iter, state)
+        foreach((traj, indices) -> step_collect!(traj, f, val, indices), trajs, indices_list)
+    end
+    trajs
+end
+
+function generate_configuration(system::Union{SimpleSystem,ComplexSystem}; seed = rand(Int))
     joint = reaction_network(system)
     u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
     jp = remake(system.jump_problem, u0 = u0)
 
-    seed = rand(Int)
-
-    trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
     s_spec = independent_species(system.sn)
     s_idxs = sort(SVector(species_indices(joint, s_spec)...))
-    s_traj = sub_trajectory(trajectory, s_idxs)
-
-    trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
     x_spec = independent_species(system.xn)
     x_idxs = sort(SVector(species_indices(joint, x_spec)...))
-    x_traj = sub_trajectory(trajectory, x_idxs)
+
+    iter = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
+
+    s_traj, x_traj = collect_sub_trajectories(iter, s_idxs, x_idxs)
 
     SXconfiguration(s_traj, x_traj)
 end
@@ -381,31 +431,23 @@ function _solve(system::ComplexSystem)
     sol = solve(system.jump_problem, SSAStepper())
 end
 
-function generate_full_configuration(system::ComplexSystem)
-    # we first generate a joint SRX trajectory
+function generate_full_configuration(system::ComplexSystem; seed = rand(Int))
     joint = reaction_network(system)
     u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
     jp = remake(system.jump_problem, u0 = u0)
 
-    seed = rand(Int)
-
-    # then we extract the signal
-    trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
     s_spec = independent_species(system.sn)
     s_idxs = sort(SVector(species_indices(joint, s_spec)...))
-    s_traj = sub_trajectory(trajectory, s_idxs)
 
-    # the R trajectory
-    trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
     r_spec = independent_species(system.rn)
     r_idxs = sort(SVector(species_indices(joint, r_spec)...))
-    r_traj = sub_trajectory(trajectory, r_idxs)
 
-    # finally we extract the X part from the SRX trajectory
-    trajectory = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
     x_spec = independent_species(system.xn)
     x_idxs = sort(SVector(species_indices(joint, x_spec)...))
-    x_traj = sub_trajectory(trajectory, x_idxs)
+
+    iter = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
+
+    (s_traj, r_traj, x_traj) = collect_sub_trajectories(iter, s_idxs, r_idxs, x_idxs)
 
     SRXconfiguration(s_traj, r_traj, x_traj)
 end
@@ -545,7 +587,7 @@ function sample(configuration::Union{SXconfiguration,SRXconfiguration}, ensemble
     driven_jp = DrivenJumpProblem(ensemble.jump_problem, configuration.s_traj)
     integrator = init(driven_jp)
     iter = SSAIter(integrator)
-    rtraj = sub_trajectory(iter, ensemble.indep_idxs)
+    rtraj = collect_sub_trajectory(iter, ensemble.indep_idxs)
     SRXconfiguration(configuration.s_traj, rtraj, configuration.x_traj)
 end
 

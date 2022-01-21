@@ -304,6 +304,8 @@ function cooperative_chemotaxis_system(;
     phosphorylate = 2000.0 / (n_chey * n_clusters),
     dephosphorylate = 2000.0 / (n_chey),
     dtimes = 0:0.1:20.0,
+    
+    aggregator=DiffEqJump.RSSACR(),
     varargs...
 )
     sn = @reaction_network begin
@@ -382,7 +384,7 @@ function cooperative_chemotaxis_system(;
     pr = chemotaxis_parameters(; varargs...)
     px = [dephosphorylate, phosphorylate]
 
-    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=DiffEqJump.RSSACR())
+    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=aggregator)
 end
 
 getname(sym) = String(ModelingToolkit.operation(sym).name)
