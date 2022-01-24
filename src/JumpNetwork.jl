@@ -12,11 +12,11 @@ struct MarginalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,U0}
     u0::U0
 end
 
-struct ConditionalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,IX,DX}
+struct ConditionalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,IX,IM}
     jump_problem::JP
     dist::TrajectoryDistribution
     indep_idxs::IX
-    dep_idxs::DX
+    index_map::IM
     dtimes::Vector{Float64}
 end
 
@@ -416,9 +416,12 @@ function generate_configuration(system::Union{SimpleSystem,ComplexSystem}; seed 
     jp = remake(system.jump_problem, u0 = u0)
 
     s_spec = independent_species(system.sn)
-    s_idxs = sort(SVector(species_indices(joint, s_spec)...))
+    s_idxs = SVector(species_indices(joint, s_spec)...)
     x_spec = independent_species(system.xn)
-    x_idxs = sort(SVector(species_indices(joint, x_spec)...))
+    x_idxs = SVector(species_indices(joint, x_spec)...)
+
+    @assert s_idxs == collect(1:length(s_idxs))
+    @assert x_idxs == collect(length(u0) - length(x_idxs) + 1:length(u0))
 
     iter = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
 
@@ -437,17 +440,19 @@ function generate_full_configuration(system::ComplexSystem; seed = rand(Int))
     jp = remake(system.jump_problem, u0 = u0)
 
     s_spec = independent_species(system.sn)
-    s_idxs = sort(SVector(species_indices(joint, s_spec)...))
+    s_idxs = SVector(species_indices(joint, s_spec)...)
 
     r_spec = independent_species(system.rn)
-    r_idxs = sort(SVector(species_indices(joint, r_spec)...))
+    r_idxs = SVector(species_indices(joint, r_spec)...)
 
     x_spec = independent_species(system.xn)
-    x_idxs = sort(SVector(species_indices(joint, x_spec)...))
+    x_idxs = SVector(species_indices(joint, x_spec)...)
+
+    @assert vcat(s_idxs, r_idxs, x_idxs) == collect(eachindex(u0))
 
     iter = SSAIter(init(jp, SSAStepper(), tstops = (), seed = seed))
 
-    (s_traj, r_traj, x_traj) = collect_sub_trajectories(iter, s_idxs, r_idxs, x_idxs)
+    s_traj, r_traj, x_traj = collect_sub_trajectories(iter, s_idxs, r_idxs, x_idxs)
 
     SRXconfiguration(s_traj, r_traj, x_traj)
 end
@@ -486,7 +491,7 @@ end
 
 function MarginalEnsemble(system::ComplexSystem; aggregator = Direct())
     sr_network = ModelingToolkit.extend(system.rn, system.sn)
-    joint = ModelingToolkit.extend(system.xn, sr_network)
+    joint = reaction_network(system)
     sr_idxs = species_indices(joint, Catalyst.species(sr_network))
 
     dprob = DiscreteProblem(sr_network, sample_initial_condition(system.u0)[sr_idxs], tspan(system), vcat(system.ps, system.pr))
@@ -497,7 +502,9 @@ end
 
 
 function ConditionalEnsemble(system::ComplexSystem; aggregator = Direct())
-    joint = ModelingToolkit.extend(system.xn, ModelingToolkit.extend(system.rn, system.sn))
+    joint = reaction_network(system)
+    # we need the `system.rn` network indices to find the correct initial condition U0
+    # for this network
     r_idxs = species_indices(joint, Catalyst.species(system.rn))
     dprob = DiscreteProblem(system.rn, sample_initial_condition(system.u0)[r_idxs], (first(system.dtimes), last(system.dtimes)), system.pr)
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, aggregator, save_positions = (false, false))
@@ -505,20 +512,10 @@ function ConditionalEnsemble(system::ComplexSystem; aggregator = Direct())
     indep_species = independent_species(system.rn)
     indep_idxs = SVector(species_indices(system.rn, indep_species)...)
 
-    dep_species = SVector(dependent_species(system.xn)...)
-    dep_idxs = indexin(species_indices(system.rn, dep_species), indep_idxs)
+    s_species = Catalyst.species(system.sn)
+    index_map = SVector(species_indices(system.rn, s_species)...)
 
-    ConditionalEnsemble(jprob, system.dist, indep_idxs, dep_idxs, collect(system.dtimes))
-end
-
-# returns a list of species in `a` that also occur in `b`
-function intersecting_species(a::ReactionSystem, b::ReactionSystem)
-    intersect(Catalyst.species(a), Catalyst.species(b))
-end
-
-# returns a list of species in `a` that are not in `b`
-function unique_species(a::ReactionSystem, b::ReactionSystem)
-    setdiff(Catalyst.species(a), Catalyst.species(b))
+    ConditionalEnsemble(jprob, system.dist, indep_idxs, index_map, collect(system.dtimes))
 end
 
 function species_indices(rs::ReactionSystem, species)
@@ -539,11 +536,11 @@ function dependent_species(rs::ReactionSystem)
     sort(setdiff(Catalyst.species(rs), independent_species(rs)), by = x -> smap[x])
 end
 
-function sample(configuration::T, system::MarginalEnsemble; θ = 0.0)::T where {T<:SXconfiguration}
+function sample(configuration::SXconfiguration, system::MarginalEnsemble; θ = 0.0)
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
-    jprob = remake(system.jump_problem, u0 = sample_initial_condition(system))
+    jprob = remake(system.jump_problem, u0 = SVector(sample_initial_condition(system)...))
     integrator = DiffEqBase.init(jprob, SSAStepper(), tstops = (), numsteps_hint = 0)
     iter = SSAIter(integrator)
     s_traj = collect_trajectory(iter)
@@ -570,6 +567,7 @@ function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan:
     ix1 = max(searchsortedfirst(conf.x_traj.t, tspan[1]) - 1, 1)
     iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
 
+    # TODO: check species ordering
     log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), tspan = tspan)
 
     copy(integrator.u), log_weight
@@ -584,8 +582,7 @@ function sample(configuration::Union{SXconfiguration,SRXconfiguration}, ensemble
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
-    driven_jp = DrivenJumpProblem(ensemble.jump_problem, configuration.s_traj)
-    integrator = init(driven_jp)
+    integrator = create_integrator(configuration, ensemble, ensemble.jump_problem.prob.u0, ensemble.jump_problem.prob.tspan)
     iter = SSAIter(integrator)
     rtraj = collect_sub_trajectory(iter, ensemble.indep_idxs)
     SRXconfiguration(configuration.s_traj, rtraj, configuration.x_traj)
@@ -611,7 +608,7 @@ end
 
 function create_integrator(conf::Union{SXconfiguration,SRXconfiguration}, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
     jprob = remake(ensemble.jump_problem, u0 = u0, tspan = tspan)
-    driven_jp = DrivenJumpProblem(jprob, conf.s_traj)
+    driven_jp = DrivenJumpProblem(jprob, conf.s_traj, index_map=ensemble.index_map)
     init(driven_jp)
 end
 
@@ -621,6 +618,7 @@ function propagate(conf::Union{SXconfiguration,SRXconfiguration}, ensemble::Cond
     iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
     ix1 = max(searchsortedfirst(conf.x_traj.t, tspan[1]), 1)
 
+    # TODO: check species ordering
     log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), tspan = tspan)
 
     copy(integrator.u), log_weight
