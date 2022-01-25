@@ -52,12 +52,12 @@ function initial_log_likelihood(ensemble::MarginalEnsemble, u0::AbstractVector, 
     end
 end
 
-function Base.getindex(conf::SXconfiguration, index)
-    merge_trajectories(conf.s_traj, conf.x_traj) |> Map((u, t, i)::Tuple -> (ensurevec(u[index]), t, i)) |> Thin() |> collect_trajectory
+function Base.getindex(conf::SXconfiguration, indices)
+    collect_sub_trajectory(merge_trajectories(conf.s_traj, conf.x_traj), ensurevec(indices))
 end
 
-function Base.getindex(conf::SRXconfiguration, index)
-    merge_trajectories(conf.s_traj, conf.r_traj, conf.x_traj) |> Map((u, t, i)::Tuple -> (ensurevec(u[index]), t, i)) |> Thin() |> collect_trajectory
+function Base.getindex(conf::SRXconfiguration, indices)
+    collect_sub_trajectory(merge_trajectories(conf.s_traj, conf.r_traj, conf.x_traj), ensurevec(indices))
 end
 
 sample_initial_condition(u0::AbstractVector) = copy(u0)
@@ -635,8 +635,8 @@ end
 marginal_configuration(conf::SXconfiguration) = conf
 
 function marginal_configuration(conf::SRXconfiguration)
-    new_s = conf.s_traj |> MergeWith(conf.r_traj) |> Map((u, t, i)::Tuple -> (SVector(u...), t, i)) |> collect_trajectory
-    SXconfiguration(new_s, conf.x_traj)
+    new_s = merge_trajectories(conf.s_traj, conf.r_traj)
+    SXconfiguration(collect_trajectory(new_s, nocopy=true), conf.x_traj)
 end
 
 # MCMC Moves in trajectory space

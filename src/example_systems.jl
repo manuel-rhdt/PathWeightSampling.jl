@@ -109,13 +109,13 @@ end
 
 function chemotaxis_system(; 
         mean_L=20, 
-        num_receptors=10000, 
-        Y_tot=5000, 
+        num_receptors=100, 
+        Y_tot=500, 
         L_timescale=1.0, 
         LR_timescale=0.01, 
         LR_ratio=0.5, 
         Y_timescale=0.1, 
-        Y_ratio=1/6, 
+        Y_ratio=1/2, 
         q=0, 
         dtimes=0:0.1:2.0
     )

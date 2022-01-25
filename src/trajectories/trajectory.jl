@@ -92,7 +92,7 @@ Create a `Trajectory` from an iterator that yields a sequence of 3-element tuple
 If `nocopy` is true, the `u` vectors of the tuple will not be copied before adding them to the
 trajectory.
 """
-function collect_trajectory(iter, nocopy = false)
+function collect_trajectory(iter; nocopy = false)
     (u, t, i), state = iterate(iter)
     traj = Trajectory([nocopy ? u : copy(u)], [t], Int[i])
 

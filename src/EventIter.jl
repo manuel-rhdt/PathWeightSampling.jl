@@ -153,11 +153,3 @@ function Transducers.complete(rf::R_{MergeWith}, result)
     _private_state, inner_result = unwrap(rf, result)
     return complete(inner(rf), inner_result)
 end
-
-function collect_trajectory(xf::Transducers.Transducer, itr)
-    rf = Transducers.ProductRF(Map(copy)'(Transducers.push!!), Transducers.push!!, Transducers.push!!) 
-    (u, t, i) = foldxl(rf, xf, itr; init=(Transducers.Empty(Vector), Transducers.Empty(Vector), Transducers.Empty(Vector)))
-    Trajectory(u, t, i)
-end
-
-collect_trajectory(ed::Transducers.Eduction) = collect_trajectory(Transducers.extract_transducer(ed)...)
