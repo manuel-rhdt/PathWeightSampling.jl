@@ -564,11 +564,12 @@ end
 function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan::Tuple)
     jprob = remake(ensemble.jump_problem, u0 = u0, tspan = tspan)
     integrator = DiffEqBase.init(jprob, SSAStepper(), tstops = (), numsteps_hint = 0)
-    ix1 = max(searchsortedfirst(conf.x_traj.t, tspan[1]) - 1, 1)
-    iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
+    iter = SSAIter(integrator)
+    ix1 = searchsortedfirst(conf.x_traj.t, tspan[1])
+    merged = merge_trajectories(iter, Base.Iterators.rest(conf.x_traj, ix1))
 
     # TODO: check species ordering
-    log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), tspan = tspan)
+    log_weight = trajectory_energy(ensemble.dist, merged, tspan = tspan)
 
     copy(integrator.u), log_weight
 end
@@ -615,11 +616,13 @@ end
 # propagate the initial condition forward in time and compute the corresponding increase in log-likelihood
 function propagate(conf::Union{SXconfiguration,SRXconfiguration}, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
     integrator = create_integrator(conf, ensemble, u0, tspan)
-    iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
-    ix1 = max(searchsortedfirst(conf.x_traj.t, tspan[1]), 1)
+    iter = SSAIter(integrator)
+    ix1 = searchsortedfirst(conf.x_traj.t, tspan[1])
+
+    merged = merge_trajectories(iter, Base.Iterators.rest(conf.x_traj, ix1))
 
     # TODO: check species ordering
-    log_weight = trajectory_energy(ensemble.dist, iter |> MergeWith(conf.x_traj, ix1), tspan = tspan)
+    log_weight = trajectory_energy(ensemble.dist, merged, tspan = tspan)
 
     copy(integrator.u), log_weight
 end

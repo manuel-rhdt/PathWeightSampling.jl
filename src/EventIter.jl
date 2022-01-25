@@ -76,7 +76,7 @@ Base.setindex!(ch::Chain, v, i::Int) = i > length(ch.head) ? ch.tail[i - length(
 # merge more than 2 trajectories using recursion
 merge_trajectories(traj) = traj
 function merge_trajectories(traj1, traj2)
-    traj1 |> MergeWith(traj2)
+    MergeTrajectory(traj1, traj2)
 end
 function merge_trajectories(traj1, traj2, other_trajs...)
     merge12 = merge_trajectories(traj1, traj2)
