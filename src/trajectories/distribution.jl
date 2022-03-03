@@ -96,7 +96,7 @@ distribution(rn::ReactionSystem, p; update_map = 1:Catalyst.numreactions(rn)) = 
     result
 end
 
-@fastmath @inline function fold_logpdf(dist::TrajectoryDistribution, agg::DirectAggregator, (u, t, i))
+@fastmath function fold_logpdf(dist::TrajectoryDistribution, agg::DirectAggregator, (u, t, i))
     agg = update_rates(agg, u, dist.reactions)
     agg_i = get_update_index(agg, i)
     dt = t - agg.tprev
@@ -114,6 +114,9 @@ function step_energy(dist::TrajectoryDistribution, agg::DirectAggregator, (u, t,
         return agg
     end
     if t > agg.tspan[2]
+        if agg.tprev >= agg.tspan[2]
+            return agg
+        end
         fold_logpdf(dist, agg, (u, agg.tspan[2], 0))
     else
         fold_logpdf(dist, agg, (u, t, i))
@@ -168,7 +171,7 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
     for r in acc_iter
         agg = r
     end
-    
+
     result
 end
 
@@ -176,13 +179,13 @@ cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVect
 
 
 @inline @fastmath function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, rs::ReactionSet)
-    val = 1.0
+    val = Float64(1.0)
     @inbounds for specstoch in rs.rstoich[rxidx]
         specpop = speciesvec[specstoch[1]]
-        val *= specpop
+        val *= Float64(specpop)
         @inbounds for k = 2:specstoch[2]
             specpop -= one(specpop)
-            val *= specpop
+            val *= Float64(specpop)
         end
     end
 

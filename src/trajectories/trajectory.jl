@@ -137,7 +137,7 @@ function merge_next(((u1, t1, i1), state1)::Tuple, ((u2, t2, i2), state2)::Tuple
     else
         t2, i2
     end
-    Chain(u1, u2), t, i
+    Chain(copy(u1), copy(u2)), t, i
 end
 
 function advance_next(mtraj::MergeTrajectory, ((u1, t1, i1), state1)::A, ((u2, t2, i2), state2)::B)::Union{Nothing, Tuple{A, B}} where {A<:Tuple,B<:Tuple}
@@ -176,5 +176,5 @@ function Base.iterate(mtraj::MergeTrajectory, (s1, s2)::Tuple)
     if s === nothing return nothing end
     s1, s2 = s
     m = merge_next(s1, s2)
-    (m, (s1, s2))
+    (m, s)
 end
