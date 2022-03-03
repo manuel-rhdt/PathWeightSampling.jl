@@ -115,7 +115,7 @@ fig = with_theme(fontsize_theme) do
 
     lines!(smc_estimate.DiscreteTimes, smc_estimate.Mean, label = "SMC", linewidth = 1.7, color = :black)
     lines!(zechner_data.Duration, zechner_data.PMI, linewidth = 1.5, linestyle = :dash, color = pathmi_color)
-    lines!(gaussian_data.DiscreteTimes, gaussian_data.Value, linewidth = 1.5, linestyle = :dot, color = :MidnightBlue)
+    lines!(gaussian_data.DiscreteTimes, gaussian_data.Value, linewidth = 1.5, linestyle = :dot, color = "#2b8cbe")
 
     ti_label = []
     ti_color = []
@@ -125,7 +125,7 @@ fig = with_theme(fontsize_theme) do
         push!(ti_color, MarkerElement(marker = :cross, color = ti_colors[i]))
     end
 
-    approx_entry = [LineElement(linestyle = :dash, color = pathmi_color), LineElement(linestyle = :dot, color = :MidnightBlue)]
+    approx_entry = [LineElement(linestyle = :dash, color = pathmi_color), LineElement(linestyle = :dot, color = "#2b8cbe")]
 
     legend = Legend(
         f[1, 2],
@@ -161,7 +161,7 @@ fig = with_theme(fontsize_theme) do
     end
     lines!(inset_ax, smc_estimate.DiscreteTimes, smc_estimate.Mean, linewidth = 1.0, color = :black)
     lines!(inset_ax, zechner_data.Duration, zechner_data.PMI, linewidth = 0.75, linestyle = :dash, color = pathmi_color)
-    lines!(inset_ax, gaussian_data.DiscreteTimes, gaussian_data.Value, linewidth = 1.5, linestyle = :dot, color = :MidnightBlue)
+    lines!(inset_ax, gaussian_data.DiscreteTimes, gaussian_data.Value, linewidth = 1.5, linestyle = :dot, color = "#2b8cbe")
 
     for (i, group) in enumerate(groupby(ti_data, :M, sort = true))
         scatter!(inset_ax, group.DiscreteTimes, group.Mean, marker = :cross, color = ti_colors[i])
