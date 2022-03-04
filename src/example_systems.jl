@@ -1,5 +1,5 @@
 import Catalyst
-import Catalyst:@reaction_network
+import Catalyst: @reaction_network
 import ModelingToolkit
 import ModelingToolkit: FnType
 using Transducers
@@ -80,16 +80,16 @@ Parameters:
 ```
 """
 function gene_expression_system(;
-    mean_s=50, 
-    mean_x=mean_s,
-    corr_time_s=1.0, 
-    corr_time_x=0.1, 
+    mean_s = 50,
+    mean_x = mean_s,
+    corr_time_s = 1.0,
+    corr_time_x = 0.1,
     kappa = mean_s / corr_time_s,
     lambda = 1 / corr_time_s,
     mu = 1 / corr_time_x,
     rho = mu * mean_x / mean_s,
-    u0=SA[mean_s, mean_x],
-    dtimes=0:0.1:2.0
+    u0 = SA[mean_s, mean_x],
+    dtimes = 0:0.1:2.0
 )
     sn = @reaction_network begin
         κ, ∅ --> S
@@ -98,7 +98,7 @@ function gene_expression_system(;
 
     xn = @reaction_network begin
         ρ, S --> X + S
-        μ, X --> ∅ 
+        μ, X --> ∅
     end ρ μ
 
     ps = [kappa, lambda]
@@ -107,18 +107,18 @@ function gene_expression_system(;
     SimpleSystem(sn, xn, u0, ps, px, dtimes)
 end
 
-function chemotaxis_system(; 
-        mean_L=20, 
-        num_receptors=100, 
-        Y_tot=500, 
-        L_timescale=1.0, 
-        LR_timescale=0.01, 
-        LR_ratio=0.5, 
-        Y_timescale=0.1, 
-        Y_ratio=1/2, 
-        q=0, 
-        dtimes=0:0.1:2.0
-    )
+function chemotaxis_system(;
+    mean_L = 20,
+    num_receptors = 100,
+    Y_tot = 500,
+    L_timescale = 1.0,
+    LR_timescale = 0.01,
+    LR_ratio = 0.5,
+    Y_timescale = 0.1,
+    Y_ratio = 1 / 2,
+    q = 0,
+    dtimes = 0:0.1:2.0
+)
     mean_LR = num_receptors * LR_ratio
     mean_R = num_receptors - mean_LR
 
@@ -162,7 +162,7 @@ function chemotaxis_parameters(;
     E₀ = 3.0,
     Kₐ = 500,
     Kᵢ = 25,
-    δg = log(Kₐ/Kᵢ),
+    δg = log(Kₐ / Kᵢ),
     δf = -1.5,
     k⁺ = 0.05,
     k⁺ₐ = k⁺,
@@ -172,7 +172,7 @@ function chemotaxis_parameters(;
     a_star = 0.5,
     γ = 1 / 10,
     k_B = (1 - a_star) * γ / abs(δf),
-    k_R =      a_star  * γ / abs(δf)
+    k_R = a_star * γ / abs(δf)
 )
     [
         E₀,
@@ -287,8 +287,8 @@ Parameters:
     ldi = 1.25
     mda = 0.03333333333333333
     mbi = 0.03333333333333333
-    μ = 0.2
-    ρ = 0.002
+    μ = 8.57142857142857
+    ρ = 0.028571428571428564
 ```
 
 """
@@ -297,15 +297,13 @@ function cooperative_chemotaxis_system(;
     mmax = 9,
     n_clusters = 100,
     n_chey = 10_000,
-
     mean_l = 50,
     tau_l = 1.0,
-
-    phosphorylate = 2000.0 / (n_chey * n_clusters),
-    dephosphorylate = 2000.0 / (n_chey),
-    dtimes = 0:0.1:20.0,
-    
-    aggregator=DiffEqJump.RSSACR(),
+    tau_y = 0.1,
+    phi_y = 1.0 / 6.0,
+    dephosphorylate = inv(tau_y * (1 + phi_y)),
+    phosphorylate = dephosphorylate * phi_y / (n_clusters / 2),
+    dtimes = 0:0.1:20.0, aggregator = DiffEqJump.RSSACR(),
     varargs...
 )
     sn = @reaction_network begin
@@ -315,8 +313,8 @@ function cooperative_chemotaxis_system(;
 
     rn = Catalyst.make_empty_network()
 
-    @Catalyst.parameters t E0 δg δf lba lbi lda ldi mda mbi ρ
-    @Catalyst.variables L(t) Y(t) Yp(t)
+    Catalyst.@parameters t E0 δg δf lba lbi lda ldi mda mbi ρ
+    Catalyst.@variables L(t) Y(t) Yp(t)
 
     Catalyst.addspecies!(rn, L)
 
@@ -337,8 +335,8 @@ function cooperative_chemotaxis_system(;
     Catalyst.addparam!(xn, ρ)
 
     spmap = Dict()
-    for l=0:lmax, m=0:mmax
-        receptor_species = ModelingToolkit.Num(ModelingToolkit.variable(Symbol("R_", l, "_", m), T=FnType{Tuple{Any}, Real}))(t)
+    for l = 0:lmax, m = 0:mmax
+        receptor_species = ModelingToolkit.Num(ModelingToolkit.variable(Symbol("R_", l, "_", m), T = FnType{Tuple{Any},Real}))(t)
 
         spmap[(l, m)] = receptor_species
 
@@ -346,20 +344,20 @@ function cooperative_chemotaxis_system(;
         Catalyst.addspecies!(rn, receptor_species)
     end
 
-    p_active(l, m) = 1 / (1 + exp(E0 + l*δg + m*δf))
+    p_active(l, m) = 1 / (1 + exp(E0 + l * δg + m * δf))
 
-    for l=0:lmax, m=0:mmax
+    for l = 0:lmax, m = 0:mmax
 
         if l > 0
-            ligand_bind = Catalyst.Reaction((lba * p_active(l-1, m) + lbi * (1 - p_active(l-1, m))) * (lmax + 1 - l), [spmap[(l-1, m)], L], [spmap[(l, m)], L])
-            ligand_unbind = Catalyst.Reaction((lda * p_active(l, m) + ldi * (1 - p_active(l, m))) * l, [spmap[(l, m)]], [spmap[(l-1, m)]])
+            ligand_bind = Catalyst.Reaction((lba * p_active(l - 1, m) + lbi * (1 - p_active(l - 1, m))) * (lmax + 1 - l), [spmap[(l - 1, m)], L], [spmap[(l, m)], L])
+            ligand_unbind = Catalyst.Reaction((lda * p_active(l, m) + ldi * (1 - p_active(l, m))) * l, [spmap[(l, m)]], [spmap[(l - 1, m)]])
             Catalyst.addreaction!(rn, ligand_bind)
             Catalyst.addreaction!(rn, ligand_unbind)
         end
 
         if m > 0
-            demethylate_active = Catalyst.Reaction(mda * p_active(l, m), [spmap[(l, m)]], [spmap[(l, m-1)]])
-            methylate_inactive = Catalyst.Reaction(mbi * (1 - p_active(l, m-1)), [spmap[(l, m-1)]], [spmap[(l, m)]])
+            demethylate_active = Catalyst.Reaction(mda * p_active(l, m), [spmap[(l, m)]], [spmap[(l, m - 1)]])
+            methylate_inactive = Catalyst.Reaction(mbi * (1 - p_active(l, m - 1)), [spmap[(l, m - 1)]], [spmap[(l, m)]])
 
             Catalyst.addreaction!(rn, demethylate_active)
             Catalyst.addreaction!(rn, methylate_inactive)
@@ -380,11 +378,11 @@ function cooperative_chemotaxis_system(;
     u0[Catalyst.speciesmap(joint)[spmap[(0, 0)]]] = n_clusters
     u0[Catalyst.speciesmap(joint)[Y]] = n_chey
 
-    ps = [mean_l/tau_l, 1.0/tau_l]
+    ps = [mean_l / tau_l, 1.0 / tau_l]
     pr = chemotaxis_parameters(; varargs...)
     px = [dephosphorylate, phosphorylate]
 
-    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=aggregator)
+    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator = aggregator)
 end
 
 getname(sym) = String(ModelingToolkit.operation(sym).name)
@@ -403,7 +401,7 @@ end
 
 function receptor_states(rs::ReactionSystem)
     smap = Catalyst.speciesmap(rs)
-    xf = KeepSomething() do (species, index) 
+    xf = KeepSomething() do (species, index)
         result = parse_receptor(species)
         if result === nothing
             nothing
@@ -423,17 +421,17 @@ function active_receptors(conf::SRXconfiguration, system::ComplexSystem)
     δg = system.pr[2]
     δf = system.pr[3]
 
-    p_active(l, m) = 1 / (1 + exp(E0 + l*δg + m*δf))
+    p_active(l, m) = 1 / (1 + exp(E0 + l * δg + m * δf))
 
     p_a = rstates |> Map(((l, m), i)::Pair -> i => p_active(l, m)) |> collect
 
-    f = function(u)
+    f = function (u)
         sum(p_a) do (i, p)
             p * u[i]
         end
     end
 
-    merge_trajectories(conf.s_traj, conf.r_traj, conf.x_traj) |> Map((u,t,i)::Tuple -> (ensurevec(f(u)),t,i)) |> collect_trajectory
+    merge_trajectories(conf.s_traj, conf.r_traj, conf.x_traj) |> Map((u, t, i)::Tuple -> (ensurevec(f(u)), t, i)) |> collect_trajectory
 end
 
 precompile(gene_expression_system, ())

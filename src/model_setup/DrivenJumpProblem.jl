@@ -6,6 +6,7 @@ export DrivenJumpProblem
 using DiffEqJump
 using CommonSolve
 using PathWeightSampling: Trajectory
+using StaticArrays
 
 """
     IdentityMap()
@@ -28,7 +29,7 @@ function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
     tc.index = min(tc.index + 1, length(traj.t))
     cond_u = traj.u[tc.index]
     for i in eachindex(cond_u)
-        integrator.u[tc.index_map[i]] = cond_u[i]
+        integrator.u = setindex(integrator.u, cond_u[i], tc.index_map[i])
     end
     # it is important to call this to properly update reaction rates
     DiffEqJump.reset_aggregated_jumps!(integrator, nothing, integrator.cb, update_jump_params=false)

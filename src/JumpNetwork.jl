@@ -482,10 +482,10 @@ function MarginalEnsemble(system::SimpleSystem; aggregator = Direct())
     joint = reaction_network(system)
     s_idxs = species_indices(joint, Catalyst.species(system.sn))
 
-    dprob = DiscreteProblem(system.sn, sample_initial_condition(system.u0)[s_idxs], tspan(system), system.ps)
+    dprob = DiscreteProblem(system.sn, SVector(sample_initial_condition(system.u0)[s_idxs]...), tspan(system), system.ps)
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.sn), dprob, aggregator, save_positions = (false, false))
 
-    u0 = system.u0 isa EmpiricalDistribution ? system.u0 : system.u0[s_idxs]
+    u0 = system.u0 isa EmpiricalDistribution ? system.u0 : SVector(system.u0[s_idxs]...)
     MarginalEnsemble(jprob, system.dist, collect(system.dtimes), u0)
 end
 
@@ -494,10 +494,14 @@ function MarginalEnsemble(system::ComplexSystem; aggregator = Direct())
     joint = reaction_network(system)
     sr_idxs = species_indices(joint, Catalyst.species(sr_network))
 
-    dprob = DiscreteProblem(sr_network, sample_initial_condition(system.u0)[sr_idxs], tspan(system), vcat(system.ps, system.pr))
+    # check that our assumptions are correct
+    @assert sr_idxs == collect(1:Catalyst.numspecies(sr_network))
+
+    u0 = sample_initial_condition(system.u0)[sr_idxs]
+    dprob = DiscreteProblem(sr_network, SVector(u0...), tspan(system), vcat(system.ps, system.pr))
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, sr_network), dprob, aggregator, save_positions = (false, false))
 
-    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), system.u0[sr_idxs])
+    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), SVector(u0...))
 end
 
 
@@ -506,7 +510,12 @@ function ConditionalEnsemble(system::ComplexSystem; aggregator = Direct())
     # we need the `system.rn` network indices to find the correct initial condition U0
     # for this network
     r_idxs = species_indices(joint, Catalyst.species(system.rn))
-    dprob = DiscreteProblem(system.rn, sample_initial_condition(system.u0)[r_idxs], (first(system.dtimes), last(system.dtimes)), system.pr)
+
+    # check that our assumptions are correct
+    @assert r_idxs == collect(1:Catalyst.numspecies(system.rn))
+
+    u0 = sample_initial_condition(system.u0)[r_idxs]
+    dprob = DiscreteProblem(system.rn, SVector(u0...), (first(system.dtimes), last(system.dtimes)), system.pr)
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, aggregator, save_positions = (false, false))
 
     indep_species = independent_species(system.rn)
