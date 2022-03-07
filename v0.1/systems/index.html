@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Systems · PathWeightSampling.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.039/juliamono-regular.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">PathWeightSampling.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">PathWeightSampling.jl</a></li><li><a class="tocitem" href="../guide/">Guide</a></li><li class="is-active"><a class="tocitem" href>Systems</a><ul class="internal"><li><a class="tocitem" href="#Example-Systems-included-in-PathWeightSampling.jl"><span>Example Systems included in PathWeightSampling.jl</span></a></li><li><a class="tocitem" href="#Create-a-New-System"><span>Create a New System</span></a></li></ul></li><li><a class="tocitem" href="../examples/">Examples</a></li><li><a class="tocitem" href="../marginalization/">Marginalization Strategies</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Systems</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Systems</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/master/docs/src/systems.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Systems"><a class="docs-heading-anchor" href="#Systems">Systems</a><a id="Systems-1"></a><a class="docs-heading-anchor-permalink" href="#Systems" title="Permalink"></a></h1><h2 id="Example-Systems-included-in-PathWeightSampling.jl"><a class="docs-heading-anchor" href="#Example-Systems-included-in-PathWeightSampling.jl">Example Systems included in PathWeightSampling.jl</a><a id="Example-Systems-included-in-PathWeightSampling.jl-1"></a><a class="docs-heading-anchor-permalink" href="#Example-Systems-included-in-PathWeightSampling.jl" title="Permalink"></a></h2><article class="docstring"><header><a class="docstring-binding" id="PathWeightSampling.gene_expression_system" href="#PathWeightSampling.gene_expression_system"><code>PathWeightSampling.gene_expression_system</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">gene_expression_system(; mean_s=50, mean_x=mean_s, corr_time_s=1.0, corr_time_x=0.1, u0=SA[mean_s, mean_x], dtimes=0:0.1:2.0)</code></pre><p>Creates a system for a very simple model of gene expression.</p><p><strong>Model Description</strong></p><p>This model consists of four reactions:</p><pre><code class="nohighlight hljs">                κ
+reaction 1:  ∅ ---&gt; S
+
+                λ
+reaction 2:  S ---&gt; ∅
+
+                ρ
+reaction 3:  S ---&gt; S + X
+
+                μ
+reaction 4:  X ---&gt; ∅</code></pre><p>The first two reactions specify the evolution of the input signal <code>S</code>, and last two reactions specify the evolution of the output <code>X</code>. Thus, both the input and output signal are modeled as a simple birth-death  process, however the birth rate of <code>X</code> increases with higher copy numbers  of  <code>S</code>.</p><p><strong>Examples</strong></p><p>The values of the reaction rates can be specified directly as follows:</p><pre><code class="language-julia hljs">using PathWeightSampling
+system = PathWeightSampling.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 1.0)
+
+# output
+
+SimpleSystem with 4 reactions
+Input variables: S(t)
+Output variables: X(t)
+Initial condition:
+    S(t) = 50
+    X(t) = 50
+Parameters:
+    κ = 10.0
+    λ = 0.1
+    ρ = 1.0
+    μ = 1.0</code></pre><p>Alternatively, the reaction rates can be specified indirectly through the following arguments:</p><ul><li><code>mean_s</code>: The average copy number of S when the system has relaxed to steady state.</li><li><code>mean_x</code>: The average copy number of X when the system has relaxed to steady state.</li><li><code>corr_time_s</code>: The input signal correlation time. The shorter this time is, the faster the fluctuations in the input signal.</li><li><code>corr_time_x</code>: The output signal correlation time. This sets the timescale of output fluctuations.</li></ul><pre><code class="language-julia hljs">using PathWeightSampling
+system = PathWeightSampling.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_time_x=0.75)
+
+# output
+
+SimpleSystem with 4 reactions
+Input variables: S(t)
+Output variables: X(t)
+Initial condition:
+    S(t) = 25
+    X(t) = 50
+Parameters:
+    κ = 25.0
+    λ = 1.0
+    ρ = 2.666666666666666
+    μ = 1.3333333333333333</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/a2c5a5355f9e35155ef04e98aa176fbb6f6395e7/src/example_systems.jl#L6-L80">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="PathWeightSampling.cooperative_chemotaxis_system" href="#PathWeightSampling.cooperative_chemotaxis_system"><code>PathWeightSampling.cooperative_chemotaxis_system</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">cooperative_chemotaxis_system(;
+    lmax = 3,
+    mmax = 9,
+    n_clusters = 100,
+    n_chey = 10_000,
+
+    mean_l = 50,
+    tau_l = 1.0,
+
+    phosphorylate = 2000.0 / (n_chey * n_clusters),
+    dephosphorylate = 2000.0 / (n_chey),
+    dtimes = 0:0.1:20.0,
+    varargs...
+)</code></pre><p>Create a system for a complex chemotaxis model.</p><p><strong>Model Description</strong></p><p>This model describes the bacterial chemotaxis signaling network.</p><pre><code class="nohighlight hljs">Rml -&gt; Rm(l+1), with rate kon L(t) (lmax - l): ligand binding to active state
+Rm(l+1) -&gt; Rml, with rate koff_A l: ligand unbinding
+Rml -&gt; R(m+1)l with rate km: methylation rate
+R(m+1)l -&gt; Rml with rate kdm: demethylation rate</code></pre><p><strong>Examples</strong></p><p>Create a chemotaxis system with default parameters.</p><pre><code class="language-julia hljs">using PathWeightSampling
+PathWeightSampling.cooperative_chemotaxis_system()
+
+# output
+
+ComplexSystem with 175 reactions
+Input variables: L(t)
+Latent variables: R_0_0(t), R_0_1(t), R_0_2(t), R_0_3(t), R_0_4(t), R_0_5(t), R_0_6(t), R_0_7(t), R_0_8(t), R_0_9(t), R_1_0(t), R_1_1(t), R_1_2(t), R_1_3(t), R_1_4(t), R_1_5(t), R_1_6(t), R_1_7(t), R_1_8(t), R_1_9(t), R_2_0(t), R_2_1(t), R_2_2(t), R_2_3(t), R_2_4(t), R_2_5(t), R_2_6(t), R_2_7(t), R_2_8(t), R_2_9(t), R_3_0(t), R_3_1(t), R_3_2(t), R_3_3(t), R_3_4(t), R_3_5(t), R_3_6(t), R_3_7(t), R_3_8(t), R_3_9(t)
+Output variables: Yp(t), Y(t)
+Initial condition:
+    L(t) = 50
+    R_0_0(t) = 100
+    R_0_1(t) = 0
+    R_0_2(t) = 0
+    R_0_3(t) = 0
+    R_0_4(t) = 0
+    R_0_5(t) = 0
+    R_0_6(t) = 0
+    R_0_7(t) = 0
+    R_0_8(t) = 0
+    R_0_9(t) = 0
+    R_1_0(t) = 0
+    R_1_1(t) = 0
+    R_1_2(t) = 0
+    R_1_3(t) = 0
+    R_1_4(t) = 0
+    R_1_5(t) = 0
+    R_1_6(t) = 0
+    R_1_7(t) = 0
+    R_1_8(t) = 0
+    R_1_9(t) = 0
+    R_2_0(t) = 0
+    R_2_1(t) = 0
+    R_2_2(t) = 0
+    R_2_3(t) = 0
+    R_2_4(t) = 0
+    R_2_5(t) = 0
+    R_2_6(t) = 0
+    R_2_7(t) = 0
+    R_2_8(t) = 0
+    R_2_9(t) = 0
+    R_3_0(t) = 0
+    R_3_1(t) = 0
+    R_3_2(t) = 0
+    R_3_3(t) = 0
+    R_3_4(t) = 0
+    R_3_5(t) = 0
+    R_3_6(t) = 0
+    R_3_7(t) = 0
+    R_3_8(t) = 0
+    R_3_9(t) = 0
+    Yp(t) = 0
+    Y(t) = 10000
+Parameters:
+    κ = 50.0
+    λ = 1.0
+    E0 = 3.0
+    δg = 2.995732273553991
+    δf = -1.5
+    lba = 0.05
+    lbi = 0.05
+    lda = 25.0
+    ldi = 1.25
+    mda = 0.03333333333333333
+    mbi = 0.03333333333333333
+    μ = 0.2
+    ρ = 0.002</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/a2c5a5355f9e35155ef04e98aa176fbb6f6395e7/src/example_systems.jl#L189-L291">source</a></section></article><h2 id="Create-a-New-System"><a class="docs-heading-anchor" href="#Create-a-New-System">Create a New System</a><a id="Create-a-New-System-1"></a><a class="docs-heading-anchor-permalink" href="#Create-a-New-System" title="Permalink"></a></h2><p>To create a new system, you can make either an object of type <code>SimpleSystem</code> or <code>ComplexSystem</code> from scratch. The difference between the two is that a  <code>ComplexSystem</code> represents a model that includes <em>latent variables</em> which need to be integrated out to compute the mutual information. A <code>SimpleSystem</code> represents a model without any latent variables.</p><p>Both types of systems are constructed using <a href="https://catalyst.sciml.ai/">Catalyst</a>&#39;s representation of a reaction network (i.e. from objects of type <code>ReactionSystem</code>). Those reaction systems can be constructed using the API from Catalyst.jl.</p><article class="docstring"><header><a class="docstring-binding" id="PathWeightSampling.SimpleSystem" href="#PathWeightSampling.SimpleSystem"><code>PathWeightSampling.SimpleSystem</code></a> — <span class="docstring-category">Type</span></header><section><div><pre><code class="language-julia hljs">SimpleSystem(input_network, output_network, u0, ps, px, dtimes)</code></pre><p>A <code>SimpleSystem</code> is a system used to compute the mutual information when there are no latent variables that need to be integrated out.</p><p>A <code>SimpleSystem</code> consists of two of ModelingToolkit&#39;s <code>ReactionSystem</code>s: One that generates the input trajectories (<code>input_network</code>), and one that generates the output trajectories (<code>output_network</code>).</p><p><code>u0</code> represents the initial condition of the system.</p><p><code>ps</code> and <code>px</code> are the parameter vectors of the input and output systems, respectively.</p><p><strong>Examples</strong></p><p>Create a <code>SimpleSystem</code> from a set of coupled birth-death processes.</p><pre><code class="language-julia hljs">using PathWeightSampling, Catalyst, StaticArrays
+
+sn = @reaction_network begin
+    κ, ∅ --&gt; 2L
+    λ, L --&gt; ∅
+end κ λ
+
+xn = @reaction_network begin
+    ρ, L --&gt; L + 2X
+    μ, X --&gt; ∅
+end ρ μ
+
+u0 = SA[10, 20]
+dtimes = 0:0.5:10.0
+ps = [5.0, 1.0]
+px = [3.0, 0.1]
+
+system = PathWeightSampling.SimpleSystem(sn, xn, u0, ps, px, dtimes)
+
+# output
+
+SimpleSystem with 4 reactions
+Input variables: L(t)
+Output variables: X(t)
+Initial condition:
+    L(t) = 10
+    X(t) = 20
+Parameters:
+    κ = 5.0
+    λ = 1.0
+    ρ = 3.0
+    μ = 0.1</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/a2c5a5355f9e35155ef04e98aa176fbb6f6395e7/src/JumpNetwork.jl#L71-L124">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="PathWeightSampling.ComplexSystem" href="#PathWeightSampling.ComplexSystem"><code>PathWeightSampling.ComplexSystem</code></a> — <span class="docstring-category">Type</span></header><section><div><pre><code class="language-julia hljs">ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())</code></pre><p>A <code>ComplexSystem</code> is a system used to compute the mutual information with  latent variables that need to be integrated out.</p><p>Therefore, a <code>ComplexSystem</code> consists of three ModelingToolkit <code>ReactionSystem</code>s: One that generates the input trajectories (<code>sn</code>), one that models the latent variables (<code>rn</code>), and one that generates the output trajectories (<code>xn</code>).</p><p><strong>Examples</strong></p><pre><code class="language-julia hljs">using PathWeightSampling, Catalyst, StaticArrays
+
+sn = @reaction_network begin
+    κ, ∅ --&gt; 2L
+    λ, L --&gt; ∅
+end κ λ
+
+rn = @reaction_network begin
+    ρ, L + R --&gt; L + LR
+    μ, LR --&gt; R
+    ξ, R + CheY --&gt; R + CheYp
+    ν, CheYp --&gt; CheY
+end ρ μ ξ ν
+
+xn = @reaction_network begin
+    δ, CheYp --&gt; CheYp + X
+    χ, X --&gt; ∅
+end δ χ
+
+u0 = SA[10, 30, 0, 50, 0, 0]
+dtimes = 0:0.5:10.0
+ps = [5.0, 1.0]
+pr = [1.0, 4.0, 1.0, 2.0]
+px = [1.0, 1.0]
+
+system = PathWeightSampling.ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
+
+# output
+
+ComplexSystem with 8 reactions
+Input variables: L(t)
+Latent variables: R(t), LR(t), CheY(t), CheYp(t)
+Output variables: X(t)
+Initial condition:
+    L(t) = 10
+    R(t) = 30
+    LR(t) = 0
+    CheY(t) = 50
+    CheYp(t) = 0
+    X(t) = 0
+Parameters:
+    κ = 5.0
+    λ = 1.0
+    ρ = 1.0
+    μ = 4.0
+    ξ = 1.0
+    ν = 2.0
+    δ = 1.0
+    χ = 1.0</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/a2c5a5355f9e35155ef04e98aa176fbb6f6395e7/src/JumpNetwork.jl#L199-L263">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../guide/">« Guide</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.8 on <span class="colophon-date" title="Wednesday 17 November 2021 16:23">Wednesday 17 November 2021</span>. Using Julia version 1.6.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
