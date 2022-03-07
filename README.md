@@ -3,6 +3,8 @@
 [![CI](https://github.com/manuel-rhdt/PathWeightSampling.jl/actions/workflows/ci-pipeline.yml/badge.svg)](https://github.com/manuel-rhdt/PathWeightSampling.jl/actions/workflows/ci-pipeline.yml)
 [![codecov](https://codecov.io/gh/manuel-rhdt/PathWeightSampling.jl/branch/master/graph/badge.svg?token=Q0JFR9RBZ6)](https://codecov.io/gh/manuel-rhdt/PathWeightSampling.jl)
 [![DOI](https://zenodo.org/badge/268234770.svg)](https://zenodo.org/badge/latestdoi/268234770)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://manuel-rhdt.github.io/PathWeightSampling.jl/stable)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://manuel-rhdt.github.io/PathWeightSampling.jl/dev)
 
 
 PathWeightSampling.jl is a Julia package to compute information transmission rates using the novel Path Weight Sampling (PWS) method.
