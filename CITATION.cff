@@ -21,12 +21,9 @@ preferred-citation:
       family-names: ten Wolde
       affiliation: AMOLF
       orcid: 'https://orcid.org/0000-0001-9933-4016'
-  identifiers:
-    - type: doi
-      value: 10.48550/arXiv.2203.03461
-    - type: url
-      value: 'https://arxiv.org/abs/2203.03461'
-      description: ArXiv
   title: "Path Weight Sampling: Exact Monte Carlo Computation of the Mutual Information between Stochastic Trajectories"
+  journal: arXiv
+  year: 2022
+  doi: 10.48550/arXiv.2203.03461
   type: article
 title: "PathWeightSampling.jl"
