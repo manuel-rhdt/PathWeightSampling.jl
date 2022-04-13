@@ -1,6 +1,6 @@
 using RecipesBase
 using DiffEqBase
-import StaticArrays:SVector
+import StaticArrays: SVector
 
 abstract type AbstractTrajectory{uType,tType} end
 
@@ -47,7 +47,7 @@ function (t::Trajectory)(times::AbstractArray{<:Real})
     hcat(t.(times)...)
 end
 
-function Trajectory(u::AbstractMatrix{T}, t::AbstractVector{tType}, i=Int[]) where {tType <: Real,T <: Real}
+function Trajectory(u::AbstractMatrix{T}, t::AbstractVector{tType}, i = Int[]) where {tType<:Real,T<:Real}
     num_components = size(u, 1)
     if num_components > 0
         u_vec = [SVector{num_components}(c) for c in eachcol(u)]
@@ -77,15 +77,23 @@ function duration(traj::AbstractTrajectory)
     traj.t[end] - traj.t[begin]
 end
 
-function Base.iterate(traj::Trajectory, index=1)
+function Base.iterate(traj::Trajectory, index = 1)
     index > length(traj) && return nothing
     traj[index], index + 1
 end
 
-Base.eltype(::Type{T}) where {uType,tType,T <: AbstractTrajectory{uType,tType}} = Tuple{uType,tType,Int}
+Base.eltype(::Type{T}) where {uType,tType,T<:AbstractTrajectory{uType,tType}} = Tuple{uType,tType,Int}
 
-function collect_trajectory(iter, nocopy=false)
-    ((u, t, i), state) = iterate(iter)
+"""
+    collect_trajectory(iter, nocopy=false)
+
+Create a `Trajectory` from an iterator that yields a sequence of 3-element tuples `(u, t, i)`.
+
+If `nocopy` is true, the `u` vectors of the tuple will not be copied before adding them to the
+trajectory.
+"""
+function collect_trajectory(iter; nocopy = false)
+    (u, t, i), state = iterate(iter)
     traj = Trajectory([nocopy ? u : copy(u)], [t], Int[i])
 
     for (u, t, i) in Iterators.rest(iter, state)
@@ -110,4 +118,63 @@ end
     end
 
     tvec, uvec
+end
+
+struct MergeTrajectory{T1,T2}
+    traj1::T1
+    traj2::T2
+end
+
+Base.IteratorSize(::Type{MergeTrajectory{T1,T2}}) where {T1,T2} = Base.SizeUnknown()
+function Base.eltype(::Type{MergeTrajectory{T1,T2}}) where
+{T,U1,U2,T1<:AbstractTrajectory{U1,T},T2<:AbstractTrajectory{U2,T}}
+    Tuple{Chain{promote_type(eltype(U1), eltype(U2)),U1,U2},T,Int}
+end
+
+function merge_next(((u1, t1, i1), state1)::Tuple, ((u2, t2, i2), state2)::Tuple)
+    t, i = if t1 <= t2
+        t1, i1
+    else
+        t2, i2
+    end
+    Chain(copy(u1), copy(u2)), t, i
+end
+
+function advance_next(mtraj::MergeTrajectory, ((u1, t1, i1), state1)::A, ((u2, t2, i2), state2)::B)::Union{Nothing, Tuple{A, B}} where {A<:Tuple,B<:Tuple}
+    if t1 < t2
+        next1 = iterate(mtraj.traj1, state1)
+        if next1 === nothing
+            return nothing
+        end
+        next1, ((u2, t2, i2), state2)
+    elseif t1 > t2
+        next2 = iterate(mtraj.traj2, state2)
+        if next2 === nothing
+            return nothing
+        end
+        ((u1, t1, i1), state1), next2
+    elseif t1 == t2
+        next1 = iterate(mtraj.traj1, state1)
+        next2 = iterate(mtraj.traj2, state2)
+        (next1 === nothing || next2 === nothing) && return nothing
+        next1, next2
+    else # t1 or t2 is NaN
+        nothing
+    end
+end
+
+function Base.iterate(mtraj::MergeTrajectory)
+    s1 = iterate(mtraj.traj1)
+    s2 = iterate(mtraj.traj2)
+    if s1 === nothing || s2 === nothing return nothing end
+    m = merge_next(s1, s2)
+    (m, (s1, s2))
+end
+
+function Base.iterate(mtraj::MergeTrajectory, (s1, s2)::Tuple)
+    s = advance_next(mtraj, s1, s2)
+    if s === nothing return nothing end
+    s1, s2 = s
+    m = merge_next(s1, s2)
+    (m, s)
 end

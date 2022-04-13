@@ -1,4 +1,4 @@
-import PWS: collect_trajectory, Thin, MergeWith, sub_trajectory, merge_trajectories
+import PathWeightSampling: collect_trajectory, Thin, collect_sub_trajectory, merge_trajectories
 using Test
 using StaticArrays
 
@@ -19,7 +19,7 @@ for (index, (u, t, i)) in enumerate(all_events)
     if index == 1
         continue
     end
-    (uprev, tprev, iprev) = all_events[index - 1]
+    (uprev, tprev, iprev) = all_events[index-1]
     du = u - uprev
     if all(du .== 0)
         @test tprev ∉ getindex.(thinned_events, 2)
@@ -29,23 +29,23 @@ for (index, (u, t, i)) in enumerate(all_events)
 end
 
 
-for i in 1:length(thinned_events) - 2
-    @test thinned_events[i][1] != thinned_events[i + 1][1]
+for i in 1:length(thinned_events)-2
+    @test thinned_events[i][1] != thinned_events[i+1][1]
 end
 
 @test thinned_events[end][1:2] == all_events[end][1:2]
 
-sub1 = sub_trajectory(iter, [1])
-sub2 = sub_trajectory(iter, [2])
-merg = sub1 |> MergeWith(sub2) |> collect
+sub1 = collect_sub_trajectory(iter, [1])
+sub2 = collect_sub_trajectory(iter, [2])
+merg = merge_trajectories(sub1, sub2) |> collect
 
 @test merg == thinned_events
 
-sub1_trim  = collect(sub_trajectory(iter, [1]))[100:110] |> collect_trajectory
-a = sub1_trim |> MergeWith(sub2) |> collect
-b = sub2 |> MergeWith(sub1_trim) |> collect
+sub1_trim = collect(collect_sub_trajectory(iter, [1]))[100:110] |> collect_trajectory
+a = merge_trajectories(sub1_trim, sub2) |> collect
+b = merge_trajectories(sub2, sub1_trim) |> collect
 
 @test getindex.(a, 2) == getindex.(b, 2)
 for (a, b) in zip(a, b)
-    @test a[1][[1,2]]==b[1][[2,1]]
+    @test a[1][[1, 2]] == b[1][[2, 1]]
 end

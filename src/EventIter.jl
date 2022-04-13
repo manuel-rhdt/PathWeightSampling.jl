@@ -52,7 +52,11 @@ function Base.iterate(iter::SSAIter, state::Tuple{})
     nothing
 end
 
-function sub_trajectory(traj, indices)
+function sub_trajectory(traj, indices::SVector)
+    traj |> Map((u,t,i)::Tuple -> (u[indices], t, i)) |> Thin() |> collect_trajectory
+end
+
+function sub_trajectory(traj, indices::AbstractVector)
     traj |> Map((u,t,i)::Tuple -> ((@view u[indices]), t, i)) |> Thin() |> collect_trajectory
 end
 struct Chain{V,T <: AbstractVector,U <: AbstractVector} <: AbstractVector{V}
@@ -72,7 +76,7 @@ Base.setindex!(ch::Chain, v, i::Int) = i > length(ch.head) ? ch.tail[i - length(
 # merge more than 2 trajectories using recursion
 merge_trajectories(traj) = traj
 function merge_trajectories(traj1, traj2)
-    traj1 |> MergeWith(traj2)
+    MergeTrajectory(traj1, traj2)
 end
 function merge_trajectories(traj1, traj2, other_trajs...)
     merge12 = merge_trajectories(traj1, traj2)
@@ -149,11 +153,3 @@ function Transducers.complete(rf::R_{MergeWith}, result)
     _private_state, inner_result = unwrap(rf, result)
     return complete(inner(rf), inner_result)
 end
-
-function collect_trajectory(xf::Transducers.Transducer, itr)
-    rf = Transducers.ProductRF(Map(copy)'(Transducers.push!!), Transducers.push!!, Transducers.push!!) 
-    (u, t, i) = foldxl(rf, xf, itr; init=(Transducers.Empty(Vector), Transducers.Empty(Vector), Transducers.Empty(Vector)))
-    Trajectory(u, t, i)
-end
-
-collect_trajectory(ed::Transducers.Eduction) = collect_trajectory(Transducers.extract_transducer(ed)...)

@@ -1,3 +1,25 @@
+"""
+    DirectMCEstimate(M::Int)
+
+This is the simplest marginalization strategy, estimating the marginal path
+probabilities using a direct Monte Carlo simulation.
+
+`M` specifies the number of samples to be used for the Monte Carlo average.
+Larger `M` improves the accuracy of the marginalization integral, but increases
+the computational cost.
+
+# Mathematical Description
+
+The marginal probability
+```math
+\\mathrm{P}[\\bm{x}] = \\int\\mathrm{d}\\bm{s} \\mathrm{P}[\\bm{x}|\\bm{s}] \\mathrm{P}[\\bm{s}]
+```
+can be computed via a Monte Carlo estimate by sampling `M` trajectories from
+``\\mathrm{P}[\\bm{s}]`` and taking the average of the likelihoods:
+```math
+\\mathrm{P}[\\bm{x}] = \\langle \\mathrm{P}[\\bm{x}|\\bm{s}] \\rangle_{\\mathrm{P}[\\bm{s}]}\\,.
+```
+"""
 struct DirectMCEstimate
     num_samples::Int
 end

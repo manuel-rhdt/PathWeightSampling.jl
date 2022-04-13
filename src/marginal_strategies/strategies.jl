@@ -20,25 +20,52 @@ include("AIS.jl")
 include("DirectMC.jl")
 include("SMC.jl")
 
-function mutual_information(system, algorithm; num_responses::Integer=1, progress=true)
+"""
+    mutual_information(system, algorithm; num_samples=1, progress=true)
+
+Perform a simulation to compute the mutual information between input
+and output trajectories of `system`. 
+
+# Arguments
+
+The required marginalization integrals to obtain
+the marginal probability ``\\mathcal{P}[\\bm{x}]`` are performed using the
+specified `algorithm`.
+
+Overall, `num_samples` Monte Carlo samples are performed. For each
+individual sample, one or mupltiple marginalization operations need to be performed.
+
+If `progress == true`, a progress bar will be shown during the computation.
+
+# Returns
+
+Returns a `DataFrame` containing the results of the simulation. This resulting
+`DataFrame` has 3 columns. Assuming, the returned value has been named `result`
+the columns can be accessed by:
+
+- `result.MutualInformation`: A vector of vectors that contains the results of the simulation. Each element of the outer vector is the result of a single Monte Carlo sample. Each element is a vector containing the trajectory mutual information estimates for each time specified in `system.dtimes`.
+- `result.TimeMarginal`: A vector containing, for each sample, the CPU time in seconds used for the computation of the marginal entropy.
+- `result.TimeConditional`: A vector containing, for each sample, the CPU time in seconds used for the computation of the conditional entropy.
+"""
+function mutual_information(system, algorithm; num_samples::Integer=1, progress=true, compile_args = (;))
     # initialize the ensembles
-    compiled_system = compile(system)
+    compiled_system = compile(system; compile_args...)
 
     # this is the outer Direct Monte-Carlo loop
-    # result = Base.invokelatest(_mi_inner, compiled_system, algorithm, num_responses)
-    result = _mi_inner(compiled_system, algorithm, num_responses, progress)
+    # result = Base.invokelatest(_mi_inner, compiled_system, algorithm, num_samples)
+    result = _mi_inner(compiled_system, algorithm, num_samples, progress)
 
     result
 end
 
-function _mi_inner(compiled_system, algorithm, num_responses, show_progress)
+function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
     stats = DataFrame(
-        TimeConditional=zeros(Float64, num_responses), 
-        TimeMarginal=zeros(Float64, num_responses), 
+        TimeConditional=zeros(Float64, num_samples), 
+        TimeMarginal=zeros(Float64, num_samples), 
     )
 
-    p = Progress(num_responses; showspeed=true, enabled=show_progress)
-    mi = progress_map(1:num_responses, progress=p) do i
+    p = Progress(num_samples; showspeed=true, enabled=show_progress)
+    mi = progress_map(1:num_samples, progress=p) do i
         # draw an independent sample
         sample = generate_configuration(compiled_system.system)
 

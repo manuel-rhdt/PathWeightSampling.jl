@@ -1,7 +1,16 @@
-using Documenter, PWS
+using Documenter, PathWeightSampling
 
-makedocs(sitename="PWS.jl")
+makedocs(
+    sitename="PathWeightSampling.jl",
+    pages = [
+        "index.md",
+        "guide.md",
+        "systems.md",
+        "examples.md",
+        "marginalization.md",
+    ]
+)
 
 deploydocs(
-    repo = "github.com/manuel-rhdt/PWS.jl.git",
+    repo = "github.com/manuel-rhdt/PathWeightSampling.jl.git",
 )

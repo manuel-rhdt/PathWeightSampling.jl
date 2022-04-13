@@ -13,24 +13,24 @@ end
 
 const MAX_BATCH_SIZE = 1
 
-function run_parallel(systemfn, algorithm, num_responses)
+function run_parallel(systemfn, algorithm, num_samples; compile_args = (;))
     batches = Int[]
 
-    N = num_responses
-    batch_size = clamp(floor(num_responses / nworkers()), 1, MAX_BATCH_SIZE)
+    N = num_samples
+    batch_size = clamp(floor(num_samples / nworkers()), 1, MAX_BATCH_SIZE)
 
-    while num_responses > 0
-        batch = min(num_responses, batch_size)
+    while num_samples > 0
+        batch = min(num_samples, batch_size)
         push!(batches, batch)
-        num_responses -= batch
+        num_samples -= batch
     end
 
     @everywhere begin
         system = $systemfn()
-        global compiled_system = PWS.compile(system)
+        global compiled_system = PathWeightSampling.compile(system; $compile_args...)
     end
 
-    channel = RemoteChannel(()->Channel())
+    channel = RemoteChannel(() -> Channel())
     @info "Starting Parallel computation"
     result = @sync begin
         # display progress
@@ -42,9 +42,11 @@ function run_parallel(systemfn, algorithm, num_responses)
             end
             (hostname, elapsed_time, batch_size) = val
             progress += batch_size
+            done = @sprintf "%i/%i" progress N
             percent_done = @sprintf "%6.2f %%" (progress / N * 100)
             time = now()
-            @info "Finished batch" hostname time elapsed_time batch_size percent_done
+            @info "Finished batch" hostname time elapsed_time batch_size done percent_done
+            flush(stderr)
         end
 
         @sync begin

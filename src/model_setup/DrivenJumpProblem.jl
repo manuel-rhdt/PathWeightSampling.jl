@@ -5,7 +5,8 @@ export DrivenJumpProblem
 
 using DiffEqJump
 using CommonSolve
-using PWS: Trajectory
+using PathWeightSampling: Trajectory
+using StaticArrays
 
 """
     IdentityMap()
@@ -28,7 +29,7 @@ function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
     tc.index = min(tc.index + 1, length(traj.t))
     cond_u = traj.u[tc.index]
     for i in eachindex(cond_u)
-        integrator.u[tc.index_map[i]] = cond_u[i]
+        integrator.u = setindex(integrator.u, cond_u[i], tc.index_map[i])
     end
     # it is important to call this to properly update reaction rates
     DiffEqJump.reset_aggregated_jumps!(integrator, nothing, integrator.cb, update_jump_params=false)
@@ -36,11 +37,15 @@ function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
 end
 
 function (tc::TrajectoryCallback)(u, t::Real, i::DiffEqBase.DEIntegrator)::Bool # condition
-    @inbounds tcb = tc.traj.t[tc.index]
-    while tc.index < length(tc.traj.t) && t > tcb
-        tc.index += 1
-        @inbounds tcb = tc.traj.t[tc.index]
+    tc_index = tc.index
+    traj_t = tc.traj.t
+    traj_len = length(traj_t)
+    @inbounds tcb = traj_t[tc_index]
+    while tc_index < traj_len && t > tcb
+        tc_index += 1
+        @inbounds tcb = traj_t[tc_index]
     end
+    tc.index = tc_index
     t == tcb
 end
 

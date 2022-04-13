@@ -15,19 +15,19 @@ end
 
 function write_value_hdf5!(group, name::String, value)
     # for unknown datatypes write a string representation of the value as an attribute
-    attrs(group)[name] = repr(value)
+    attributes(group)[name] = repr(value)
 end
 
 function write_value_hdf5!(group, name::String, value::Union{AbstractDict, AbstractDataFrame})
     # if we can't write the value directly as a dataset we fall back
     # to creating a new group
-    newgroup = g_create(group, name)
+    newgroup = create_group(group, name)
     write_hdf5!(newgroup, value)
 end
 
 # non array values are written as attributes
 function write_value_hdf5!(group, name::String, value::Union{String,Number})
-    attrs(group)[name] = value
+    attributes(group)[name] = value
 end
 
 function write_value_hdf5!(group, name::String, value::AbstractArray{<:Number})
