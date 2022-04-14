@@ -362,7 +362,7 @@ D = Differential(t)
 
 eqs = [D(L) ~ -α * L]
 noiseeqs = [σ*L]
-sn = SDESystem(eqs, noiseeqs, t, [L], [α, σ])
+@named sn = SDESystem(eqs, noiseeqs, t, [L], [α, σ])
 
 rn = @reaction_network begin
     ρ, L + R --> L + LR
