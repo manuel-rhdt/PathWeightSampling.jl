@@ -1,5 +1,6 @@
 using Transducers
 using DiffEqJump
+using StochasticDiffEq
 import ModelingToolkit: SDESystem
 
 struct MarginalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,U0}
@@ -486,7 +487,7 @@ function Base.show(io::IO, ::MIME"text/plain", system::SDEDrivenSystem)
     end
 end
 
-tspan(sys::JumpNetwork) = (first(sys.dtimes), last(sys.dtimes))
+tspan(sys::JumpNetwork) = (Float64(first(sys.dtimes)), Float64(last(sys.dtimes)))
 
 reaction_network(system::SimpleSystem) = ModelingToolkit.extend(system.xn, system.sn)
 reaction_network(system::ComplexSystem) = ModelingToolkit.extend(system.xn, ModelingToolkit.extend(system.rn, system.sn))
@@ -563,6 +564,32 @@ function generate_configuration(system::Union{SimpleSystem,ComplexSystem}; seed=
     @assert x_idxs == collect(length(u0)-length(x_idxs)+1:length(u0))
 
     iter = SSAIter(init(jp, SSAStepper(), tstops=(), seed=seed))
+
+    s_traj, x_traj = collect_sub_trajectories(iter, s_idxs, x_idxs)
+
+    SXconfiguration(s_traj, x_traj)
+end
+
+function generate_configuration(system::SDEDrivenSystem; seed=rand(Int))
+    joint = reaction_network(system)
+
+    u0 = SVector(map(Float64, sample_initial_condition(system.u0))...)
+    jp = remake(system.jump_problem, u0=u0)
+
+    s_spec = independent_species(system.sn)
+    s_idxs = SVector(species_indices(joint, s_spec)...)
+    x_spec = independent_species(system.xn)
+    x_idxs = SVector(species_indices(joint, x_spec)...)
+
+    @assert s_idxs == collect(1:length(s_idxs))
+    @assert x_idxs == collect(length(u0)-length(x_idxs)+1:length(u0))
+
+    u0s::Vector{Float64} = [x for x in u0[s_idxs]]
+    s_prob = SDEProblem(system.sn, u0s, tspan(system), system.ps)
+    sol = solve(s_prob, SOSRA(), saveat=0.01)
+    input_traj = Trajectory(sol.u[1:end-1], sol.t[2:end])
+    djp = DrivenJumpProblem(jp, input_traj)
+    iter = SSAIter(init(djp; tstops=()))
 
     s_traj, x_traj = collect_sub_trajectories(iter, s_idxs, x_idxs)
 
@@ -670,7 +697,7 @@ function species_indices(rs::ReactionSystem, species)
     getindex.(Ref(Catalyst.speciesmap(rs)), species)
 end
 
-independent_species(sde::SDESystem) = sde.states
+independent_species(sde::SDESystem) = ModelingToolkit.get_states(sde)
 function independent_species(rs::ReactionSystem)
     i_spec = []
     smap = Catalyst.speciesmap(rs)

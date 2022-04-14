@@ -4,7 +4,7 @@ module DrivenJumpProblems
 export DrivenJumpProblem
 
 using DiffEqJump
-using CommonSolve
+using SciMLBase
 using PathWeightSampling: Trajectory
 using StaticArrays
 
@@ -16,13 +16,13 @@ A simple helper type that always returns `i` when indexed as `IdentityMap()[i]`.
 struct IdentityMap end
 @inline Base.getindex(x::IdentityMap, i::Integer) = i
 
-mutable struct TrajectoryCallback{T, IndexMap}
+mutable struct TrajectoryCallback{T,IndexMap}
     traj::T
     index::Int
     index_map::IndexMap
 end
 
-TrajectoryCallback(traj, index_map = IdentityMap()) = TrajectoryCallback(traj, 1, index_map)
+TrajectoryCallback(traj, index_map=IdentityMap()) = TrajectoryCallback(traj, 1, index_map)
 
 function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
     traj = tc.traj
@@ -63,30 +63,32 @@ struct DrivenJumpProblem{Prob,Cb}
     prob::Prob
     callback::Cb
 
-    function DrivenJumpProblem(jump_problem::JP, driving_trajectory; index_map = IdentityMap(), save_jumps=false) where {JP}
+    function DrivenJumpProblem(jump_problem::JP, driving_trajectory; index_map=IdentityMap(), save_jumps=false) where {JP}
         tcb = TrajectoryCallback(Trajectory(driving_trajectory), index_map)
         callback = DiscreteCallback(tcb, tcb, save_positions=(false, save_jumps))
-        new{JP, typeof(callback)}(jump_problem, callback)
+        new{JP,typeof(callback)}(jump_problem, callback)
     end
 end
 
-function CommonSolve.init(prob::DrivenJumpProblem; kwargs...)
+function SciMLBase.init(prob::DrivenJumpProblem; kwargs...)
     prob.callback.condition.index = 1
     tstops = prob.callback.condition.traj.t
     from = searchsortedfirst(tstops, prob.prob.prob.tspan[1])
     to = searchsortedlast(tstops, prob.prob.prob.tspan[2])
-    DiffEqBase.init(prob.prob, SSAStepper(), callback=prob.callback, tstops=tstops[from:to], save_start=false; kwargs...)
+    integrator = DiffEqJump.init(prob.prob, SSAStepper(), callback=prob.callback, tstops=tstops[from:to], save_start=false)
+    @assert integrator.tstops == tstops[from:to]
+    integrator
 end
 
-function CommonSolve.solve(prob::DrivenJumpProblem; kwargs...)
+function SciMLBase.solve(prob::DrivenJumpProblem; kwargs...)
     integrator = init(prob; kwargs...)
     solve!(integrator)
     integrator.sol
 end
 
-Base.summary(io::IO, prob::DrivenJumpProblem) = string(DiffEqBase.parameterless_type(prob)," with problem ",DiffEqBase.parameterless_type(prob.prob))
+Base.summary(io::IO, prob::DrivenJumpProblem) = string(DiffEqBase.parameterless_type(prob), " with problem ", DiffEqBase.parameterless_type(prob.prob))
 function Base.show(io::IO, mime::MIME"text/plain", A::DrivenJumpProblem)
-    println(io,summary(A))
+    println(io, summary(A))
 end
 
 # We define a new jump aggregator to deal with a jump process that is driven
