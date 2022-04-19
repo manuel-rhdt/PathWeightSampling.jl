@@ -91,6 +91,10 @@ function Base.show(io::IO, mime::MIME"text/plain", A::DrivenJumpProblem)
     println(io, summary(A))
 end
 
+# =======================================
+# THE CODE BELOW IS CURRENTLY UNUSED
+# =======================================
+
 # We define a new jump aggregator to deal with a jump process that is driven
 # by an input signal. The external driving signal is supplied as a trajectory of
 # jump times t_i and values u_i. The reaction rates are determined by mass

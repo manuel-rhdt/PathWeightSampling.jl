@@ -1,7 +1,7 @@
 using Transducers
 using DiffEqJump
 using StochasticDiffEq
-import ModelingToolkit: SDESystem
+import ModelingToolkit: SDESystem, get_states
 
 struct MarginalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,U0}
     jump_problem::JP
@@ -389,14 +389,15 @@ system = PathWeightSampling.SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes)
 
 SDEDrivenSystem with 6 reactions
 Input variables: L(t)
-Latent variables: R(t), LR(t)
-Output variables: Y(t), Yp(t)
+Latent variables: R(t), LR(t), CheY(t), CheYp(t)
+Output variables: X(t)
 Initial condition:
     L(t) = 10
-    R(t) = 10
-    LR(t) = 10
-    Y(t) = 10
-    Yp(t) = 10
+    R(t) = 30
+    LR(t) = 0
+    CheY(t) = 50
+    CheYp(t) = 0
+    X(t) = 0
 Parameters:
     α = 5.0
     σ = 1.0
@@ -431,7 +432,7 @@ function SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggre
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, pr, px)
     init = sample_initial_condition(u0)
-    @assert length(init) == length(joint.states)
+    @assert length(init) == length(get_states(joint))
     dprob = DiscreteProblem(joint, init, tp, vcat(pr, px))
     jprob = JumpProblem(joint, dprob, aggregator, save_positions=(false, false))
 
@@ -550,7 +551,7 @@ function collect_sub_trajectories(iter, indices_list...)
     trajs
 end
 
-function generate_configuration(system::Union{SimpleSystem,ComplexSystem}; seed=rand(Int))
+function generate_configuration(system::Union{SimpleSystem,ComplexSystem}; seed=rand(UInt))
     joint = reaction_network(system)
     u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
     jp = remake(system.jump_problem, u0=u0)
@@ -570,7 +571,7 @@ function generate_configuration(system::Union{SimpleSystem,ComplexSystem}; seed=
     SXconfiguration(s_traj, x_traj)
 end
 
-function generate_configuration(system::SDEDrivenSystem; seed=rand(Int))
+function generate_configuration(system::SDEDrivenSystem; seed=rand(UInt))
     joint = reaction_network(system)
 
     u0 = SVector(map(Float64, sample_initial_condition(system.u0))...)
@@ -600,7 +601,7 @@ function _solve(system::ComplexSystem)
     sol = solve(system.jump_problem, SSAStepper())
 end
 
-function generate_full_configuration(system::ComplexSystem; seed=rand(Int))
+function generate_full_configuration(system::ComplexSystem; seed=rand(UInt))
     joint = reaction_network(system)
     u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
     jp = remake(system.jump_problem, u0=u0)
@@ -697,7 +698,7 @@ function species_indices(rs::ReactionSystem, species)
     getindex.(Ref(Catalyst.speciesmap(rs)), species)
 end
 
-independent_species(sde::SDESystem) = ModelingToolkit.get_states(sde)
+independent_species(sde::SDESystem) = get_states(sde)
 function independent_species(rs::ReactionSystem)
     i_spec = []
     smap = Catalyst.speciesmap(rs)
