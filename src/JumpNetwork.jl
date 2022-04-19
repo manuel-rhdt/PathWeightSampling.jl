@@ -3,7 +3,7 @@ using DiffEqJump
 using StochasticDiffEq
 import ModelingToolkit: SDESystem, get_states
 
-struct MarginalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,U0}
+struct MarginalEnsemble{JP,U0}
     jump_problem::JP
     dist::TrajectoryDistribution
     dtimes::Vector{Float64}
@@ -666,13 +666,13 @@ function MarginalEnsemble(system::ComplexSystem; aggregator=Direct())
 
     u0 = sample_initial_condition(system.u0)[sr_idxs]
     dprob = DiscreteProblem(sr_network, SVector(u0...), tspan(system), vcat(system.ps, system.pr))
-    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, sr_network), dprob, aggregator, save_positions=(false, false))
+    jprob = JumpProblem(sr_network, dprob, aggregator, save_positions=(false, false))
 
     MarginalEnsemble(jprob, system.dist, collect(system.dtimes), SVector(u0...))
 end
 
 
-function ConditionalEnsemble(system::ComplexSystem; aggregator=Direct())
+function ConditionalEnsemble(system::Union{ComplexSystem,SDEDrivenSystem}; aggregator=Direct())
     joint = reaction_network(system)
     # we need the `system.rn` network indices to find the correct initial condition U0
     # for this network
@@ -683,12 +683,12 @@ function ConditionalEnsemble(system::ComplexSystem; aggregator=Direct())
 
     u0 = sample_initial_condition(system.u0)[r_idxs]
     dprob = DiscreteProblem(system.rn, SVector(u0...), (first(system.dtimes), last(system.dtimes)), system.pr)
-    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.rn), dprob, aggregator, save_positions=(false, false))
+    jprob = JumpProblem(system.rn, dprob, aggregator, save_positions=(false, false))
 
     indep_species = independent_species(system.rn)
     indep_idxs = SVector(species_indices(system.rn, indep_species)...)
 
-    s_species = Catalyst.species(system.sn)
+    s_species = get_states(system.sn)
     index_map = SVector(species_indices(system.rn, s_species)...)
 
     ConditionalEnsemble(jprob, system.dist, indep_idxs, index_map, collect(system.dtimes))
