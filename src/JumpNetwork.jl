@@ -718,7 +718,7 @@ function sample(configuration::SXconfiguration, system::MarginalEnsemble; θ=0.0
         error("can only use DirectMC with JumpNetwork")
     end
     jprob = remake(system.jump_problem, u0=SVector(sample_initial_condition(system)...))
-    integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), numsteps_hint=0)
+    integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), save_start=false, save_end=false)
     iter = SSAIter(integrator)
     s_traj = collect_trajectory(iter)
     SXconfiguration(s_traj, configuration.x_traj)
@@ -729,7 +729,7 @@ function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, n
     for result_col ∈ eachcol(result)
         u0 = sample_initial_condition(ensemble)
         jprob = remake(ensemble.jump_problem, u0=u0)
-        integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), numsteps_hint=0)
+        integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), save_start=false, save_end=false)
         iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
         result_col .+= initial_log_likelihood(ensemble, u0, initial.x_traj)
@@ -740,7 +740,7 @@ end
 
 function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan::Tuple)
     jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
-    integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), numsteps_hint=0)
+    integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), save_start=false, save_end=false)
     iter = SSAIter(integrator)
     ix1 = searchsortedfirst(conf.x_traj.t, tspan[1])
     merged = merge_trajectories(iter, Base.Iterators.rest(conf.x_traj, ix1))
