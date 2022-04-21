@@ -383,12 +383,12 @@ Input variables: L(t)
 Latent variables: R(t), LR(t), CheY(t), CheYp(t)
 Output variables: X(t)
 Initial condition:
-    L(t) = 10
-    R(t) = 30
-    LR(t) = 0
-    CheY(t) = 50
-    CheYp(t) = 0
-    X(t) = 0
+    L(t) = 10.0
+    R(t) = 30.0
+    LR(t) = 0.0
+    CheY(t) = 50.0
+    CheYp(t) = 0.0
+    X(t) = 0.0
 Parameters:
     α = 5.0
     σ = 1.0
