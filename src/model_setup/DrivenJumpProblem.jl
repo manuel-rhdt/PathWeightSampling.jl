@@ -7,6 +7,7 @@ using DiffEqJump
 using SciMLBase
 using PathWeightSampling: Trajectory
 using StaticArrays
+using StochasticDiffEq
 
 """
     IdentityMap()
@@ -29,10 +30,14 @@ function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
     tc.index = min(tc.index + 1, length(traj.t))
     cond_u = traj.u[tc.index]
     for i in eachindex(cond_u)
-        integrator.u = setindex(integrator.u, cond_u[i], tc.index_map[i])
+        if integrator.u isa StaticVector
+            integrator.u = setindex(integrator.u, cond_u[i], tc.index_map[i])
+        else
+            integrator.u[tc.index_map[i]] = cond_u[i]
+        end
     end
     # it is important to call this to properly update reaction rates
-    DiffEqJump.reset_aggregated_jumps!(integrator, nothing, integrator.cb, update_jump_params=false)
+    DiffEqJump.reset_aggregated_jumps!(integrator)
     nothing
 end
 
@@ -59,24 +64,47 @@ map onto the components of the `jump_problem`. The default `IdentityMap` maps th
 of the `driving_trajectory` onto the first N components of the jump problem, leaving the 
 remaining components of the jump problem unaltered by the driving trajectory.
 """
-struct DrivenJumpProblem{Prob,Cb}
+struct DrivenJumpProblem{Prob,Cb,TG}
     prob::Prob
     callback::Cb
+    make_trajectory::TG
+end
 
-    function DrivenJumpProblem(jump_problem::JP, driving_trajectory; index_map=IdentityMap(), save_jumps=false) where {JP}
-        tcb = TrajectoryCallback(Trajectory(driving_trajectory), index_map)
-        callback = DiscreteCallback(tcb, tcb, save_positions=(false, save_jumps))
-        new{JP,typeof(callback)}(jump_problem, callback)
+function DrivenJumpProblem(jump_problem::JP, driving_trajectory::Trajectory; index_map=IdentityMap(), save_jumps=false) where {JP}
+    tcb = TrajectoryCallback(driving_trajectory, index_map)
+    callback = DiscreteCallback(tcb, tcb, save_positions=(false, save_jumps))
+    function make_trajectory(prob::DrivenJumpProblem)
+        driving_trajectory
     end
+    DrivenJumpProblem(jump_problem, callback, make_trajectory)
+end
+
+function DrivenJumpProblem(jump_problem::JP, driving_problem::SDEProblem; index_map=IdentityMap(), save_jumps=false) where {JP}
+    tcb = TrajectoryCallback(Trajectory(Vector{Float64}[], Float64[]), index_map)
+    callback = DiscreteCallback(tcb, tcb, save_positions=(false, save_jumps))
+    function make_trajectory(prob::DrivenJumpProblem)
+        u0 = prob.prob.prob.u0[begin:length(driving_problem.u0)]
+        sde_prob = remake(driving_problem, u0=u0, tspan=prob.prob.prob.tspan)
+        sol = solve(sde_prob, SOSRA(), saveat=0.01)
+        Trajectory(sol.u[begin:end-1], sol.t[begin+1:end])
+    end
+    DrivenJumpProblem(jump_problem, callback, make_trajectory)
 end
 
 function SciMLBase.init(prob::DrivenJumpProblem; kwargs...)
+    tspan = prob.prob.prob.tspan
+    driving_trajectory = prob.make_trajectory(prob)
+
+    prob.callback.condition.traj = driving_trajectory
     prob.callback.condition.index = 1
-    tstops = prob.callback.condition.traj.t
-    from = searchsortedfirst(tstops, prob.prob.prob.tspan[1])
-    to = searchsortedlast(tstops, prob.prob.prob.tspan[2])
-    integrator = DiffEqJump.init(prob.prob, SSAStepper(), callback=prob.callback, tstops=tstops[from:to], save_start=false)
-    @assert integrator.tstops == tstops[from:to]
+
+    # find tstops
+    tstops = driving_trajectory.t
+    from = searchsortedfirst(tstops, tspan[1])
+    to = searchsortedlast(tstops, tspan[2])
+    tstops_clipped = @view tstops[from:to]
+
+    integrator = DiffEqJump.init(prob.prob, SSAStepper(), callback=prob.callback, tstops=tstops_clipped, save_start=false)
     integrator
 end
 
@@ -84,6 +112,26 @@ function SciMLBase.solve(prob::DrivenJumpProblem; kwargs...)
     integrator = init(prob; kwargs...)
     solve!(integrator)
     integrator.sol
+end
+
+# for remaking
+Base.@pure remaker_of(prob::T) where {T<:DrivenJumpProblem} = DiffEqBase.parameterless_type(T)
+function DiffEqBase.remake(thing::DrivenJumpProblem; kwargs...)
+    T = remaker_of(thing)
+
+    errmesg = """
+    DrivenJumpProblems can currently only be remade with new u0, p, tspan or prob fields. To change other fields create a new JumpProblem.
+    """
+    !issubset(keys(kwargs), (:u0, :p, :tspan, :prob)) && error(errmesg)
+
+    if :prob ∉ keys(kwargs)
+        jprob = DiffEqBase.remake(thing.prob; kwargs...)
+    else
+        any(k -> k in keys(kwargs), (:u0, :p, :tspan)) && error("If remaking a DrivenJumpProblem you can not pass both prob and any of u0, p, or tspan.")
+        jprob = kwargs[:prob]
+    end
+
+    T(jprob, thing.callback, thing.make_trajectory)
 end
 
 Base.summary(io::IO, prob::DrivenJumpProblem) = string(DiffEqBase.parameterless_type(prob), " with problem ", DiffEqBase.parameterless_type(prob.prob))

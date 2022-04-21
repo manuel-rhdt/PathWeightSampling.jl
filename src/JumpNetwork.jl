@@ -340,15 +340,6 @@ function Base.show(io::IO, ::MIME"text/plain", system::ComplexSystem)
     end
 end
 
-struct CompiledComplexSystem{JP,JPC,IXC,DXC}
-    system::ComplexSystem
-    marginal_ensemble::MarginalEnsemble{JP}
-    conditional_ensemble::ConditionalEnsemble{JPC,IXC,DXC}
-end
-
-compile(s::ComplexSystem; marginal_aggregator=Direct(), conditional_aggregator=Direct()) = CompiledComplexSystem(s, MarginalEnsemble(s; aggregator=marginal_aggregator), ConditionalEnsemble(s; aggregator=conditional_aggregator))
-marginal_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, marginal_configuration(conf), csrx.marginal_ensemble))
-conditional_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, conf, csrx.conditional_ensemble))
 
 """
 # Examples
@@ -431,6 +422,12 @@ function SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggre
 
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, pr, px)
+
+    # Make sure we don't use integers with SDEs
+    if u0 isa AbstractVector
+        u0 = map(Float64, u0)
+    end
+
     init = sample_initial_condition(u0)
     @assert length(init) == length(get_states(joint))
     dprob = DiscreteProblem(joint, init, tp, vcat(pr, px))
@@ -487,6 +484,17 @@ function Base.show(io::IO, ::MIME"text/plain", system::SDEDrivenSystem)
         print(io, "\n    ", p_names[i], " = ", system.px[i])
     end
 end
+
+struct CompiledComplexSystem{Sys,JP,JPC,IXC,DXC}
+    system::Sys
+    marginal_ensemble::MarginalEnsemble{JP}
+    conditional_ensemble::ConditionalEnsemble{JPC,IXC,DXC}
+end
+
+compile(s::Union{ComplexSystem,SDEDrivenSystem}; marginal_aggregator=Direct(), conditional_aggregator=Direct()) = CompiledComplexSystem(s, MarginalEnsemble(s; aggregator=marginal_aggregator), ConditionalEnsemble(s; aggregator=conditional_aggregator))
+marginal_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, marginal_configuration(conf), csrx.marginal_ensemble))
+conditional_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, conf, csrx.conditional_ensemble))
+
 
 tspan(sys::JumpNetwork) = (Float64(first(sys.dtimes)), Float64(last(sys.dtimes)))
 
@@ -671,6 +679,23 @@ function MarginalEnsemble(system::ComplexSystem; aggregator=Direct())
     MarginalEnsemble(jprob, system.dist, collect(system.dtimes), SVector(u0...))
 end
 
+function MarginalEnsemble(system::SDEDrivenSystem; aggregator=Direct())
+    s_idxs = collect(1:length(get_states(system.sn)))
+    sr_idxs = collect(1:Catalyst.numspecies(system.rn))
+
+    u0 = sample_initial_condition(system.u0)
+    u0s::Vector{Float64} = [x for x in u0[s_idxs]]
+    s_prob = SDEProblem(system.sn, u0s, tspan(system), system.ps)
+
+    u0r = map(Float64, u0[sr_idxs])
+    dprob = DiscreteProblem(system.rn, SVector(u0r...), tspan(system), system.pr)
+    jprob = JumpProblem(system.rn, dprob, aggregator, save_positions=(false, false))
+
+    driven_jump_problem = DrivenJumpProblem(jprob, s_prob)
+
+    MarginalEnsemble(driven_jump_problem, system.dist, collect(system.dtimes), SVector(u0r...))
+end
+
 
 function ConditionalEnsemble(system::Union{ComplexSystem,SDEDrivenSystem}; aggregator=Direct())
     joint = reaction_network(system)
@@ -713,12 +738,23 @@ function dependent_species(rs::ReactionSystem)
     sort(setdiff(Catalyst.species(rs), independent_species(rs)), by=x -> smap[x])
 end
 
+function create_integrator(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan::Tuple)
+    if ensemble.jump_problem isa DrivenJumpProblem
+        driven_jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
+        init(driven_jprob)
+    else
+        jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
+        init(jprob, SSAStepper(), tstops=(), save_start=false, save_end=false)
+    end
+end
+
 function sample(configuration::SXconfiguration, system::MarginalEnsemble; θ=0.0)
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
-    jprob = remake(system.jump_problem, u0=SVector(sample_initial_condition(system)...))
-    integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), save_start=false, save_end=false)
+    u0 = SVector(sample_initial_condition(system)...)
+    tspan = (system.dtimes[begin], system.dtimes[end])
+    integrator = create_integrator(configuration, system, u0, tspan)
     iter = SSAIter(integrator)
     s_traj = collect_trajectory(iter)
     SXconfiguration(s_traj, configuration.x_traj)
@@ -728,8 +764,8 @@ function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, n
     result = Array{Float64,2}(undef, length(ensemble.dtimes), num_samples)
     for result_col ∈ eachcol(result)
         u0 = sample_initial_condition(ensemble)
-        jprob = remake(ensemble.jump_problem, u0=u0)
-        integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), save_start=false, save_end=false)
+        tspan = (ensemble.dtimes[begin], ensemble.dtimes[end])
+        integrator = create_integrator(initial, ensemble, u0, tspan)
         iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
         result_col .+= initial_log_likelihood(ensemble, u0, initial.x_traj)
@@ -739,8 +775,7 @@ function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, n
 end
 
 function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan::Tuple)
-    jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
-    integrator = DiffEqBase.init(jprob, SSAStepper(), tstops=(), save_start=false, save_end=false)
+    integrator = create_integrator(conf, ensemble, u0, tspan)
     iter = SSAIter(integrator)
     ix1 = searchsortedfirst(conf.x_traj.t, tspan[1])
     merged = merge_trajectories(iter, Base.Iterators.rest(conf.x_traj, ix1))
