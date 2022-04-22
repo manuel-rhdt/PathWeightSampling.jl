@@ -65,3 +65,54 @@ new_conf = PathWeightSampling.sample(conf, me)
 
 alg = SMCEstimate(128)
 mi = PathWeightSampling.mutual_information(sds, alg)
+
+# Simpler SDEDrivenSystem
+xn = @reaction_network GeneExpression begin
+    ρ, L --> L + X
+    μ, X --> ∅
+end ρ μ
+
+sds = PathWeightSampling.SDEDrivenSystem(
+    sn, xn,
+    [50, 50], # u0
+    ps,
+    [10.0, 10.0],  # px
+    0.0:0.1:2.0  # dtimes
+)
+
+mi = PathWeightSampling.mutual_information(sds, alg)
+
+# using Plots
+# conf = PathWeightSampling.generate_configuration(sds, seed=3)
+# plot(conf)
+
+# me = PathWeightSampling.MarginalEnsemble(sds)
+
+# x = PathWeightSampling.trajectory_energy(
+#     me.dist,
+#     PathWeightSampling.merge_trajectories(conf.s_traj, conf.x_traj)
+# )
+# -PathWeightSampling.energy_difference(conf, me)[end]
+# plot(-PathWeightSampling.energy_difference(conf, me))
+
+# samples = [PathWeightSampling.sample(conf, me) for i = 1:1024]
+# log_probs = hcat(map(c -> -PathWeightSampling.energy_difference(c, me), samples)...)
+
+# log_prob = mean(log_probs, dims=2)
+
+# plot(-PathWeightSampling.energy_difference(conf, me) - log_prob)
+
+# conf.s_traj
+# merged = PathWeightSampling.collect_trajectory(PathWeightSampling.merge_trajectories(conf.s_traj, conf.x_traj))
+# plot(conf)
+# plot(merged)
+
+# traj = PathWeightSampling.propagate(conf, me, [50], (0.0, 0.1))
+# plot(traj)
+
+# alg = SMCEstimate(128)
+# mi = PathWeightSampling.mutual_information(sds, alg, num_samples=100)
+
+# using Statistics
+# plot(sds.dtimes, mean(mi.MutualInformation))
+# plot!(sds.dtimes, 1.0 .* sds.dtimes)

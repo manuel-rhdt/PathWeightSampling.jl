@@ -1,7 +1,8 @@
 using Transducers
 using DiffEqJump
 using StochasticDiffEq
-import ModelingToolkit: SDESystem, get_states
+import Catalyst: ReactionSystem
+import ModelingToolkit: SDESystem, get_states, get_iv, get_ps, @named
 
 struct MarginalEnsemble{JP,U0}
     jump_problem::JP
@@ -28,6 +29,8 @@ struct SXconfiguration{uTs,uTx,tType}
 end
 
 Base.copy(c::SXconfiguration) = SXconfiguration(copy(c.s_traj), copy(c.x_traj))
+Base.:(==)(c1::SXconfiguration, c2::SXconfiguration) = (c1.s_traj == c2.s_traj) && (c1.x_traj == c2.x_traj)
+
 struct SRXconfiguration{uTs,Utr,Utx,tType}
     s_traj::Trajectory{uTs,tType}
     r_traj::Trajectory{Utr,tType}
@@ -35,6 +38,7 @@ struct SRXconfiguration{uTs,Utr,Utx,tType}
 end
 
 Base.copy(c::SRXconfiguration) = SRXconfiguration(copy(c.s_traj), copy(c.r_traj), copy(c.x_traj))
+Base.:(==)(c1::SRXconfiguration, c2::SRXconfiguration) = (c1.s_traj == c2.s_traj) && (c1.r_traj == c2.r_traj) && (c1.x_traj == c2.x_traj)
 
 ensurevec(a::AbstractVector) = a
 ensurevec(a) = SVector(a)
@@ -189,8 +193,8 @@ function Base.show(io::IO, ::MIME"text/plain", system::SimpleSystem)
     end
 end
 
-struct CompiledSimpleSystem{JP}
-    system::SimpleSystem
+struct CompiledSimpleSystem{Sys,JP}
+    system::Sys
     marginal_ensemble::MarginalEnsemble{JP}
 end
 
@@ -435,10 +439,16 @@ function SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggre
 
     if dist === nothing
         update_map = build_update_map(joint, xn)
-        dist = distribution(joint, p; update_map)
+        dist = distribution(joint, vcat(pr, px); update_map)
     end
 
     SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob, dist)
+end
+
+function SDEDrivenSystem(sn, xn, u0, ps, px, dtimes, dist=nothing; aggregator=Direct())
+    pr = eltype(ps)[]
+    @named rn = ReactionSystem(Catalyst.Reaction[], get_iv(sn), get_states(sn), eltype(get_ps(sn))[])
+    SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist; aggregator=aggregator)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", system::SDEDrivenSystem)
@@ -451,7 +461,7 @@ function Base.show(io::IO, ::MIME"text/plain", system::SDEDrivenSystem)
     end
     print(io, "\nLatent variables: ")
     lvars = independent_species(system.rn)
-    print(io, lvars[1])
+    length(lvars) > 0 && print(io, lvars[1])
     for i = 2:length(lvars)
         print(io, ", ", lvars[i])
     end
@@ -491,10 +501,17 @@ struct CompiledComplexSystem{Sys,JP,JPC,IXC,DXC}
     conditional_ensemble::ConditionalEnsemble{JPC,IXC,DXC}
 end
 
-compile(s::Union{ComplexSystem,SDEDrivenSystem}; marginal_aggregator=Direct(), conditional_aggregator=Direct()) = CompiledComplexSystem(s, MarginalEnsemble(s; aggregator=marginal_aggregator), ConditionalEnsemble(s; aggregator=conditional_aggregator))
+compile(s::ComplexSystem; marginal_aggregator=Direct(), conditional_aggregator=Direct()) = CompiledComplexSystem(s, MarginalEnsemble(s; aggregator=marginal_aggregator), ConditionalEnsemble(s; aggregator=conditional_aggregator))
 marginal_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, marginal_configuration(conf), csrx.marginal_ensemble))
 conditional_density(csrx::CompiledComplexSystem, algorithm, conf::Union{SXconfiguration,SRXconfiguration}) = log_marginal(simulate(algorithm, conf, csrx.conditional_ensemble))
 
+function compile(s::SDEDrivenSystem; marginal_aggregator=Direct(), conditional_aggregator=Direct())
+    if isempty(ModelingToolkit.get_eqs(s.rn))
+        CompiledSimpleSystem(s, MarginalEnsemble(s; aggregator=marginal_aggregator))
+    else
+        CompiledComplexSystem(s, MarginalEnsemble(s; aggregator=marginal_aggregator), ConditionalEnsemble(s; aggregator=conditional_aggregator))
+    end
+end
 
 tspan(sys::JumpNetwork) = (Float64(first(sys.dtimes)), Float64(last(sys.dtimes)))
 
@@ -594,13 +611,15 @@ function generate_configuration(system::SDEDrivenSystem; seed=rand(UInt))
     @assert x_idxs == collect(length(u0)-length(x_idxs)+1:length(u0))
 
     u0s::Vector{Float64} = [x for x in u0[s_idxs]]
-    s_prob = SDEProblem(system.sn, u0s, tspan(system), system.ps)
+    s_prob = SDEProblem(system.sn, u0s, tspan(system), system.ps, seed=seed)
     sol = solve(s_prob, SOSRA(), saveat=0.01)
     input_traj = Trajectory(sol.u[1:end-1], sol.t[2:end])
     djp = DrivenJumpProblem(jp, input_traj)
-    iter = SSAIter(init(djp; tstops=()))
+    iter = SSAIter(init(djp; seed=seed))
 
     s_traj, x_traj = collect_sub_trajectories(iter, s_idxs, x_idxs)
+
+    @assert s_traj == input_traj
 
     SXconfiguration(s_traj, x_traj)
 end
@@ -687,13 +706,18 @@ function MarginalEnsemble(system::SDEDrivenSystem; aggregator=Direct())
     u0s::Vector{Float64} = [x for x in u0[s_idxs]]
     s_prob = SDEProblem(system.sn, u0s, tspan(system), system.ps)
 
-    u0r = map(Float64, u0[sr_idxs])
-    dprob = DiscreteProblem(system.rn, SVector(u0r...), tspan(system), system.pr)
-    jprob = JumpProblem(system.rn, dprob, aggregator, save_positions=(false, false))
+    if isempty(ModelingToolkit.get_eqs(system.rn))
+        prob = s_prob
+        u0 = u0s
+    else
+        u0r = map(Float64, u0[sr_idxs])
+        dprob = DiscreteProblem(system.rn, SVector(u0r...), tspan(system), system.pr)
+        jprob = JumpProblem(system.rn, dprob, aggregator, save_positions=(false, false))
+        prob = DrivenJumpProblem(jprob, s_prob)
+        u0 = u0r
+    end
 
-    driven_jump_problem = DrivenJumpProblem(jprob, s_prob)
-
-    MarginalEnsemble(driven_jump_problem, system.dist, collect(system.dtimes), SVector(u0r...))
+    MarginalEnsemble(prob, system.dist, collect(system.dtimes), SVector(u0...))
 end
 
 
@@ -741,21 +765,26 @@ end
 function create_integrator(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan::Tuple)
     if ensemble.jump_problem isa DrivenJumpProblem
         driven_jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
-        init(driven_jprob)
-    else
+        integrator = init(driven_jprob)
+        SSAIter(integrator)
+    elseif ensemble.jump_problem isa JumpProblem
         jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
-        init(jprob, SSAStepper(), tstops=(), save_start=false, save_end=false)
+        integrator = init(jprob, SSAStepper(), tstops=(), save_start=false, save_end=false)
+        SSAIter(integrator)
+    else
+        prob = remake(ensemble.jump_problem, u0=[Float64(x) for x in u0], tspan=tspan)
+        sol = solve(prob, SOSRA(), saveat=0.01)
+        Trajectory(sol.u[begin:end-1], sol.t[begin+1:end])
     end
 end
 
 function sample(configuration::SXconfiguration, system::MarginalEnsemble; θ=0.0)
     if θ != 0.0
-        error("can only use DirectMC with JumpNetwork")
+        error("θ != 0 not supported for DirectMC with JumpNetwork")
     end
     u0 = SVector(sample_initial_condition(system)...)
     tspan = (system.dtimes[begin], system.dtimes[end])
-    integrator = create_integrator(configuration, system, u0, tspan)
-    iter = SSAIter(integrator)
+    iter = create_integrator(configuration, system, u0, tspan)
     s_traj = collect_trajectory(iter)
     SXconfiguration(s_traj, configuration.x_traj)
 end
@@ -765,8 +794,8 @@ function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, n
     for result_col ∈ eachcol(result)
         u0 = sample_initial_condition(ensemble)
         tspan = (ensemble.dtimes[begin], ensemble.dtimes[end])
-        integrator = create_integrator(initial, ensemble, u0, tspan)
-        iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
+        ssa_iter = create_integrator(initial, ensemble, u0, tspan)
+        iter = ssa_iter |> Map((u, t, i)::Tuple -> (u, t, 0))
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
         result_col .+= initial_log_likelihood(ensemble, u0, initial.x_traj)
     end
@@ -775,15 +804,20 @@ function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, n
 end
 
 function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan::Tuple)
-    integrator = create_integrator(conf, ensemble, u0, tspan)
-    iter = SSAIter(integrator)
+    iter = create_integrator(conf, ensemble, u0, tspan)
     ix1 = searchsortedfirst(conf.x_traj.t, tspan[1])
     merged = merge_trajectories(iter, Base.Iterators.rest(conf.x_traj, ix1))
 
     # TODO: check species ordering
     log_weight = trajectory_energy(ensemble.dist, merged, tspan=tspan)
 
-    copy(integrator.u), log_weight
+    if iter isa SSAIter
+        u = copy(iter.integrator.u)
+    else
+        u = SVector(iter.u[end]...)
+    end
+
+    u, log_weight
 end
 
 function energy_difference(configuration::SXconfiguration, ensemble::MarginalEnsemble)

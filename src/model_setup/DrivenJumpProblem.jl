@@ -104,7 +104,14 @@ function SciMLBase.init(prob::DrivenJumpProblem; kwargs...)
     to = searchsortedlast(tstops, tspan[2])
     tstops_clipped = @view tstops[from:to]
 
-    integrator = DiffEqJump.init(prob.prob, SSAStepper(), callback=prob.callback, tstops=tstops_clipped, save_start=false)
+    integrator = DiffEqJump.init(
+        prob.prob, 
+        SSAStepper(); 
+        callback=prob.callback, 
+        tstops=tstops_clipped, 
+        save_start=false,
+        kwargs...
+    )
     integrator
 end
 

@@ -30,7 +30,11 @@ Trajectory(u::Vector{<:AbstractVector}, t::Vector) = Trajectory(u, t, Int[])
 Base.copy(traj::Trajectory) = Trajectory(copy(traj.u), deepcopy(traj.t), copy(traj.i))
 
 Base.getindex(traj::Trajectory, idx::Int) = (traj.u[idx], traj.t[idx], idx > length(traj.i) ? 0 : traj.i[idx])
-Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.t == traj2.t) && (traj1.u == traj2.u) && (traj1.i == traj2.i)
+
+function equal_i(i1, i2)
+    (isempty(i1) || all(i1 .== 0)) && (isempty(i2) || all(i2 .== 0)) || i1 == i2
+end
+Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.t == traj2.t) && (traj1.u == traj2.u) && equal_i(traj1.i, traj2.i)
 
 function (t::Trajectory)(time::Real)
     index = searchsortedfirst(t.t, time)
@@ -47,7 +51,7 @@ function (t::Trajectory)(times::AbstractArray{<:Real})
     hcat(t.(times)...)
 end
 
-function Trajectory(u::AbstractMatrix{T}, t::AbstractVector{tType}, i = Int[]) where {tType<:Real,T<:Real}
+function Trajectory(u::AbstractMatrix{T}, t::AbstractVector{tType}, i=Int[]) where {tType<:Real,T<:Real}
     num_components = size(u, 1)
     if num_components > 0
         u_vec = [SVector{num_components}(c) for c in eachcol(u)]
@@ -77,7 +81,7 @@ function duration(traj::AbstractTrajectory)
     traj.t[end] - traj.t[begin]
 end
 
-function Base.iterate(traj::Trajectory, index = 1)
+function Base.iterate(traj::Trajectory, index=1)
     index > length(traj) && return nothing
     traj[index], index + 1
 end
@@ -92,7 +96,7 @@ Create a `Trajectory` from an iterator that yields a sequence of 3-element tuple
 If `nocopy` is true, the `u` vectors of the tuple will not be copied before adding them to the
 trajectory.
 """
-function collect_trajectory(iter; nocopy = false)
+function collect_trajectory(iter; nocopy=false)
     (u, t, i), state = iterate(iter)
     traj = Trajectory([nocopy ? u : copy(u)], [t], Int[i])
 
@@ -104,6 +108,8 @@ function collect_trajectory(iter; nocopy = false)
 
     traj
 end
+
+collect_trajectory(traj::Trajectory) = traj
 
 @recipe function f(traj::AbstractTrajectory{uType,tType}) where {uType,tType}
     seriestype --> :steppre
@@ -140,7 +146,7 @@ function merge_next(((u1, t1, i1), state1)::Tuple, ((u2, t2, i2), state2)::Tuple
     Chain(copy(u1), copy(u2)), t, i
 end
 
-function advance_next(mtraj::MergeTrajectory, ((u1, t1, i1), state1)::A, ((u2, t2, i2), state2)::B)::Union{Nothing, Tuple{A, B}} where {A<:Tuple,B<:Tuple}
+function advance_next(mtraj::MergeTrajectory, ((u1, t1, i1), state1)::A, ((u2, t2, i2), state2)::B)::Union{Nothing,Tuple{A,B}} where {A<:Tuple,B<:Tuple}
     if t1 < t2
         next1 = iterate(mtraj.traj1, state1)
         if next1 === nothing
@@ -166,14 +172,18 @@ end
 function Base.iterate(mtraj::MergeTrajectory)
     s1 = iterate(mtraj.traj1)
     s2 = iterate(mtraj.traj2)
-    if s1 === nothing || s2 === nothing return nothing end
+    if s1 === nothing || s2 === nothing
+        return nothing
+    end
     m = merge_next(s1, s2)
     (m, (s1, s2))
 end
 
 function Base.iterate(mtraj::MergeTrajectory, (s1, s2)::Tuple)
     s = advance_next(mtraj, s1, s2)
-    if s === nothing return nothing end
+    if s === nothing
+        return nothing
+    end
     s1, s2 = s
     m = merge_next(s1, s2)
     (m, s)

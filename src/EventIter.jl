@@ -16,14 +16,19 @@ function Base.iterate(iter::SSAIter)
         return nothing
     end
     aggregator = integrator.cb.condition
+    i = aggregator.next_jump
+
     next_jump_time = integrator.tstop > integrator.t ? integrator.tstop : typemax(integrator.tstop)
     if !isempty(integrator.tstops) &&
-            integrator.tstops_idx <= length(integrator.tstops) &&
-            integrator.tstops[integrator.tstops_idx] < next_jump_time
+       integrator.tstops_idx <= length(integrator.tstops) &&
+       integrator.tstops[integrator.tstops_idx] < next_jump_time
         next_jump_time = integrator.tstops[integrator.tstops_idx]
+        i = 0
     end
     t = min(next_jump_time, end_time)
-    i = t == end_time ? 0 : aggregator.next_jump
+    if t == end_time
+        i = 0
+    end
     return (integrator.u, t, i), ()
 end
 
@@ -37,13 +42,13 @@ function Base.iterate(iter::SSAIter, state::Tuple{})
 
         next_jump_time = integrator.tstop > integrator.t ? integrator.tstop : typemax(integrator.tstop)
         if !isempty(integrator.tstops) &&
-                integrator.tstops_idx <= length(integrator.tstops) &&
-                integrator.tstops[integrator.tstops_idx] < next_jump_time
+           integrator.tstops_idx <= length(integrator.tstops) &&
+           integrator.tstops[integrator.tstops_idx] < next_jump_time
             next_jump_time = integrator.tstops[integrator.tstops_idx]
             i = 0
         end
         t = min(next_jump_time, end_time)
-        if t == end_time 
+        if t == end_time
             i = 0
         end
 
@@ -53,25 +58,25 @@ function Base.iterate(iter::SSAIter, state::Tuple{})
 end
 
 function sub_trajectory(traj, indices::SVector)
-    traj |> Map((u,t,i)::Tuple -> (u[indices], t, i)) |> Thin() |> collect_trajectory
+    traj |> Map((u, t, i)::Tuple -> (u[indices], t, i)) |> Thin() |> collect_trajectory
 end
 
 function sub_trajectory(traj, indices::AbstractVector)
-    traj |> Map((u,t,i)::Tuple -> ((@view u[indices]), t, i)) |> Thin() |> collect_trajectory
+    traj |> Map((u, t, i)::Tuple -> ((@view u[indices]), t, i)) |> Thin() |> collect_trajectory
 end
-struct Chain{V,T <: AbstractVector,U <: AbstractVector} <: AbstractVector{V}
+struct Chain{V,T<:AbstractVector,U<:AbstractVector} <: AbstractVector{V}
     head::T
     tail::U
 
-    function Chain(head::AbstractVector{X}, tail::AbstractVector{Y}) where {X, Y} 
-        new{promote_type(X, Y), typeof(head), typeof(tail)}(head, tail)
+    function Chain(head::AbstractVector{X}, tail::AbstractVector{Y}) where {X,Y}
+        new{promote_type(X, Y),typeof(head),typeof(tail)}(head, tail)
     end
 end
 
 Base.IndexStyle(::Type{<:Chain}) = IndexLinear()
 Base.size(ch::Chain) = size(ch.head) .+ size(ch.tail)
-Base.getindex(ch::Chain{V}, i::Int) where {V} = convert(V, i > length(ch.head) ? ch.tail[i - length(ch.head)] : ch.head[i])
-Base.setindex!(ch::Chain, v, i::Int) = i > length(ch.head) ? ch.tail[i - length(ch.head)] = v : ch.head[i] = v
+Base.getindex(ch::Chain{V}, i::Int) where {V} = convert(V, i > length(ch.head) ? ch.tail[i-length(ch.head)] : ch.head[i])
+Base.setindex!(ch::Chain, v, i::Int) = i > length(ch.head) ? ch.tail[i-length(ch.head)] = v : ch.head[i] = v
 
 # merge more than 2 trajectories using recursion
 merge_trajectories(traj) = traj
@@ -122,7 +127,7 @@ function Transducers.start(rf::R_{MergeWith}, result)
 end
 
 function Transducers.next(rf::R_{MergeWith}, result, (u, t, i))
-    f = let u=u, t=t, i=i, rf=rf
+    f = let u = u, t = t, i = i, rf = rf
         function (index::Int, iresult)
             merge_traj = xform(rf).traj
             ri = i
