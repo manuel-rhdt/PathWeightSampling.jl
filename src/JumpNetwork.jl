@@ -13,6 +13,9 @@ struct MarginalEnsemble{JP,U0}
     # condition, or an EmpiricalDistribution specifying a probability distribution over initial
     # conditions.
     u0::U0
+
+    # Timestep of SDE simulation
+    sde_dt::Float64
 end
 
 struct ConditionalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,IX,IM}
@@ -419,9 +422,11 @@ struct SDEDrivenSystem <: JumpNetwork
 
     jump_problem
     dist::TrajectoryDistribution
+
+    sde_dt::Float64
 end
 
-function SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())
+function SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct(), sde_dt=0.01)
     joint = ModelingToolkit.extend(xn, rn)
 
     tp = (first(dtimes), last(dtimes))
@@ -442,13 +447,13 @@ function SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggre
         dist = distribution(joint, vcat(pr, px); update_map)
     end
 
-    SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob, dist)
+    SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob, dist, sde_dt)
 end
 
-function SDEDrivenSystem(sn, xn, u0, ps, px, dtimes, dist=nothing; aggregator=Direct())
+function SDEDrivenSystem(sn, xn, u0, ps, px, dtimes, dist=nothing; aggregator=Direct(), sde_dt=0.01)
     pr = eltype(ps)[]
     @named rn = ReactionSystem(Catalyst.Reaction[], get_iv(sn), get_states(sn), eltype(get_ps(sn))[])
-    SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist; aggregator=aggregator)
+    SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist; aggregator=aggregator, sde_dt=sde_dt)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", system::SDEDrivenSystem)
@@ -680,7 +685,7 @@ function MarginalEnsemble(system::SimpleSystem; aggregator=Direct())
     jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, system.sn), dprob, aggregator, save_positions=(false, false))
 
     u0 = system.u0 isa EmpiricalDistribution ? system.u0 : SVector(system.u0[s_idxs]...)
-    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), u0)
+    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), u0, 0.0)
 end
 
 function MarginalEnsemble(system::ComplexSystem; aggregator=Direct())
@@ -695,7 +700,7 @@ function MarginalEnsemble(system::ComplexSystem; aggregator=Direct())
     dprob = DiscreteProblem(sr_network, SVector(u0...), tspan(system), vcat(system.ps, system.pr))
     jprob = JumpProblem(sr_network, dprob, aggregator, save_positions=(false, false))
 
-    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), SVector(u0...))
+    MarginalEnsemble(jprob, system.dist, collect(system.dtimes), SVector(u0...), 0.0)
 end
 
 function MarginalEnsemble(system::SDEDrivenSystem; aggregator=Direct())
@@ -713,11 +718,11 @@ function MarginalEnsemble(system::SDEDrivenSystem; aggregator=Direct())
         u0r = map(Float64, u0[sr_idxs])
         dprob = DiscreteProblem(system.rn, SVector(u0r...), tspan(system), system.pr)
         jprob = JumpProblem(system.rn, dprob, aggregator, save_positions=(false, false))
-        prob = DrivenJumpProblem(jprob, s_prob)
+        prob = DrivenJumpProblem(jprob, s_prob, sde_dt=system.sde_dt)
         u0 = u0r
     end
 
-    MarginalEnsemble(prob, system.dist, collect(system.dtimes), SVector(u0...))
+    MarginalEnsemble(prob, system.dist, collect(system.dtimes), SVector(u0...), system.sde_dt)
 end
 
 
@@ -773,7 +778,7 @@ function create_integrator(conf::SXconfiguration, ensemble::MarginalEnsemble, u0
         SSAIter(integrator)
     else
         prob = remake(ensemble.jump_problem, u0=[Float64(x) for x in u0], tspan=tspan)
-        sol = solve(prob, SOSRA(), saveat=0.01)
+        sol = solve(prob, SOSRI(), saveat=ensemble.sde_dt, dt=ensemble.sde_dt)
         Trajectory(sol.u[begin:end-1], sol.t[begin+1:end])
     end
 end

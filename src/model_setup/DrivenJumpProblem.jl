@@ -79,13 +79,13 @@ function DrivenJumpProblem(jump_problem::JP, driving_trajectory::Trajectory; ind
     DrivenJumpProblem(jump_problem, callback, make_trajectory)
 end
 
-function DrivenJumpProblem(jump_problem::JP, driving_problem::SDEProblem; index_map=IdentityMap(), save_jumps=false) where {JP}
+function DrivenJumpProblem(jump_problem::JP, driving_problem::SDEProblem; index_map=IdentityMap(), save_jumps=false, sde_dt=0.01) where {JP}
     tcb = TrajectoryCallback(Trajectory(Vector{Float64}[], Float64[]), index_map)
     callback = DiscreteCallback(tcb, tcb, save_positions=(false, save_jumps))
     function make_trajectory(prob::DrivenJumpProblem)
         u0 = prob.prob.prob.u0[begin:length(driving_problem.u0)]
         sde_prob = remake(driving_problem, u0=u0, tspan=prob.prob.prob.tspan)
-        sol = solve(sde_prob, SOSRA(), saveat=0.01)
+        sol = solve(sde_prob, SOSRI(), saveat=sde_dt, dt=sde_dt)
         Trajectory(sol.u[begin:end-1], sol.t[begin+1:end])
     end
     DrivenJumpProblem(jump_problem, callback, make_trajectory)
@@ -105,10 +105,10 @@ function SciMLBase.init(prob::DrivenJumpProblem; kwargs...)
     tstops_clipped = @view tstops[from:to]
 
     integrator = DiffEqJump.init(
-        prob.prob, 
-        SSAStepper(); 
-        callback=prob.callback, 
-        tstops=tstops_clipped, 
+        prob.prob,
+        SSAStepper();
+        callback=prob.callback,
+        tstops=tstops_clipped,
         save_start=false,
         kwargs...
     )
