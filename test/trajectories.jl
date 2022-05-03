@@ -4,12 +4,20 @@ using DiffEqJump
 using Catalyst
 using StaticArrays
 
-traj = PathWeightSampling.Trajectory([SA[1,4], SA[2,5], SA[3,6]], [1.0, 2.0, 3.0], [1, 1])
-traj_mat = PathWeightSampling.Trajectory([1 2 3; 4 5 6], [1.0, 2.0, 3.0], [1, 1])
+traj = PathWeightSampling.Trajectory([SA[1,4], SA[2,5], SA[3,6]], [1.0, 2.0, 3.0], [1, 1, 0])
+traj_mat = PathWeightSampling.Trajectory([1 2 3; 4 5 6], [1.0, 2.0, 3.0], [1, 1, 0])
 
 @test traj == traj_mat
-
 @test length(traj) == 3 == length(traj.t)
+@test traj[1] == [1, 4] == traj[:, 1]
+@test traj[1, :] == [1, 2, 3]
+@test traj[2, :] == [4, 5, 6]
+@test traj[1:2] == PathWeightSampling.Trajectory([SA[1,4], SA[2,5]], [1.0, 2.0], [1, 1])
+
+traj[:, :]
+
+collect(traj)
+
 @test collect(traj) == [([1, 4], 1.0, 1), ([2,5], 2.0, 1), ([3, 6], 3.0, 0)]
 @test traj(0.0) == [1,4]
 @test traj(1.5) == [2,5]

@@ -1,6 +1,7 @@
 using RecipesBase
 using DiffEqBase
 import StaticArrays: SVector
+using RecursiveArrayTools
 
 abstract type AbstractTrajectory{uType,tType} end
 
@@ -19,22 +20,33 @@ A trajectory represented as a list of events.
 
 Indexing a trajectory with an integer index yields a tuple `(u, t, i)`. `u` is the trajectory value **before** the event at time `t`!
 """
-struct Trajectory{uType<:AbstractVector,tType<:Real} <: AbstractTrajectory{uType,tType}
-    u::Vector{uType} # vector of length N. u[i] is the vector of copy numbers in the interval from t[i-1] to t[i]
-    t::Vector{tType} # vector of length N, recording the reaction times and the end time of the trajectory
-    i::Vector{Int} # vector of length N recording all reaction indices, or empty vector if no reaction indices
+struct Trajectory{uType,tType<:Real, A, B <: AbstractVector{tType}, C} <: AbstractTrajectory{uType,tType}
+    u::VectorOfArray{uType, 2, A} # vector of length N. u[i] is the vector of copy numbers in the interval from t[i-1] to t[i]
+    t::B # vector of length N, recording the reaction times and the end time of the trajectory
+    i::C # vector of length N recording all reaction indices, or `nothing` if no reaction indices
 end
 
-Trajectory(u::Vector{<:AbstractVector}, t::Vector) = Trajectory(u, t, Int[])
+Trajectory(u::Vector{<:AbstractVector}, t::Vector, i=nothing) = Trajectory(VectorOfArray(u), t, i)
+Trajectory(u::VectorOfArray, t::Vector) = Trajectory(u, t, nothing)
 
 Base.copy(traj::Trajectory) = Trajectory(copy(traj.u), deepcopy(traj.t), copy(traj.i))
 
-Base.getindex(traj::Trajectory, idx::Int) = (traj.u[idx], traj.t[idx], idx > length(traj.i) ? 0 : traj.i[idx])
+Base.@propagate_inbounds Base.getindex(traj::AbstractTrajectory{U, T}, I::Colon) where {U, T} = traj.u[I]
+Base.@propagate_inbounds Base.getindex(traj::AbstractTrajectory{U, T}, I::AbstractArray{Int}) where {U, T} = Trajectory(traj.u[I],traj.t[I], isempty(traj.t) ? Int[] : traj.i[I])
+# Base.@propagate_inbounds Base.getindex(traj::Trajectory, idx::Int) = (traj.u[idx], traj.t[idx], idx > length(traj.i) ? 0 : traj.i[idx])
+Base.@propagate_inbounds function Base.getindex(traj::AbstractTrajectory{U, T},
+    I::Union{Int,AbstractArray{Int},CartesianIndex,Colon,BitArray,AbstractArray{Bool}}...) where {U, T}
+    traj.u[I...]
+end
+
+Base.@propagate_inbounds Base.getindex(A::AbstractTrajectory{U, T}, i::Int,::Colon) where {U, T} = [A.u[j][i] for j in 1:length(A)]
+Base.@propagate_inbounds Base.getindex(A::AbstractTrajectory{U, T}, ::Colon,i::Int) where {U, T} = A.u[i]
+Base.@propagate_inbounds Base.getindex(A::AbstractTrajectory{U, T}, i::Int,II::AbstractArray{Int}) where {U, T} = [A.u[j][i] for j in II]
 
 function equal_i(i1, i2)
-    (isempty(i1) || all(i1 .== 0)) && (isempty(i2) || all(i2 .== 0)) || i1 == i2
+    (i1 === nothing || isempty(i1)) && (i2 === nothing || isempty(i2)) || i1 == i2
 end
-Base.:(==)(traj1::Trajectory, traj2::Trajectory) = (traj1.t == traj2.t) && (traj1.u == traj2.u) && equal_i(traj1.i, traj2.i)
+Base.:(==)(traj1::AbstractTrajectory, traj2::AbstractTrajectory) = (traj1.t == traj2.t) && (traj1.u == traj2.u) && equal_i(traj1.i, traj2.i)
 
 function (t::Trajectory)(time::Real)
     index = searchsortedfirst(t.t, time)
@@ -51,7 +63,7 @@ function (t::Trajectory)(times::AbstractArray{<:Real})
     hcat(t.(times)...)
 end
 
-function Trajectory(u::AbstractMatrix{T}, t::AbstractVector{tType}, i=Int[]) where {tType<:Real,T<:Real}
+function Trajectory(u::AbstractMatrix{T}, t::AbstractVector{tType}, i=nothing) where {tType<:Real,T<:Real}
     num_components = size(u, 1)
     if num_components > 0
         u_vec = [SVector{num_components}(c) for c in eachcol(u)]
@@ -83,7 +95,7 @@ end
 
 function Base.iterate(traj::Trajectory, index=1)
     index > length(traj) && return nothing
-    traj[index], index + 1
+    (traj.u[index], traj.t[index], traj.i === nothing ? 0 : traj.i[index]), index + 1
 end
 
 Base.eltype(::Type{T}) where {uType,tType,T<:AbstractTrajectory{uType,tType}} = Tuple{uType,tType,Int}
