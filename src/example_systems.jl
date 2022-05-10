@@ -2,7 +2,6 @@ import Catalyst
 import Catalyst: @reaction_network
 import ModelingToolkit
 import ModelingToolkit: FnType
-using Transducers
 
 """
     gene_expression_system(; mean_s=50, mean_x=mean_s, corr_time_s=1.0, corr_time_x=0.1, u0=SA[mean_s, mean_x], dtimes=0:0.1:2.0)

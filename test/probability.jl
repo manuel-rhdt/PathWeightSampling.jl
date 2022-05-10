@@ -14,7 +14,7 @@ end κ λ
 
 dist = PathWeightSampling.distribution(sn, [κ, λ])
 
-traj = PathWeightSampling.Trajectory([[50.0], [51.0], [50.0]], [1.0, 2.0, 3.0], [1, 2])
+traj = PathWeightSampling.Trajectory([[50.0], [51.0], [50.0]], [1.0, 2.0, 3.0], [1, 2, 0])
 
 p_wait(s, dt) = exp(- (κ + s * λ) * dt)
 

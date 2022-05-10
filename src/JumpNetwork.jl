@@ -1,4 +1,3 @@
-using Transducers
 using DiffEqJump
 using StochasticDiffEq
 import Catalyst: ReactionSystem
@@ -529,58 +528,6 @@ function _solve(system::SimpleSystem)
 end
 
 
-function start_collect(::Nothing, indices)
-    # return empty trajectory
-    Trajectory(Vector{Int16}[], Float64[], Int[])
-end
-
-function start_collect(((u, t, i), state)::Tuple, indices)
-    Trajectory([u[indices]], typeof(t)[], typeof(i)[])
-end
-
-function step_collect!(result::Trajectory, ::Nothing, (uprev, tprev, iprev)::Tuple, indices)
-    # end trajectory
-    push!(result.t, tprev)
-    push!(result.i, iprev)
-    result
-end
-
-function step_collect!(
-    result::Trajectory,
-    ((u, t, i), state)::Tuple,
-    (uprev, tprev, iprev)::Tuple,
-    indices
-)
-    if (@view u[indices]) != result.u[end]
-        push!(result.u, u[indices])
-        push!(result.t, tprev)
-        push!(result.i, iprev)
-    end
-    result
-end
-
-function collect_sub_trajectory(iter, indices)
-    f = iterate(iter)
-    traj = start_collect(f, indices)
-    while f !== nothing
-        val, state = f
-        f = iterate(iter, state)
-        traj = step_collect!(traj, f, val, indices)
-    end
-    traj
-end
-
-function collect_sub_trajectories(iter, indices_list...)
-    f = iterate(iter)
-    trajs = map(indices -> start_collect(f, indices), indices_list)
-    while f !== nothing
-        val, state = f
-        f = iterate(iter, state)
-        foreach((traj, indices) -> step_collect!(traj, f, val, indices), trajs, indices_list)
-    end
-    trajs
-end
-
 function generate_configuration(system::Union{SimpleSystem,ComplexSystem}; seed=rand(UInt))
     joint = reaction_network(system)
     u0 = SVector(map(Int16, sample_initial_condition(system.u0))...)
@@ -624,7 +571,8 @@ function generate_configuration(system::SDEDrivenSystem; seed=rand(UInt))
 
     s_traj, x_traj = collect_sub_trajectories(iter, s_idxs, x_idxs)
 
-    @assert s_traj == input_traj
+    @assert s_traj.t == input_traj.t
+    @assert s_traj.u == input_traj.u
 
     SXconfiguration(s_traj, x_traj)
 end
@@ -712,6 +660,9 @@ function MarginalEnsemble(system::SDEDrivenSystem; aggregator=Direct())
     s_prob = SDEProblem(system.sn, u0s, tspan(system), system.ps)
 
     if isempty(ModelingToolkit.get_eqs(system.rn))
+        # system.sn is directly connected to system.xn
+        # therefore we don't need to create a driven jump problem and
+        # can just ignore system.rn
         prob = s_prob
         u0 = u0s
     else
@@ -800,7 +751,7 @@ function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, n
         u0 = sample_initial_condition(ensemble)
         tspan = (ensemble.dtimes[begin], ensemble.dtimes[end])
         ssa_iter = create_integrator(initial, ensemble, u0, tspan)
-        iter = ssa_iter |> Map((u, t, i)::Tuple -> (u, t, 0))
+        iter = Iterators.map((u, t, i)::Tuple -> (u, t, 0), ssa_iter)
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
         result_col .+= initial_log_likelihood(ensemble, u0, initial.x_traj)
     end
@@ -811,7 +762,8 @@ end
 function propagate(conf::SXconfiguration, ensemble::MarginalEnsemble, u0, tspan::Tuple)
     iter = create_integrator(conf, ensemble, u0, tspan)
     ix1 = searchsortedfirst(conf.x_traj.t, tspan[1])
-    merged = merge_trajectories(iter, Base.Iterators.rest(conf.x_traj, ix1))
+    x_traj_iter = RecursiveArrayTools.tuples(conf.x_traj)
+    merged = merge_trajectories(iter, Base.Iterators.rest(x_traj_iter, ix1))
 
     # TODO: check species ordering
     log_weight = trajectory_energy(ensemble.dist, merged, tspan=tspan)
@@ -827,7 +779,7 @@ end
 
 function energy_difference(configuration::SXconfiguration, ensemble::MarginalEnsemble)
     log_p0 = initial_log_likelihood(ensemble, configuration.s_traj.u[1], configuration.x_traj)
-    -cumulative_logpdf(ensemble.dist, configuration.s_traj |> MergeWith(configuration.x_traj), ensemble.dtimes) .- log_p0
+    -cumulative_logpdf(ensemble.dist, merge_trajectories(configuration.s_traj, configuration.x_traj), ensemble.dtimes) .- log_p0
 end
 
 function sample(configuration::Union{SXconfiguration,SRXconfiguration}, ensemble::ConditionalEnsemble; θ=0.0)
@@ -846,7 +798,7 @@ function collect_samples(initial::Union{SXconfiguration,SRXconfiguration}, ensem
     result = Array{Float64,2}(undef, length(ensemble.dtimes), num_samples)
     for result_col ∈ eachcol(result)
         integrator = init(driven_jp)
-        iter = SSAIter(integrator) |> Map((u, t, i)::Tuple -> (u, t, 0))
+        iter = Iterators.map((u, t, i)::Tuple -> (u, t, 0), SSAIter(integrator))
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
     end
 
@@ -869,8 +821,8 @@ function propagate(conf::Union{SXconfiguration,SRXconfiguration}, ensemble::Cond
     integrator = create_integrator(conf, ensemble, u0, tspan)
     iter = SSAIter(integrator)
     ix1 = searchsortedfirst(conf.x_traj.t, tspan[1])
-
-    merged = merge_trajectories(iter, Base.Iterators.rest(conf.x_traj, ix1))
+    x_traj_iter = RecursiveArrayTools.tuples(conf.x_traj)
+    merged = merge_trajectories(iter, Base.Iterators.rest(x_traj_iter, ix1))
 
     # TODO: check species ordering
     log_weight = trajectory_energy(ensemble.dist, merged, tspan=tspan)
@@ -921,7 +873,7 @@ end
 
 function energy(conf::SXconfiguration, chain::TrajectoryChain; θ=chain.θ)
     if θ > zero(θ)
-        -θ * trajectory_energy(chain.ensemble.dist, conf.s_traj |> MergeWith(conf.x_traj))
+        -θ * trajectory_energy(chain.ensemble.dist, merge_trajectories(conf.s_traj, conf.x_traj))
     else
         0.0
     end
@@ -961,10 +913,10 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem
     branch_point = searchsortedfirst(old_traj.t, branch_time)
     tspan = (branch_time, old_traj.t[end])
 
-    empty!(new_traj.u)
+    empty!(new_traj.u.u)
     empty!(new_traj.t)
     empty!(new_traj.i)
-    append!(new_traj.u, @view old_traj.u[begin:branch_point-1])
+    append!(new_traj.u.u, @view old_traj.u.u[begin:branch_point-1])
     append!(new_traj.t, @view old_traj.t[begin:branch_point-1])
     append!(new_traj.i, @view old_traj.i[begin:branch_point-1])
 
@@ -974,7 +926,7 @@ function shoot_forward!(new_traj::Trajectory, old_traj::Trajectory, jump_problem
     new_branch = collect_trajectory(iter)
 
     append!(new_traj.t, new_branch.t)
-    append!(new_traj.u, new_branch.u)
+    append!(new_traj.u.u, new_branch.u.u)
     append!(new_traj.i, new_branch.i)
     nothing
 end
@@ -989,12 +941,12 @@ function shoot_backward!(new_traj::Trajectory, old_traj::Trajectory, jump_proble
     iter = SSAIter(integrator)
     new_branch = collect_trajectory(iter)
 
-    empty!(new_traj.u)
+    empty!(new_traj.u.u)
     empty!(new_traj.t)
     empty!(new_traj.i)
 
-    append!(new_traj.u, @view new_branch.u[end-1:-1:begin])
-    append!(new_traj.u, @view old_traj.u[branch_point:end])
+    append!(new_traj.u.u, @view new_branch.u.u[end-1:-1:begin])
+    append!(new_traj.u.u, @view old_traj.u.u[branch_point:end])
     append!(new_traj.i, @view new_branch.i[end-1:-1:begin])
     append!(new_traj.i, @view old_traj.i[branch_point:end])
 
@@ -1008,7 +960,6 @@ end
 # ========
 # PLOTTING
 # ========
-
 @recipe function f(conf::SXconfiguration)
     @series begin
         label := "input"

@@ -3,7 +3,6 @@ import ModelingToolkit: build_function, substitute
 import Catalyst
 import Catalyst: ReactionSystem
 using StaticArrays
-using Transducers
 import Base.show
 
 struct DirectAggregator{U}
@@ -72,15 +71,11 @@ end
 distribution(rn::ReactionSystem, p; update_map=1:Catalyst.numreactions(rn)) = TrajectoryDistribution(ReactionSet(convert(ModelingToolkit.JumpSystem, rn), p), update_map)
 
 @fastmath function Distributions.logpdf(dist::TrajectoryDistribution, trajectory)::Float64
-    first = iterate(trajectory)
-    if first === nothing
-        return 0.0
-    end
+    traj_iter = trajectory_iterator(trajectory)
     tprev = 0.0
     result = 0.0
-
     agg = dist.aggregator
-    for (u, t, i) in trajectory
+    for (u, t, i) in traj_iter
         agg = update_rates(agg, u, dist.reactions)
 
         dt = t - tprev
@@ -126,7 +121,8 @@ end
 function trajectory_energy(dist::TrajectoryDistribution, traj; tspan=(0.0, Inf64))
     agg = dist.aggregator
     agg = DirectAggregator(0.0, agg.rates, agg.update_map, tspan, tspan[1], 0.0)
-    acc_iter = Base.Iterators.accumulate((acc, x) -> step_energy(dist, acc, x), traj; init=agg)
+    traj_iter = trajectory_iterator(traj)
+    acc_iter = Base.Iterators.accumulate((acc, x) -> step_energy(dist, acc, x), traj_iter; init=agg)
     for r in acc_iter
         agg = r
     end
@@ -138,7 +134,8 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
     tspan = (first(dtimes), last(dtimes))
     result[1] = zero(eltype(result))
     agg = DirectAggregator(0.0, agg.rates, agg.update_map, tspan, tspan[1], 0.0)
-    acc_iter = Base.Iterators.accumulate(traj; init=(agg, 1)) do (agg, k), (u, t, i)
+    traj_iter = trajectory_iterator(traj)
+    acc_iter = Base.Iterators.accumulate(traj_iter; init=(agg, 1)) do (agg, k), (u, t, i)
         if t <= agg.tspan[1]
             return agg, k
         end
@@ -178,10 +175,10 @@ end
 cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVector) = cumulative_logpdf!(zeros(length(dtimes)), dist, trajectory, dtimes)
 
 
-@inline @fastmath function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, rs::ReactionSet)
+@inline @fastmath function evalrxrate(speciesvec::AbstractVector{T}, rxidx::Int64, rs::ReactionSet) where {T}
     val = Float64(1.0)
     @inbounds for specstoch in rs.rstoich[rxidx]
-        specpop = speciesvec[specstoch[1]]
+        @inbounds specpop = speciesvec[specstoch[1]]
         val *= Float64(specpop)
         @inbounds for k = 2:specstoch[2]
             specpop -= one(specpop)

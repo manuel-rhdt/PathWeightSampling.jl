@@ -2,9 +2,6 @@ using Distributions: Gaussian
 using Test, Documenter, PathWeightSampling
 
 doctest(PathWeightSampling)
-@testset "Events" begin
-    include("events.jl")
-end
 @testset "TrajectoryTests" begin
     include("trajectories.jl")
 end

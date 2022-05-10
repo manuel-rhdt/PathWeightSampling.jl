@@ -1,9 +1,10 @@
 using RecipesBase
 using DiffEqBase
+import SciMLBase
 import StaticArrays: SVector
 using RecursiveArrayTools
 
-abstract type AbstractTrajectory{uType,tType} end
+abstract type AbstractTrajectory{U,T,A} <: AbstractVectorOfArray{U,2,A} end
 
 """
     Trajectory(u, t[, i])
@@ -20,28 +21,47 @@ A trajectory represented as a list of events.
 
 Indexing a trajectory with an integer index yields a tuple `(u, t, i)`. `u` is the trajectory value **before** the event at time `t`!
 """
-struct Trajectory{uType,tType<:Real, A, B <: AbstractVector{tType}, C} <: AbstractTrajectory{uType,tType}
-    u::VectorOfArray{uType, 2, A} # vector of length N. u[i] is the vector of copy numbers in the interval from t[i-1] to t[i]
+struct Trajectory{U,T<:Real,A,B<:AbstractVector{T},C,D,E} <: AbstractTrajectory{U,T,A}
+    u::VectorOfArray{U,2,A} # vector of length N. u[i] is the vector of copy numbers in the interval from t[i-1] to t[i]
     t::B # vector of length N, recording the reaction times and the end time of the trajectory
     i::C # vector of length N recording all reaction indices, or `nothing` if no reaction indices
+    syms::D
+    indepsym::E
 end
 
-Trajectory(u::Vector{<:AbstractVector}, t::Vector, i=nothing) = Trajectory(VectorOfArray(u), t, i)
-Trajectory(u::VectorOfArray, t::Vector) = Trajectory(u, t, nothing)
+Trajectory(u::VectorOfArray, t::Vector, i=nothing; syms=nothing, indepsym=nothing) = Trajectory(u, t, i, syms, indepsym)
+Trajectory(u::Vector{<:AbstractVector}, t::Vector, i=nothing; syms=nothing, indepsym=nothing) = Trajectory(VectorOfArray(u), t, i; syms, indepsym)
 
-Base.copy(traj::Trajectory) = Trajectory(copy(traj.u), deepcopy(traj.t), copy(traj.i))
+function Base.copy(traj::Trajectory)
+    Trajectory(
+        copy(traj.u),
+        deepcopy(traj.t),
+        isnothing(traj.i) ? nothing : copy(traj.i),
+        isnothing(traj.syms) ? nothing : copy(traj.syms),
+        traj.indepsym
+    )
+end
 
-Base.@propagate_inbounds Base.getindex(traj::AbstractTrajectory{U, T}, I::Colon) where {U, T} = traj.u[I]
-Base.@propagate_inbounds Base.getindex(traj::AbstractTrajectory{U, T}, I::AbstractArray{Int}) where {U, T} = Trajectory(traj.u[I],traj.t[I], isempty(traj.t) ? Int[] : traj.i[I])
+Base.@propagate_inbounds Base.getindex(traj::AbstractTrajectory{U,T,A}, I::Int...) where {U,T,A} = traj.u[I[end]][Base.front(I)...]
+Base.@propagate_inbounds Base.getindex(traj::AbstractTrajectory{U,T,A}, I::Int) where {U,T,A} = traj.u[I]
+Base.@propagate_inbounds Base.getindex(traj::AbstractTrajectory{U,T,A}, I::Colon) where {U,T,A} = traj.u[I]
+Base.@propagate_inbounds Base.getindex(traj::AbstractTrajectory{U,T,A}, I::AbstractArray{Int}) where {U,T,A} = Trajectory(traj.u[I], traj.t[I], isempty(traj.t) ? Int[] : traj.i[I])
 # Base.@propagate_inbounds Base.getindex(traj::Trajectory, idx::Int) = (traj.u[idx], traj.t[idx], idx > length(traj.i) ? 0 : traj.i[idx])
-Base.@propagate_inbounds function Base.getindex(traj::AbstractTrajectory{U, T},
-    I::Union{Int,AbstractArray{Int},CartesianIndex,Colon,BitArray,AbstractArray{Bool}}...) where {U, T}
+Base.@propagate_inbounds function Base.getindex(traj::AbstractTrajectory{U,T,A},
+    I::Union{Int,AbstractArray{Int},CartesianIndex,Colon,BitArray,AbstractArray{Bool}}...) where {U,T,A}
     traj.u[I...]
 end
 
-Base.@propagate_inbounds Base.getindex(A::AbstractTrajectory{U, T}, i::Int,::Colon) where {U, T} = [A.u[j][i] for j in 1:length(A)]
-Base.@propagate_inbounds Base.getindex(A::AbstractTrajectory{U, T}, ::Colon,i::Int) where {U, T} = A.u[i]
-Base.@propagate_inbounds Base.getindex(A::AbstractTrajectory{U, T}, i::Int,II::AbstractArray{Int}) where {U, T} = [A.u[j][i] for j in II]
+Base.@propagate_inbounds Base.getindex(t::AbstractTrajectory{U,T,A}, i::Int, ::Colon) where {U,T,A} = [t.u[j][i] for j in 1:length(t)]
+Base.@propagate_inbounds Base.getindex(t::AbstractTrajectory{U,T,A}, ::Colon, i::Int) where {U,T,A} = t.u[i]
+Base.@propagate_inbounds Base.getindex(t::AbstractTrajectory{U,T,A}, i::Int, II::AbstractArray{Int}) where {U,T,A} = [t.u[j][i] for j in II]
+
+Base.@propagate_inbounds function Base.getindex(traj::AbstractTrajectory{U,T,A}, ii::CartesianIndex) where {U,T,A}
+    ti = Tuple(ii)
+    i = last(ti)
+    jj = CartesianIndex(Base.front(ti))
+    return traj.u[i][jj]
+end
 
 function equal_i(i1, i2)
     (i1 === nothing || isempty(i1)) && (i2 === nothing || isempty(i2)) || i1 == i2
@@ -93,12 +113,26 @@ function duration(traj::AbstractTrajectory)
     traj.t[end] - traj.t[begin]
 end
 
-function Base.iterate(traj::Trajectory, index=1)
+SciMLBase.getsyms(traj::AbstractTrajectory) = traj.syms
+SciMLBase.getindepsym(traj::AbstractTrajectory) = traj.indepsym
+
+struct TrajectoryTuplesIter{T}
+    traj::T
+end
+
+RecursiveArrayTools.tuples(traj::AbstractTrajectory) = TrajectoryTuplesIter(traj)
+
+function Base.iterate(iter::TrajectoryTuplesIter, index=1)
+    traj = iter.traj
     index > length(traj) && return nothing
     (traj.u[index], traj.t[index], traj.i === nothing ? 0 : traj.i[index]), index + 1
 end
 
-Base.eltype(::Type{T}) where {uType,tType,T<:AbstractTrajectory{uType,tType}} = Tuple{uType,tType,Int}
+Base.eltype(::Type{TrajectoryTuplesIter{T}}) where {uType,tType,A,T<:AbstractTrajectory{uType,tType,A}} = Tuple{eltype(A),tType,Int}
+Base.length(iter::TrajectoryTuplesIter) = length(iter.traj)
+
+SciMLBase.getsyms(iter::TrajectoryTuplesIter) = iter.traj.syms
+SciMLBase.getindepsym(iter::TrajectoryTuplesIter) = iter.traj.indepsym
 
 """
     collect_trajectory(iter, nocopy=false)
@@ -110,7 +144,11 @@ trajectory.
 """
 function collect_trajectory(iter; nocopy=false)
     (u, t, i), state = iterate(iter)
-    traj = Trajectory([nocopy ? u : copy(u)], [t], Int[i])
+
+    indepsym = SciMLBase.getindepsym(iter)
+    syms = SciMLBase.getsyms(iter)
+
+    traj = Trajectory([nocopy ? u : copy(u)], [t], Int[i], syms=syms, indepsym=indepsym)
 
     for (u, t, i) in Iterators.rest(iter, state)
         push!(traj.t, t)
@@ -121,22 +159,51 @@ function collect_trajectory(iter; nocopy=false)
     traj
 end
 
-collect_trajectory(traj::Trajectory) = traj
-
-@recipe function f(traj::AbstractTrajectory{uType,tType}) where {uType,tType}
-    seriestype --> :steppre
-    # label --> hcat([String(sym) for sym in traj.syms]...)
-
-    N = length(traj.u[1])
-    uvec = zeros(eltype(uType), length(traj), N)
-    tvec = zeros(tType, length(traj))
-    for (i, (u, t)) in enumerate(traj)
-        uvec[i, :] = u
-        tvec[i] = t
+function Base.show(io::IO, m::MIME"text/plain", x::AbstractTrajectory)
+    print(io, "t: ")
+    show(io, m, x.t)
+    println(io)
+    print(io, "u: ")
+    show(io, m, x.u)
+    println(io)
+    if x.i !== nothing
+        print(io, "i:")
+        show(io, m, x.i)
     end
-
-    tvec, uvec
 end
+
+@recipe function f(traj::AbstractTrajectory{U,T,A}) where {U,T,A}
+    seriestype --> :steppre
+    xguide --> ((traj.indepsym !== nothing) ? string(traj.indepsym) : "")
+    label --> ((traj.syms !== nothing) ? reshape(string.(traj.syms), 1, :) : "")
+    traj.t, traj'
+end
+
+struct Chain{V,T<:AbstractVector,U<:AbstractVector} <: AbstractVector{V}
+    head::T
+    tail::U
+
+    function Chain(head::AbstractVector{X}, tail::AbstractVector{Y}) where {X,Y}
+        new{promote_type(X, Y),typeof(head),typeof(tail)}(head, tail)
+    end
+end
+
+Base.IndexStyle(::Type{<:Chain}) = IndexLinear()
+Base.copy(ch::Chain) = Chain(copy(ch.head), copy(ch.tail))
+Base.size(ch::Chain) = size(ch.head) .+ size(ch.tail)
+@inline Base.firstindex(ch::Chain) = 1
+@inline Base.lastindex(ch::Chain) = length(ch)
+Base.@propagate_inbounds function Base.getindex(ch::Chain{V}, i::Int) where {V}
+    if i > length(ch.head)
+        val = ch.tail[i-length(ch.head)]
+        convert(V, val)
+    else
+        val = ch.head[i]
+        convert(V, val)
+    end
+end
+Base.setindex!(ch::Chain, v, i::Int) = i > length(ch.head) ? ch.tail[i-length(ch.head)] = v : ch.head[i] = v
+
 
 struct MergeTrajectory{T1,T2}
     traj1::T1
@@ -144,8 +211,12 @@ struct MergeTrajectory{T1,T2}
 end
 
 Base.IteratorSize(::Type{MergeTrajectory{T1,T2}}) where {T1,T2} = Base.SizeUnknown()
-function Base.eltype(::Type{MergeTrajectory{T1,T2}}) where
-{T,U1,U2,T1<:AbstractTrajectory{U1,T},T2<:AbstractTrajectory{U2,T}}
+function Base.eltype(::Type{MergeTrajectory{T1,T2}}) where {T1,T2}
+    E1 = eltype(T1)
+    E2 = eltype(T2)
+    U1 = fieldtypes(E1)[1]
+    U2 = fieldtypes(E2)[1]
+    T = fieldtypes(E1)[2]
     Tuple{Chain{promote_type(eltype(U1), eltype(U2)),U1,U2},T,Int}
 end
 
@@ -199,4 +270,79 @@ function Base.iterate(mtraj::MergeTrajectory, (s1, s2)::Tuple)
     s1, s2 = s
     m = merge_next(s1, s2)
     (m, s)
+end
+
+SciMLBase.getsyms(iter::MergeTrajectory) = nothing
+SciMLBase.getindepsym(iter::MergeTrajectory) = nothing
+
+trajectory_iterator(traj::AbstractTrajectory) = tuples(traj)
+trajectory_iterator(traj) = traj
+
+# merge more than 2 trajectories using recursion
+merge_trajectories(traj) = trajectory_iterator(traj)
+function merge_trajectories(traj1, traj2)
+    MergeTrajectory(merge_trajectories(traj1), merge_trajectories(traj2))
+end
+function merge_trajectories(traj1, traj2, other_trajs...)
+    merge12 = merge_trajectories(traj1, traj2)
+    merge_trajectories(merge12, other_trajs...)
+end
+
+
+function start_collect(::Nothing, indices, syms, indepsym)
+    # return empty trajectory
+    Trajectory(Vector{Int16}[], Float64[], Int[], syms=syms, indepsym=indepsym)
+end
+
+function start_collect(((u, t, i), state)::Tuple, indices, syms, indepsym)
+    Trajectory([u[indices]], typeof(t)[], typeof(i)[], syms=syms, indepsym=indepsym)
+end
+
+function step_collect!(result::Trajectory, ::Nothing, (uprev, tprev, iprev)::Tuple, indices)
+    # end trajectory
+    push!(result.t, tprev)
+    push!(result.i, iprev)
+    result
+end
+
+function step_collect!(
+    result::Trajectory,
+    ((u, t, i), state)::Tuple,
+    (uprev, tprev, iprev)::Tuple,
+    indices
+)
+    if (@view u[indices]) != result.u[end]
+        push!(result.u, u[indices])
+        push!(result.t, tprev)
+        push!(result.i, iprev)
+    end
+    result
+end
+
+function collect_sub_trajectory(iter, indices)
+    indepsym = SciMLBase.getindepsym(iter)
+    syms = SciMLBase.getsyms(iter)
+
+    f = iterate(iter)
+    traj = start_collect(f, indices, syms[indices], indepsym)
+    while f !== nothing
+        val, state = f
+        f = iterate(iter, state)
+        traj = step_collect!(traj, f, val, indices)
+    end
+    traj
+end
+
+function collect_sub_trajectories(iter, indices_list...)
+    indepsym = SciMLBase.getindepsym(iter)
+    syms = SciMLBase.getsyms(iter)
+
+    f = iterate(iter)
+    trajs = map(indices -> start_collect(f, indices, syms[indices], indepsym), indices_list)
+    while f !== nothing
+        val, state = f
+        f = iterate(iter, state)
+        foreach((traj, indices) -> step_collect!(traj, f, val, indices), trajs, indices_list)
+    end
+    trajs
 end

@@ -4,7 +4,7 @@ using DiffEqJump
 using Catalyst
 using StaticArrays
 
-traj = PathWeightSampling.Trajectory([SA[1,4], SA[2,5], SA[3,6]], [1.0, 2.0, 3.0], [1, 1, 0])
+traj = PathWeightSampling.Trajectory([SA[1, 4], SA[2, 5], SA[3, 6]], [1.0, 2.0, 3.0], [1, 1, 0])
 traj_mat = PathWeightSampling.Trajectory([1 2 3; 4 5 6], [1.0, 2.0, 3.0], [1, 1, 0])
 
 @test traj == traj_mat
@@ -12,16 +12,13 @@ traj_mat = PathWeightSampling.Trajectory([1 2 3; 4 5 6], [1.0, 2.0, 3.0], [1, 1,
 @test traj[1] == [1, 4] == traj[:, 1]
 @test traj[1, :] == [1, 2, 3]
 @test traj[2, :] == [4, 5, 6]
-@test traj[1:2] == PathWeightSampling.Trajectory([SA[1,4], SA[2,5]], [1.0, 2.0], [1, 1])
+@test traj[1:2] == PathWeightSampling.Trajectory([SA[1, 4], SA[2, 5]], [1.0, 2.0], [1, 1])
+@test traj[:, :] == [1 2 3; 4 5 6]
 
-traj[:, :]
-
-collect(traj)
-
-@test collect(traj) == [([1, 4], 1.0, 1), ([2,5], 2.0, 1), ([3, 6], 3.0, 0)]
-@test traj(0.0) == [1,4]
-@test traj(1.5) == [2,5]
-@test traj(2.9) == [3,6]
+@test collect(tuples(traj)) == [([1, 4], 1.0, 1), ([2, 5], 2.0, 1), ([3, 6], 3.0, 0)]
+@test traj(0.0) == [1, 4]
+@test traj(1.5) == [2, 5]
+@test traj(2.9) == [3, 6]
 
 sn = @reaction_network begin
     0.005, S --> ∅
@@ -29,15 +26,18 @@ sn = @reaction_network begin
 end
 
 u0 = [50.0]
-tspan = (0., 100.)
-discrete_prob = DiscreteProblem(u0, tspan, [])
+tspan = (0.0, 100.0)
+discrete_prob = DiscreteProblem(sn, u0, tspan, [])
 jump_prob = JumpProblem(sn, discrete_prob, Direct())
 
 integrator = init(jump_prob, SSAStepper(), tstops=Float64[])
 ssa_iter = PathWeightSampling.SSAIter(integrator)
 
 traj_sol = PathWeightSampling.collect_trajectory(ssa_iter)
-@test length(traj_sol.i) == length(traj_sol) 
+
+@test length(traj_sol.i) == length(traj_sol)
+@test traj_sol.syms == [Symbol("S(t)")]
+
 sol = integrator.sol
 for i in eachindex(sol)
     if i > 1
@@ -63,36 +63,44 @@ times = getindex.(collected_values, 2)
 @test issorted(times)
 @test allunique(times)
 
-traj2 = PathWeightSampling.Trajectory([[1,4], [2,5], [3,6]], [0.5, 1.5, 2.5], [2, 4, 0])
+traj2 = PathWeightSampling.Trajectory([[1, 4], [2, 5], [3, 6]], [0.5, 1.5, 2.5], [2, 4, 0])
 
-joint = traj |> PathWeightSampling.MergeWith(traj2)
-
+joint = PathWeightSampling.merge_trajectories(traj, traj2)
 @test collect(joint) == [
-    ([1,4,1,4], 0.5, 2),
-    ([1,4,2,5], 1.0, 1),
-    ([2,5,2,5], 1.5, 4),
-    ([2,5,3,6], 2.0, 1),
-    ([3,6,3,6], 2.5, 0),
+    ([1, 4, 1, 4], 0.5, 2),
+    ([1, 4, 2, 5], 1.0, 1),
+    ([2, 5, 2, 5], 1.5, 4),
+    ([2, 5, 3, 6], 2.0, 1),
+    ([3, 6, 3, 6], 2.5, 0),
 ]
 
 rn = @reaction_network begin
     0.01, S --> X + S
-    0.01, X --> ∅ 
+    0.01, X --> ∅
 end
 
 network = ModelingToolkit.extend(rn, sn)
 
-u0 = [50.0,50.0]
-tspan = (0., 100.)
-discrete_prob = DiscreteProblem(u0, tspan, [])
+u0 = [50.0, 50.0]
+tspan = (0.0, 100.0)
+discrete_prob = DiscreteProblem(network, u0, tspan, [])
 jump_prob = JumpProblem(network, discrete_prob, Direct())
-integrator = init(jump_prob, SSAStepper())
 
-partial = PathWeightSampling.sub_trajectory(PathWeightSampling.SSAIter(integrator), [1])
-sol = integrator.sol
+iter = PathWeightSampling.SSAIter(init(jump_prob, SSAStepper(), seed=1))
+full = PathWeightSampling.collect_trajectory(iter)
+iter = PathWeightSampling.SSAIter(init(jump_prob, SSAStepper(), seed=1))
+partial = PathWeightSampling.collect_sub_trajectory(iter, [1])
+
+@test full.syms == [Symbol("S(t)"), Symbol("X(t)")]
+@test partial.syms == [Symbol("S(t)")]
+
+sol = iter.integrator.sol
 for i in eachindex(partial.t)
     @test partial.t[i] ∈ vcat(sol.t, 100.0)
-    @test partial.u[i][1] ∈ sol[[1],:]
+    @test partial.u[i][1] ∈ sol[[1], :]
+    t = partial.t[i]
+    @test partial(t) == partial.u[min(i + 1, length(partial))]
+    @test partial(t) == full(t)[[1]]
 end
 
 
@@ -102,7 +110,7 @@ using PathWeightSampling: DrivenJumpProblem
 
 cb_traj = PathWeightSampling.Trajectory([[50], [110], [120], [130]], [30.0, 60.0, 90.0, 100.0])
 u0 = [50.0]
-tspan = (0., 100.)
+tspan = (0.0, 100.0)
 discrete_prob = DiscreteProblem(sn, u0, tspan, [])
 jump_prob = JumpProblem(sn, discrete_prob, Direct())
 djp = DrivenJumpProblem(jump_prob, cb_traj)
@@ -110,17 +118,9 @@ integrator = init(djp)
 iter = PathWeightSampling.SSAIter(integrator)
 traj = iter |> PathWeightSampling.collect_trajectory
 
-for t in [30, 60, 90] @test t ∈ traj.t end
+for t in [30, 60, 90]
+    @test t ∈ traj.t
+end
 @test traj(30.0)[1] == 110
 @test traj(60.0)[1] == 120
 @test traj(90.0)[1] == 130
-
-# sol = integrator.sol
-# events = map((u,t,i)::Tuple -> (u=u,t=t), traj) |> collect
-
-# for i in eachindex(events)
-#     if i == length(events) continue end
-#     @test events[i].t ∈ sol.t
-#     j = searchsortedlast(sol.t, events[i].t)
-#     @test events[i+1].u == sol.u[j]
-# end
