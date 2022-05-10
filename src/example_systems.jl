@@ -401,7 +401,7 @@ function sde_chemotaxis_system(;
 
     ModelingToolkit.@named sn = SDESystem(eqs, noiseeqs, t, [V, L], [λ, σ, g])
 
-    system = PathWeightSampling.cooperative_chemotaxis_system(kwargs...)
+    system = PathWeightSampling.cooperative_chemotaxis_system(; kwargs...)
 
     Catalyst.addspecies!(system.rn, V)
     st = ModelingToolkit.states(system.rn)
