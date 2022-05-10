@@ -79,16 +79,16 @@ Parameters:
 ```
 """
 function gene_expression_system(;
-    mean_s = 50,
-    mean_x = mean_s,
-    corr_time_s = 1.0,
-    corr_time_x = 0.1,
-    kappa = mean_s / corr_time_s,
-    lambda = 1 / corr_time_s,
-    mu = 1 / corr_time_x,
-    rho = mu * mean_x / mean_s,
-    u0 = SA[mean_s, mean_x],
-    dtimes = 0:0.1:2.0
+    mean_s=50,
+    mean_x=mean_s,
+    corr_time_s=1.0,
+    corr_time_x=0.1,
+    kappa=mean_s / corr_time_s,
+    lambda=1 / corr_time_s,
+    mu=1 / corr_time_x,
+    rho=mu * mean_x / mean_s,
+    u0=SA[mean_s, mean_x],
+    dtimes=0:0.1:2.0
 )
     sn = @reaction_network begin
         κ, ∅ --> S
@@ -107,16 +107,16 @@ function gene_expression_system(;
 end
 
 function chemotaxis_system(;
-    mean_L = 20,
-    num_receptors = 100,
-    Y_tot = 500,
-    L_timescale = 1.0,
-    LR_timescale = 0.01,
-    LR_ratio = 0.5,
-    Y_timescale = 0.1,
-    Y_ratio = 1 / 2,
-    q = 0,
-    dtimes = 0:0.1:2.0
+    mean_L=20,
+    num_receptors=100,
+    Y_tot=500,
+    L_timescale=1.0,
+    LR_timescale=0.01,
+    LR_ratio=0.5,
+    Y_timescale=0.1,
+    Y_ratio=1 / 2,
+    q=0,
+    dtimes=0:0.1:2.0
 )
     mean_LR = num_receptors * LR_ratio
     mean_R = num_receptors - mean_LR
@@ -158,20 +158,20 @@ function chemotaxis_system(;
 end
 
 function chemotaxis_parameters(;
-    E₀ = 3.0,
-    Kₐ = 500,
-    Kᵢ = 25,
-    δg = log(Kₐ / Kᵢ),
-    δf = -1.5,
-    k⁺ = 0.05,
-    k⁺ₐ = k⁺,
-    k⁺ᵢ = k⁺,
-    k⁻ₐ = Kₐ * k⁺ₐ,
-    k⁻ᵢ = Kᵢ * k⁺ᵢ,
-    a_star = 0.5,
-    γ = 1 / 10,
-    k_B = (1 - a_star) * γ / abs(δf),
-    k_R = a_star * γ / abs(δf)
+    E₀=3.0,
+    Kₐ=500,
+    Kᵢ=25,
+    δg=log(Kₐ / Kᵢ),
+    δf=-1.5,
+    k⁺=0.05,
+    k⁺ₐ=k⁺,
+    k⁺ᵢ=k⁺,
+    k⁻ₐ=Kₐ * k⁺ₐ,
+    k⁻ᵢ=Kᵢ * k⁺ᵢ,
+    a_star=0.5,
+    γ=1 / 10,
+    k_B=(1 - a_star) * γ / abs(δf),
+    k_R=a_star * γ / abs(δf)
 )
     [
         E₀,
@@ -292,17 +292,17 @@ Parameters:
 
 """
 function cooperative_chemotaxis_system(;
-    lmax = 3,
-    mmax = 9,
-    n_clusters = 100,
-    n_chey = 10_000,
-    mean_l = 50,
-    tau_l = 1.0,
-    tau_y = 0.1,
-    phi_y = 1.0 / 6.0,
-    dephosphorylate = inv(tau_y * (1 + phi_y)),
-    phosphorylate = dephosphorylate * phi_y / (n_clusters / 2),
-    dtimes = 0:0.1:20.0, aggregator = DiffEqJump.RSSACR(),
+    lmax=3,
+    mmax=9,
+    n_clusters=100,
+    n_chey=10_000,
+    mean_l=50,
+    tau_l=1.0,
+    tau_y=0.1,
+    phi_y=1.0 / 6.0,
+    dephosphorylate=inv(tau_y * (1 + phi_y)),
+    phosphorylate=dephosphorylate * phi_y / (n_clusters / 2),
+    dtimes=0:0.1:20.0, aggregator=DiffEqJump.RSSACR(),
     varargs...
 )
     sn = @reaction_network begin
@@ -335,7 +335,7 @@ function cooperative_chemotaxis_system(;
 
     spmap = Dict()
     for l = 0:lmax, m = 0:mmax
-        receptor_species = ModelingToolkit.Num(ModelingToolkit.variable(Symbol("R_", l, "_", m), T = FnType{Tuple{Any},Real}))(t)
+        receptor_species = ModelingToolkit.Num(ModelingToolkit.variable(Symbol("R_", l, "_", m), T=FnType{Tuple{Any},Real}))(t)
 
         spmap[(l, m)] = receptor_species
 
@@ -381,7 +381,40 @@ function cooperative_chemotaxis_system(;
     pr = chemotaxis_parameters(; varargs...)
     px = [dephosphorylate, phosphorylate]
 
-    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator = aggregator)
+    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=aggregator)
+end
+
+function sde_chemotaxis_system(;
+    velocity_decay=0.862,
+    velocity_noise=sqrt(2 * velocity_decay * 157.1),
+    gradient_steepness=0.01,
+    kwargs...
+)
+    ModelingToolkit.@variables t V(t) L(t)
+    ModelingToolkit.@parameters λ σ g
+
+    D = ModelingToolkit.Differential(t)
+
+    eqs = [D(V) ~ -λ * V,
+        D(L) ~ g * L * V]
+    noiseeqs = [σ, 0]
+
+    ModelingToolkit.@named sn = SDESystem(eqs, noiseeqs, t, [V, L], [λ, σ, g])
+
+    system = PathWeightSampling.cooperative_chemotaxis_system(kwargs...)
+
+    Catalyst.addspecies!(system.rn, V)
+    st = ModelingToolkit.states(system.rn)
+    perm = circshift(collect(1:length(st)), 1)
+    Catalyst.reorder_states!(system.rn, perm)
+
+    ps = [velocity_decay, velocity_noise, gradient_steepness]
+    sds = PathWeightSampling.SDEDrivenSystem(
+        sn, system.rn, system.xn,
+        vcat(0.0, 1.0, system.u0[2:end]), # u0
+        ps, system.pr, system.px,
+        system.dtimes
+    )
 end
 
 getname(sym) = String(ModelingToolkit.operation(sym).name)

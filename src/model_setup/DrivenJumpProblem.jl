@@ -37,7 +37,7 @@ function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
         end
     end
     # it is important to call this to properly update reaction rates
-    DiffEqJump.reset_aggregated_jumps!(integrator)
+    DiffEqJump.reset_aggregated_jumps!(integrator; update_jump_params=false)
     nothing
 end
 
