@@ -20,6 +20,8 @@ traj_mat = PathWeightSampling.Trajectory([1 2 3; 4 5 6], [1.0, 2.0, 3.0], [1, 1,
 @test traj(1.5) == [2, 5]
 @test traj(2.9) == [3, 6]
 
+@test traj([-1.0, 0.0, 0.5, 1.5, 3.5]) == [1 1 1 2 3; 4 4 4 5 6]
+
 sn = @reaction_network begin
     0.005, S --> ∅
     0.25, ∅ --> S

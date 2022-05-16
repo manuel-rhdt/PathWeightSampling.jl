@@ -80,7 +80,24 @@ function (t::Trajectory)(time::Real)
 end
 
 function (t::Trajectory)(times::AbstractArray{<:Real})
-    hcat(t.(times)...)
+    dims = size(t.u)
+    U = eltype(t.u)
+
+    result = Array{U,2}(undef, (dims[1], length(times)))
+
+    i = firstindex(t.u)
+    for (j, dtime) in enumerate(times)
+        while i < length(t.t) && dtime > t.t[i]
+            i += 1
+        end
+        if i > length(t.u)
+            result[:, j] .= t.u[end]
+        else
+            result[:, j] .= t.u[i]
+        end
+    end
+
+    result
 end
 
 function Trajectory(u::AbstractMatrix{T}, t::AbstractVector{tType}, i=nothing) where {tType<:Real,T<:Real}
