@@ -411,7 +411,7 @@ function sde_chemotaxis_system(;
     ps = [velocity_decay, velocity_noise, gradient_steepness]
     sds = PathWeightSampling.SDEDrivenSystem(
         sn, system.rn, system.xn,
-        vcat(0.0, 1.0, system.u0[2:end]), # u0
+        vcat(0.0, system.u0[1], system.u0[2:end]), # u0
         ps, system.pr, system.px,
         system.dtimes
     )
