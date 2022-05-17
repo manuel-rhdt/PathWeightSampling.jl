@@ -387,7 +387,7 @@ end
 function sde_chemotaxis_system(;
     velocity_decay=0.862,
     velocity_noise=sqrt(2 * velocity_decay * 157.1),
-    gradient_steepness=0.01,
+    gradient_steepness=0.2e-3,
     kwargs...
 )
     ModelingToolkit.@variables t V(t) L(t)
