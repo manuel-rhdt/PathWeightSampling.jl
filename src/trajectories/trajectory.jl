@@ -340,8 +340,10 @@ function collect_sub_trajectory(iter, indices)
     indepsym = SciMLBase.getindepsym(iter)
     syms = SciMLBase.getsyms(iter)
 
+    sub_syms = isnothing(syms) ? nothing : syms[indices]
+
     f = iterate(iter)
-    traj = start_collect(f, indices, syms[indices], indepsym)
+    traj = start_collect(f, indices, sub_syms, indepsym)
     while f !== nothing
         val, state = f
         f = iterate(iter, state)
@@ -355,7 +357,7 @@ function collect_sub_trajectories(iter, indices_list...)
     syms = SciMLBase.getsyms(iter)
 
     f = iterate(iter)
-    trajs = map(indices -> start_collect(f, indices, syms[indices], indepsym), indices_list)
+    trajs = map(indices -> start_collect(f, indices, isnothing(syms) ? nothing : syms[indices], indepsym), indices_list)
     while f !== nothing
         val, state = f
         f = iterate(iter, state)
