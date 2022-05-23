@@ -388,18 +388,34 @@ function sde_chemotaxis_system(;
     velocity_decay=0.862,
     velocity_noise=sqrt(2 * velocity_decay * 157.1),
     gradient_steepness=0.2e-3,
+    harmonic_rate=nothing,
     kwargs...
 )
     ModelingToolkit.@variables t V(t) L(t)
-    ModelingToolkit.@parameters λ σ g
+    ModelingToolkit.@parameters λ σ g ω₀
 
     D = ModelingToolkit.Differential(t)
 
-    eqs = [D(V) ~ -λ * V,
-        D(L) ~ g * L * V]
-    noiseeqs = [σ, 0]
+    if harmonic_rate === nothing
+        eqs = [
+            D(V) ~ -λ * V,
+            D(L) ~ g * L * V
+        ]
+        noiseeqs = [σ, 0]
+        sparams = [λ, σ, g]
+        ps = [velocity_decay, velocity_noise, gradient_steepness]
+    else
+        c₀ = 100.0 # μM
+        eqs = [
+            D(V) ~ -ω₀^2 * L - λ * V,
+            D(L) ~ g * c₀ * V
+        ]
+        noiseeqs = [σ, 0]
+        sparams = [λ, σ, g, ω₀]
+        ps = [velocity_decay, velocity_noise, gradient_steepness, harmonic_rate]
+    end
 
-    ModelingToolkit.@named sn = SDESystem(eqs, noiseeqs, t, [V, L], [λ, σ, g])
+    ModelingToolkit.@named sn = SDESystem(eqs, noiseeqs, t, [V, L], sparams)
 
     system = PathWeightSampling.cooperative_chemotaxis_system(; kwargs...)
 
@@ -408,7 +424,6 @@ function sde_chemotaxis_system(;
     perm = circshift(collect(1:length(st)), 1)
     Catalyst.reorder_states!(system.rn, perm)
 
-    ps = [velocity_decay, velocity_noise, gradient_steepness]
     sds = PathWeightSampling.SDEDrivenSystem(
         sn, system.rn, system.xn,
         vcat(0.0, system.u0[1], system.u0[2:end]), # u0
