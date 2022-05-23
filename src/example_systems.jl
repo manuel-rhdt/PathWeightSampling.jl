@@ -407,7 +407,7 @@ function sde_chemotaxis_system(;
     else
         c₀ = 100.0 # μM
         eqs = [
-            D(V) ~ -ω₀^2 * L - λ * V,
+            D(V) ~ -ω₀^2 * (L - c₀) - λ * V,
             D(L) ~ g * c₀ * V
         ]
         noiseeqs = [σ, 0]
