@@ -23,6 +23,7 @@ struct ConditionalEnsemble{JP<:DiffEqBase.AbstractJumpProblem,IX,IM}
     indep_idxs::IX
     index_map::IM
     dtimes::Vector{Float64}
+    num_input_reactions::Int
 end
 
 struct SXconfiguration{uTs,uTx,tType}
@@ -286,7 +287,7 @@ struct ComplexSystem <: JumpNetwork
     dist::TrajectoryDistribution
 end
 
-function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct())
+function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct(), dist_aggregator=GillespieDirect())
     joint = ModelingToolkit.extend(xn, ModelingToolkit.extend(rn, sn))
 
     tp = (first(dtimes), last(dtimes))
@@ -296,7 +297,7 @@ function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggrega
 
     if dist === nothing
         update_map = build_update_map(joint, xn)
-        dist = distribution(joint, p; update_map)
+        dist = distribution(joint, p; update_map, alg=dist_aggregator)
     end
 
     ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob, dist)
@@ -425,7 +426,7 @@ struct SDEDrivenSystem <: JumpNetwork
     sde_dt::Float64
 end
 
-function SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct(), sde_dt=0.01)
+function SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggregator=Direct(), dist_aggregator=GillespieDirect(), sde_dt=0.01)
     joint = ModelingToolkit.extend(xn, rn)
 
     tp = (first(dtimes), last(dtimes))
@@ -443,7 +444,7 @@ function SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggre
 
     if dist === nothing
         update_map = build_update_map(joint, xn)
-        dist = distribution(joint, vcat(pr, px); update_map)
+        dist = distribution(joint, vcat(pr, px); update_map, alg=dist_aggregator)
     end
 
     SDEDrivenSystem(sn, rn, xn, u0, ps, pr, px, dtimes, jprob, dist, sde_dt)
@@ -551,7 +552,7 @@ end
 function generate_configuration(system::SDEDrivenSystem; seed=rand(UInt))
     joint = reaction_network(system)
 
-    u0 = SVector(map(Float64, sample_initial_condition(system.u0))...)
+    u0 = map(Float64, sample_initial_condition(system.u0))
     jp = remake(system.jump_problem, u0=u0)
 
     s_spec = independent_species(system.sn)
@@ -562,9 +563,9 @@ function generate_configuration(system::SDEDrivenSystem; seed=rand(UInt))
     @assert s_idxs == collect(1:length(s_idxs))
     @assert x_idxs == collect(length(u0)-length(x_idxs)+1:length(u0))
 
-    u0s::Vector{Float64} = [x for x in u0[s_idxs]]
+    u0s = Vector(u0[s_idxs])
     s_prob = SDEProblem(system.sn, u0s, tspan(system), system.ps, seed=seed)
-    sol = solve(s_prob, SOSRA(), saveat=0.01)
+    sol = solve(s_prob, EM(), dt=system.sde_dt, saveat=system.sde_dt)
     input_traj = Trajectory(sol.u[1:end-1], sol.t[2:end])
     djp = DrivenJumpProblem(jp, input_traj)
     iter = SSAIter(init(djp; seed=seed))
@@ -696,7 +697,13 @@ function ConditionalEnsemble(system::Union{ComplexSystem,SDEDrivenSystem}; aggre
     s_species = get_states(system.sn)
     index_map = SVector(species_indices(system.rn, s_species)...)
 
-    ConditionalEnsemble(jprob, system.dist, indep_idxs, index_map, collect(system.dtimes))
+    num_input_reactions = if system.sn isa ReactionSystem
+        Catalyst.numreactions(system.sn)
+    else
+        0
+    end
+
+    ConditionalEnsemble(jprob, system.dist, indep_idxs, index_map, collect(system.dtimes), num_input_reactions)
 end
 
 function species_indices(rs::ReactionSystem, species)
@@ -750,8 +757,7 @@ function collect_samples(initial::SXconfiguration, ensemble::MarginalEnsemble, n
     for result_col ∈ eachcol(result)
         u0 = sample_initial_condition(ensemble)
         tspan = (ensemble.dtimes[begin], ensemble.dtimes[end])
-        ssa_iter = create_integrator(initial, ensemble, u0, tspan)
-        iter = Iterators.map((u, t, i)::Tuple -> (u, t, 0), ssa_iter)
+        iter = create_integrator(initial, ensemble, u0, tspan)
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
         result_col .+= initial_log_likelihood(ensemble, u0, initial.x_traj)
     end
@@ -794,11 +800,12 @@ end
 
 function collect_samples(initial::Union{SXconfiguration,SRXconfiguration}, ensemble::ConditionalEnsemble, num_samples::Int)
     driven_jp = DrivenJumpProblem(ensemble.jump_problem, initial.s_traj)
+    Δi = ensemble.num_input_reactions
 
     result = Array{Float64,2}(undef, length(ensemble.dtimes), num_samples)
     for result_col ∈ eachcol(result)
         integrator = init(driven_jp)
-        iter = Iterators.map((u, t, i)::Tuple -> (u, t, 0), SSAIter(integrator))
+        iter = Iterators.map((u, t, i)::Tuple -> (u, t, i + Δi), SSAIter(integrator))
         cumulative_logpdf!(result_col, ensemble.dist, merge_trajectories(iter, initial.x_traj), ensemble.dtimes)
     end
 
@@ -813,13 +820,13 @@ end
 function create_integrator(conf::Union{SXconfiguration,SRXconfiguration}, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
     jprob = remake(ensemble.jump_problem, u0=u0, tspan=tspan)
     driven_jp = DrivenJumpProblem(jprob, conf.s_traj, index_map=ensemble.index_map)
-    init(driven_jp)
+    Δi = ensemble.num_input_reactions
+    Iterators.map((u, t, i)::Tuple -> (u, t, i + Δi), SSAIter(init(driven_jp)))
 end
 
 # propagate the initial condition forward in time and compute the corresponding increase in log-likelihood
 function propagate(conf::Union{SXconfiguration,SRXconfiguration}, ensemble::ConditionalEnsemble, u0, tspan::Tuple)
-    integrator = create_integrator(conf, ensemble, u0, tspan)
-    iter = SSAIter(integrator)
+    iter = create_integrator(conf, ensemble, u0, tspan)
     ix1 = searchsortedfirst(conf.x_traj.t, tspan[1])
     x_traj_iter = RecursiveArrayTools.tuples(conf.x_traj)
     merged = merge_trajectories(iter, Base.Iterators.rest(x_traj_iter, ix1))
@@ -827,7 +834,7 @@ function propagate(conf::Union{SXconfiguration,SRXconfiguration}, ensemble::Cond
     # TODO: check species ordering
     log_weight = trajectory_energy(ensemble.dist, merged, tspan=tspan)
 
-    copy(integrator.u), log_weight
+    copy(iter.iter.integrator.u), log_weight
 end
 
 function energy_difference(configuration::SRXconfiguration, ensemble::ConditionalEnsemble)

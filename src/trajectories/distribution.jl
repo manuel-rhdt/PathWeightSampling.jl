@@ -4,21 +4,107 @@ import Catalyst
 import Catalyst: ReactionSystem
 using StaticArrays
 import Base.show
-
-struct DirectAggregator{U}
-    sumrate::Float64
-    rates::Vector{Float64}
-    # a mapping from the trajectory's recorded reaction ids to the ReactionSet indices of the jump aggregator
-    update_map::U
-    tspan::Tuple{Float64,Float64}
-    tprev::Float64
-    weight::Float64
-end
+using Setfield
 
 struct ReactionSet
     rates::Vector{Float64}
     rstoich::Vector{Vector{Pair{Int64,Int64}}}
     nstoich::Vector{Vector{Pair{Int64,Int64}}}
+    nspecies::Int
+end
+
+abstract type AbstractJumpRateAggregatorAlgorithm end
+
+struct GillespieDirect <: AbstractJumpRateAggregatorAlgorithm end
+
+struct DepGraphDirect <: AbstractJumpRateAggregatorAlgorithm end
+
+abstract type AbstractJumpRateAggregator end
+
+struct DirectAggregator{U} <: AbstractJumpRateAggregator
+    "the sum of all reaction rates"
+    sumrate::Float64
+
+    "a vector of the current reaction rates"
+    rates::Vector{Float64}
+
+    "sum of group propensities"
+    gsums::Vector{Float64}
+
+    "maps reaction indices to group indices"
+    ridtogroup::U
+
+    "time span for aggregation"
+    tspan::Tuple{Float64,Float64}
+
+    "time of last recorded reaction"
+    tprev::Float64
+
+    "accumulated log-probability"
+    weight::Float64
+end
+
+function build_aggregator(alg::GillespieDirect, reactions::ReactionSet, ridtogroup, tspan=(0.0, Inf64))
+    ngroups = maximum(ridtogroup)
+    nreactions = length(reactions.rates)
+    DirectAggregator(0.0, zeros(nreactions), zeros(ngroups), ridtogroup, tspan, tspan[1], 0.0)
+end
+
+struct DepGraphAggregator{U,DepGraph} <: AbstractJumpRateAggregator
+    "the sum of all reaction rates"
+    sumrate::Float64
+
+    "a vector of the current reaction rates"
+    rates::Vector{Float64}
+
+    "sum of group propensities"
+    gsums::Vector{Float64}
+
+    "maps reaction indices to group indices"
+    ridtogroup::U
+
+    "time span for aggregation"
+    tspan::Tuple{Float64,Float64}
+
+    "time of last recorded reaction"
+    tprev::Float64
+
+    "accumulated log-probability"
+    weight::Float64
+
+    "dependency graph"
+    depgraph::DepGraph
+
+    "previously executed reaction"
+    prev_reaction::Int
+end
+
+function build_aggregator(alg::DepGraphDirect, reactions::ReactionSet, ridtogroup, tspan=(0.0, Inf64))
+    ngroups = maximum(ridtogroup)
+    nreactions = length(reactions.rates)
+    depgraph = make_depgraph(reactions)
+    DepGraphAggregator(0.0, zeros(nreactions), zeros(ngroups), ridtogroup, tspan, tspan[1], 0.0, depgraph, 0)
+end
+
+function initialize_aggregator(agg::AbstractJumpRateAggregator; tspan=(0.0, Inf64))
+    agg = @set agg.tspan = tspan
+    agg = @set agg.tprev = tspan[1]
+    agg = @set agg.weight = 0.0
+    agg = @set agg.sumrate = 0.0
+    agg.rates .= 0.0
+    agg.gsums .= 0.0
+    agg
+end
+
+function initialize_aggregator(agg::DepGraphAggregator; tspan=(0.0, Inf64))
+    agg = @set agg.tspan = tspan
+    agg = @set agg.tprev = tspan[1]
+    agg = @set agg.weight = 0.0
+    agg = @set agg.sumrate = 0.0
+    agg = @set agg.prev_reaction = 0
+    agg.rates .= 0.0
+    agg.gsums .= 0.0
+    agg
 end
 
 function ReactionSet(js::ModelingToolkit.JumpSystem, p)
@@ -39,50 +125,67 @@ function ReactionSet(js::ModelingToolkit.JumpSystem, p)
         push!(nstoich_vec, nstoich)
     end
 
-    ReactionSet(rates, rstoich_vec, nstoich_vec)
+    ReactionSet(rates, rstoich_vec, nstoich_vec, length(ModelingToolkit.states(js)))
 end
 
-add_weight(agg::DirectAggregator, Δweight::Float64, t::Float64) = DirectAggregator(agg.sumrate, agg.rates, agg.update_map, agg.tspan, t, agg.weight + Δweight)
-
-function get_update_index(agg::DirectAggregator, i::Int)
-    if checkbounds(Bool, agg.update_map, i)
-        j = @inbounds agg.update_map[i]
-        if j > 0
-            j
-        else
-            nothing
+function species_to_dependent_reaction_map(reactions::ReactionSet)
+    nspecies = reactions.nspecies
+    # map from a species to reactions that depend on it
+    spec_to_dep_rxs = [Vector{Int}() for n = 1:nspecies]
+    for (rx, complex) in enumerate(reactions.rstoich)
+        for (spec, stoch) in complex
+            push!(spec_to_dep_rxs[spec], rx)
         end
-    else
-        nothing
     end
+
+    foreach(s -> unique!(sort!(s)), spec_to_dep_rxs)
+    spec_to_dep_rxs
 end
 
-struct TrajectoryDistribution{U}
+function make_depgraph(reactions::ReactionSet)
+    nreactions = length(reactions.rates)
+    spec_to_dep_rxs = species_to_dependent_reaction_map(reactions)
+
+    # create map from rx to reactions depending on it
+    dep_graph = [Vector{Int}() for n = 1:nreactions]
+    for rx in 1:nreactions
+        # rx changes spec, hence rxs depending on spec depend on rx
+        for (spec, stoch) in reactions.nstoich[rx]
+            for dependent_rx in spec_to_dep_rxs[spec]
+                push!(dep_graph[rx], dependent_rx)
+            end
+        end
+    end
+
+    foreach(deps -> unique!(sort!(deps)), dep_graph)
+    dep_graph
+end
+
+struct TrajectoryDistribution{A}
     reactions::ReactionSet
-    aggregator::DirectAggregator{U}
+    aggregator::A
 end
 
-function TrajectoryDistribution(reactions, update_map=1:num_reactions)
-    num_clusters = maximum(update_map)
-    agg = DirectAggregator(0.0, zeros(num_clusters), update_map, (0.0, 0.0), 0.0, 0.0)
+function TrajectoryDistribution(reactions::ReactionSet, alg::AbstractJumpRateAggregatorAlgorithm, ridtogroup=1:length(reactions.rates))
+    agg = build_aggregator(alg, reactions, ridtogroup)
     TrajectoryDistribution(reactions, agg)
 end
 
-distribution(rn::ReactionSystem, p; update_map=1:Catalyst.numreactions(rn)) = TrajectoryDistribution(ReactionSet(convert(ModelingToolkit.JumpSystem, rn), p), update_map)
+distribution(rn::ReactionSystem, p; update_map=1:Catalyst.numreactions(rn), alg=GillespieDirect()) = TrajectoryDistribution(ReactionSet(convert(ModelingToolkit.JumpSystem, rn), p), alg, update_map)
 
 @fastmath function Distributions.logpdf(dist::TrajectoryDistribution, trajectory)::Float64
     traj_iter = trajectory_iterator(trajectory)
     tprev = 0.0
     result = 0.0
-    agg = dist.aggregator
+    agg = initialize_aggregator(dist.aggregator)
     for (u, t, i) in traj_iter
-        agg = update_rates(agg, u, dist.reactions)
+        agg = update_rates(agg, (u, t, i), dist.reactions)
 
         dt = t - tprev
         result -= dt * agg.sumrate
-        agg_i = get_update_index(agg, i)
-        if agg_i !== nothing
-            @inbounds result += log(agg.rates[agg_i])
+        if i != 0
+            @inbounds gid = agg.ridtogroup[i]
+            gid != 0 && @inbounds result += log(agg.gsums[gid])
         end
 
         tprev = t
@@ -91,20 +194,20 @@ distribution(rn::ReactionSystem, p; update_map=1:Catalyst.numreactions(rn)) = Tr
     result
 end
 
-@fastmath function fold_logpdf(dist::TrajectoryDistribution, agg::DirectAggregator, (u, t, i))
-    agg = update_rates(agg, u, dist.reactions)
-    agg_i = get_update_index(agg, i)
+@fastmath function fold_logpdf(dist::TrajectoryDistribution, agg::AbstractJumpRateAggregator, (u, t, i))
+    agg = update_rates(agg, (u, t, i), dist.reactions)
     dt = t - agg.tprev
-    if agg_i !== nothing
-        @inbounds log_jump_prob = log(agg.rates[agg_i])
-    else
-        log_jump_prob = 0.0
+    log_jump_prob = 0.0
+    if i != 0
+        @inbounds gid = agg.ridtogroup[i]
+        gid != 0 && @inbounds log_jump_prob = log(agg.gsums[gid])
     end
     log_surv_prob = -dt * agg.sumrate
-    add_weight(agg, log_surv_prob + log_jump_prob, t)
+    agg = @set agg.weight = agg.weight + log_surv_prob + log_jump_prob
+    agg = @set agg.tprev = t
 end
 
-function step_energy(dist::TrajectoryDistribution, agg::DirectAggregator, (u, t, i))
+function step_energy(dist::TrajectoryDistribution, agg::AbstractJumpRateAggregator, (u, t, i))
     if t <= agg.tspan[1]
         return agg
     end
@@ -119,29 +222,24 @@ function step_energy(dist::TrajectoryDistribution, agg::DirectAggregator, (u, t,
 end
 
 function trajectory_energy(dist::TrajectoryDistribution, traj; tspan=(0.0, Inf64))
-    agg = dist.aggregator
-    agg = DirectAggregator(0.0, agg.rates, agg.update_map, tspan, tspan[1], 0.0)
+    agg = initialize_aggregator(dist.aggregator, tspan=tspan)
     traj_iter = trajectory_iterator(traj)
-    acc_iter = Base.Iterators.accumulate((acc, x) -> step_energy(dist, acc, x), traj_iter; init=agg)
-    for r in acc_iter
-        agg = r
-    end
+    agg = Base.foldl((acc, x) -> step_energy(dist, acc, x), traj_iter; init=agg)
     agg.weight
 end
 
 function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution, traj, dtimes::AbstractVector)
-    agg = dist.aggregator
     tspan = (first(dtimes), last(dtimes))
+    agg = initialize_aggregator(dist.aggregator, tspan=tspan)
     result[1] = zero(eltype(result))
-    agg = DirectAggregator(0.0, agg.rates, agg.update_map, tspan, tspan[1], 0.0)
     traj_iter = trajectory_iterator(traj)
-    acc_iter = Base.Iterators.accumulate(traj_iter; init=(agg, 1)) do (agg, k), (u, t, i)
+    result_agg, k = Base.foldl(traj_iter; init=(agg, 1)) do (agg, k), (u, t, i)
         if t <= agg.tspan[1]
             return agg, k
         end
 
         t = min(t, agg.tspan[2])
-        agg = update_rates(agg, u, dist.reactions)
+        agg = update_rates(agg, (u, t, i), dist.reactions)
 
         tprev = agg.tprev
         while k <= length(dtimes) && dtimes[k] < t
@@ -152,21 +250,16 @@ function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution
         end
         result[k] -= (t - tprev) * agg.sumrate
 
-        agg_i = get_update_index(agg, i)
-        if agg_i !== nothing
-            @inbounds log_jump_prob = log(agg.rates[agg_i])
-        else
-            log_jump_prob = 0.0
+        log_jump_prob = 0.0
+        if i != 0
+            @inbounds gid = agg.ridtogroup[i]
+            gid != 0 && @inbounds log_jump_prob = log(agg.gsums[gid])
         end
         result[k] += log_jump_prob
 
-        agg = add_weight(agg, -(t - agg.tprev) * agg.sumrate + log_jump_prob, t)
+        agg = @set agg.weight = agg.weight - (t - agg.tprev) * agg.sumrate + log_jump_prob
+        agg = @set agg.tprev = t
         agg, k
-    end
-
-    # consume the iterator
-    for r in acc_iter
-        agg = r
     end
 
     result
@@ -189,16 +282,32 @@ cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVect
     @inbounds val * rs.rates[rxidx]
 end
 
-@fastmath function update_rates(aggregator::DirectAggregator, speciesvec::AbstractVector, reactions::ReactionSet)
-    sum = 0.0
-    aggregator.rates .= 0.0
-    for i in eachindex(reactions.rates)
-        agg_i = get_update_index(aggregator, i)
-        if agg_i !== nothing
-            rate = evalrxrate(speciesvec, i, reactions)
-            @inbounds aggregator.rates[agg_i] += rate
-            sum += rate
+@inline function update_reaction_rate!(aggregator::AbstractJumpRateAggregator, u::AbstractVector, reactions, rx::Int)
+    @inbounds gid = aggregator.ridtogroup[rx]
+    if gid != 0
+        rate = evalrxrate(u, rx, reactions)
+        @inbounds aggregator.gsums[gid] += -aggregator.rates[rx] + rate
+        @inbounds aggregator.rates[rx] = rate
+    end
+end
+
+@fastmath function update_rates(aggregator::DirectAggregator, (u, t, i), reactions::ReactionSet)
+    for rx in eachindex(reactions.rates)
+        update_reaction_rate!(aggregator, u, reactions, rx)
+    end
+    aggregator = @set aggregator.sumrate = sum(aggregator.gsums)
+end
+
+@fastmath function update_rates(aggregator::DepGraphAggregator, (u, t, i), reactions::ReactionSet)
+    if aggregator.prev_reaction == 0
+        for rx in eachindex(reactions.rates)
+            update_reaction_rate!(aggregator, u, reactions, rx)
+        end
+    else
+        @inbounds for rx in aggregator.depgraph[aggregator.prev_reaction]
+            update_reaction_rate!(aggregator, u, reactions, rx)
         end
     end
-    DirectAggregator(sum, aggregator.rates, aggregator.update_map, aggregator.tspan, aggregator.tprev, aggregator.weight)
+    aggregator = @set aggregator.sumrate = sum(aggregator.gsums)
+    aggregator = @set aggregator.prev_reaction = i
 end

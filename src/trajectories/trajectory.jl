@@ -361,7 +361,9 @@ function collect_sub_trajectories(iter, indices_list...)
     while f !== nothing
         val, state = f
         f = iterate(iter, state)
-        foreach((traj, indices) -> step_collect!(traj, f, val, indices), trajs, indices_list)
+        for (traj, indices) in zip(trajs, indices_list)
+            step_collect!(traj, f, val, indices)
+        end
     end
     trajs
 end

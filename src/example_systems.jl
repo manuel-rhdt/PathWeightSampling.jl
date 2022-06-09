@@ -302,7 +302,8 @@ function cooperative_chemotaxis_system(;
     phi_y=1.0 / 6.0,
     dephosphorylate=inv(tau_y * (1 + phi_y)),
     phosphorylate=dephosphorylate * phi_y / (n_clusters / 2),
-    dtimes=0:0.1:20.0, aggregator=DiffEqJump.RSSACR(),
+    dtimes=0:0.1:20.0, aggregator=DiffEqJump.SortingDirect(),
+    dist_aggregator=DepGraphDirect(),
     varargs...
 )
     sn = @reaction_network begin
@@ -381,7 +382,7 @@ function cooperative_chemotaxis_system(;
     pr = chemotaxis_parameters(; varargs...)
     px = [dephosphorylate, phosphorylate]
 
-    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=aggregator)
+    ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=aggregator, dist_aggregator=dist_aggregator)
 end
 
 function sde_chemotaxis_system(;
@@ -428,7 +429,9 @@ function sde_chemotaxis_system(;
         sn, system.rn, system.xn,
         vcat(0.0, system.u0[1], system.u0[2:end]), # u0
         ps, system.pr, system.px,
-        system.dtimes
+        system.dtimes,
+        aggregator=get(kwargs, :aggregator, SortingDirect()),
+        dist_aggregator=get(kwargs, :dist_aggregator, DepGraphDirect()),
     )
 end
 
@@ -484,3 +487,4 @@ end
 precompile(gene_expression_system, ())
 precompile(chemotaxis_system, ())
 precompile(cooperative_chemotaxis_system, ())
+precompile(sde_chemotaxis_system, ())
