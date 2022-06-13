@@ -373,14 +373,44 @@ function cooperative_chemotaxis_system(;
 
     joint = ModelingToolkit.extend(xn, ModelingToolkit.extend(rn, sn))
 
-    u0 = zeros(Int, length(spmap) + 3)
-    u0[1] = round(Int, mean_l)
-    u0[Catalyst.speciesmap(joint)[spmap[(0, 0)]]] = n_clusters
-    u0[Catalyst.speciesmap(joint)[Y]] = n_chey
-
     ps = [mean_l / tau_l, 1.0 / tau_l]
     pr = chemotaxis_parameters(; varargs...)
     px = [dephosphorylate, phosphorylate]
+
+    spec2index = Catalyst.speciesmap(joint)
+    u0 = zeros(Int, length(spmap) + 3) # (extra space +3 for input and both outputs)
+    u0[1] = round(Int, mean_l)
+    u0[spec2index[Yp]] = round(Int, n_chey * phi_y)
+    u0[spec2index[Y]] = n_chey - u0[spec2index[Yp]]
+
+    # here we approximate the steady states of the individual receptors
+    E_0 = pr[1]
+    δg = pr[2]
+    δf = pr[3]
+    k_B = pr[8]
+    k_R = pr[9]
+    K_a = pr[6] / pr[4]
+    K_i = pr[7] / pr[5]
+    Z_a = (1 + mean_l / K_a)
+    Z_i = (1 + mean_l / K_i)
+    p_a(m) = 1 / (1 + exp(E_0 + lmax * log(Z_i / Z_a) + m * δf))
+    p_l_given_m(l, m) =
+        binomial(lmax, l) *
+        (
+            p_a(m) * ((mean_l / K_a)^l / Z_a^lmax) +
+            (1 - p_a(m)) * ((mean_l / K_i)^l / Z_i^lmax)
+        )
+    m_0 = round(Int,
+        -1 / δf * ((E_0 + lmax * log(Z_i / Z_a)) + log(k_B / k_R)),
+        RoundToZero
+    )
+    allocated_clusters = 0
+    for l = 0:lmax-1
+        prob = p_l_given_m(l, m_0)
+        u0[spec2index[spmap[(l, m_0)]]] = round(Int, n_clusters * prob, RoundToZero)
+        allocated_clusters += u0[spec2index[spmap[(l, m_0)]]]
+    end
+    u0[spec2index[spmap[(lmax, m_0)]]] = n_clusters - allocated_clusters
 
     ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=aggregator, dist_aggregator=dist_aggregator)
 end
