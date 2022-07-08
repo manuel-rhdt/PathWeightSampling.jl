@@ -1,5 +1,5 @@
 import Catalyst
-import Catalyst: @reaction_network
+import Catalyst: @reaction_network, @reaction
 import ModelingToolkit
 import ModelingToolkit: FnType
 
@@ -391,28 +391,43 @@ function cooperative_chemotaxis_system(;
     k_R = pr[9]
     K_a = pr[6] / pr[4]
     K_i = pr[7] / pr[5]
-    Z_a = (1 + mean_l / K_a)
-    Z_i = (1 + mean_l / K_i)
-    p_a(m) = 1 / (1 + exp(E_0 + lmax * log(Z_i / Z_a) + m * δf))
-    p_l_given_m(l, m) =
-        binomial(lmax, l) *
-        (
-            p_a(m) * ((mean_l / K_a)^l / Z_a^lmax) +
-            (1 - p_a(m)) * ((mean_l / K_i)^l / Z_i^lmax)
-        )
-    m_0 = round(Int,
-        -1 / δf * ((E_0 + lmax * log(Z_i / Z_a)) + log(k_B / k_R)),
-        RoundToZero
-    )
-    allocated_clusters = 0
-    for l = 0:lmax-1
-        prob = p_l_given_m(l, m_0)
-        u0[spec2index[spmap[(l, m_0)]]] = round(Int, n_clusters * prob, RoundToZero)
-        allocated_clusters += u0[spec2index[spmap[(l, m_0)]]]
+
+    l = 0:lmax
+    m = 0:mmax
+    a_m = activity_given_methylation.(m, c=mean_l, N=lmax, K_a=K_a, K_i=K_i, δfₘ=δf, m₀=-E_0 / δf)
+    p_m = steady_state_methylation(a_m, k_B=k_B, k_R=k_R)
+    p_l_m = ligand_given_methylation(l, a_m, c=mean_l, N=lmax, K_a=K_a, K_i=K_i) .* p_m'
+
+    for state in systematic_sample(vec(p_l_m); N=n_clusters)
+        l_i, m_i = Tuple(CartesianIndices((l, m))[state])
+        u0[spec2index[spmap[(l_i, m_i)]]] += 1
     end
-    u0[spec2index[spmap[(lmax, m_0)]]] = n_clusters - allocated_clusters
 
     ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes; aggregator=aggregator, dist_aggregator=dist_aggregator)
+end
+
+function steady_state_methylation(a_m; k_R=0.075, k_B=0.15)
+    length(a_m) == 0 && return Float64[]
+    length(a_m) == 1 && return [1.0]
+    dl = @. (1 - a_m[1:end-1]) * k_R
+    d = @. -(1 - a_m) * k_R - a_m * k_B
+    du = @. a_m[2:end] * k_B
+
+    Q_mat = Tridiagonal(dl, d, du)
+    vcat(Q_mat, ones(1, length(a_m))) \ vcat(zeros(length(a_m)), 1.0)
+end
+
+function activity_given_methylation(m; N=6, K_a=2000, K_i=20, δfₘ=-2.0, m₀=0.5 * N, c=100)
+    E_act = δfₘ * (m - m₀) # energy from methylation
+    Z_a = exp(-E_act) * (1 + c / K_a)^N
+    Z_i = (1 + c / K_i)^N
+    Z_a / (Z_a + Z_i)
+end
+
+function ligand_given_methylation(ℓ, a_m; N=6, K_a=2000, K_i=20, c=100)
+    Z_a = (1 + c / K_a)^N
+    Z_i = (1 + c / K_i)^N
+    [a * binomial(N, ℓ) * (c / K_a)^ℓ / Z_a + (1 - a) * binomial(N, ℓ) * (c / K_i)^ℓ / Z_i for ℓ ∈ ℓ, a ∈ a_m]
 end
 
 function sde_chemotaxis_system(;
@@ -513,6 +528,146 @@ function active_receptors(conf::SRXconfiguration, system::ComplexSystem)
 
     merge_trajectories(conf.s_traj, conf.r_traj, conf.x_traj) |> Map((u, t, i)::Tuple -> (ensurevec(f(u)), t, i)) |> collect_trajectory
 end
+
+# function mwc_params(;
+#     ϕ_y,
+#     N=10, # cooperativity
+#     n_clusters=100, # number of receptor clusters
+#     tau_l=1.0,
+#     K_i=18,
+#     K_a=2900,
+#     δf=-2.0,
+#     m0=0.5 * N,
+#     a0=0.3,
+#     k_B=0.15,
+#     k_R=0.075,
+#     k_Z=10.0,
+#     k_A=k_Z * ϕ_y / (a0 * n_clusters), velocity_decay=0.862,
+#     velocity_noise=sqrt(2 * velocity_decay * 157.1),
+#     gradient_steepness=0.2e-3
+# )
+#     ps = [velocity_decay, velocity_noise, gradient_steepness]
+#     pr = [N, m0, δf, K_i, K_a, k_B, k_R]
+#     px = [k_A, k_Z]
+#     ps, pr, px
+# end
+
+# function mwc_chemotaxis_system(;
+#     mean_l=100, # mean ligand concentration [μM]
+#     n_clusters=800, # number of receptor clusters
+#     N=10, # cooperativity
+#     M=4 * N, # methylation sites
+#     n_chey=10_000, # number of total cheY
+#     ϕ_y=1.0 / 6.0, # fraction of phosphorylated CheY
+#     dtimes=0:0.1:20.0,
+#     aggregator=DiffEqJump.SortingDirect(),
+#     dist_aggregator=DepGraphDirect(),
+#     params...
+# )
+#     ps, pr, px = mwc_params(; N, ϕ_y, n_clusters, params...)
+
+#     ModelingToolkit.@variables t V(t) L(t)
+#     ModelingToolkit.@parameters λ σ g
+
+#     D = ModelingToolkit.Differential(t)
+
+#     eqs = [
+#         D(V) ~ -λ * V,
+#         D(L) ~ g * L * V
+#     ]
+#     noiseeqs = [σ, 0]
+#     sparams = [λ, σ, g]
+
+#     ModelingToolkit.@named sn = SDESystem(eqs, noiseeqs, t, [V, L], sparams)
+
+#     rn = Catalyst.make_empty_network()
+
+#     Catalyst.@parameters t N m0 δf K_i K_a k_B k_R ρ
+#     Catalyst.@variables Y(t) Yp(t)
+
+#     # add input species first
+#     Catalyst.addspecies!(rn, V)
+#     Catalyst.addspecies!(rn, L)
+
+#     Catalyst.addparam!(rn, N)
+#     Catalyst.addparam!(rn, m0)
+#     Catalyst.addparam!(rn, δf)
+#     Catalyst.addparam!(rn, K_i)
+#     Catalyst.addparam!(rn, K_a)
+#     Catalyst.addparam!(rn, k_B)
+#     Catalyst.addparam!(rn, k_R)
+
+#     xn = @reaction_network begin
+#         μ, Yp --> Y
+#     end μ
+
+#     Catalyst.addparam!(xn, ρ)
+
+#     spmap = Dict()
+#     for m = 0:M
+#         receptor_species = ModelingToolkit.Num(ModelingToolkit.variable(Symbol("R_", m), T=FnType{Tuple{Any},Real}))(t)
+
+#         spmap[m] = receptor_species
+
+#         Catalyst.addspecies!(xn, receptor_species)
+#         Catalyst.addspecies!(rn, receptor_species)
+#     end
+
+#     p_active(c, m) = m == 0 ? 0.0 : (m == M ? 1.0 : 1 / (1 + exp(N * log((1 + c / K_i) / (1 + c / K_a)) + δf * (m - m0))))
+
+#     for m = 0:M
+#         if m > 0
+#             demethylation_rate = p_active(L, m) * k_B
+#             demethylate_active = @reaction $demethylation_rate, $(spmap[m]) --> $(spmap[m-1])
+#             methylation_rate = (1 - p_active(L, m)) * k_R
+#             methylate_inactive = @reaction $methylation_rate, $(spmap[m-1]) --> $(spmap[m])
+
+#             Catalyst.addreaction!(rn, demethylate_active)
+#             Catalyst.addreaction!(rn, methylate_inactive)
+#         end
+
+
+#         # every receptor phosphorylates Y with rate ρ if the receptor is active
+#         # if the receptor is inactive, no phosphorylation can happen
+#         receptor = spmap[m]
+#         phosphorylation_rate = p_active(L, m) * ρ
+#         phosphorylation = @reaction $phosphorylation_rate, $receptor + Y --> $receptor + Yp
+#         Catalyst.addreaction!(xn, phosphorylation)
+#     end
+
+#     joint = ModelingToolkit.extend(xn, rn)
+
+#     spec2index = Catalyst.speciesmap(joint)
+#     u0 = zeros(Float64, length(spec2index))
+#     u0[2] = mean_l
+#     u0[spec2index[Yp]] = round(n_chey * ϕ_y)
+#     u0[spec2index[Y]] = n_chey - u0[spec2index[Yp]]
+
+#     # here we approximate the steady states of the individual receptors
+#     # to choose a sensible initial condition
+#     N = pr[1]
+#     m0 = pr[2]
+#     δf = pr[3]
+#     K_i = pr[4]
+#     K_a = pr[5]
+#     Z_a = (1 + mean_l / K_a)
+#     Z_i = (1 + mean_l / K_i)
+#     a = @. 1 / (1 + exp(N * log(Z_i / Z_a) + δf * ((0:M) - m0)))
+#     p_m = steady_state_methylation(a, k_B=pr[6], k_R=pr[7])
+#     for state in systematic_sample(p_m; N=n_clusters)
+#         m = state - 1
+#         u0[spec2index[spmap[m]]] += 1
+#     end
+
+#     PathWeightSampling.SDEDrivenSystem(
+#         sn, rn, xn,
+#         u0,
+#         ps, pr, px,
+#         dtimes,
+#         aggregator=get(params, :aggregator, SortingDirect()),
+#         dist_aggregator=get(params, :dist_aggregator, DepGraphDirect()),
+#     )
+# end
 
 precompile(gene_expression_system, ())
 precompile(chemotaxis_system, ())

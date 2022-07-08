@@ -16,7 +16,7 @@ function JumpParticle(parent::JumpParticle, setup)
     JumpParticle(copy(parent.u), 0.0)
 end
 
-function propagate(p::JumpParticle, tspan::Tuple{T,T}, setup) where T
+function propagate(p::JumpParticle, tspan::Tuple{T,T}, setup) where {T}
     u_end, weight = propagate(setup.configuration, setup.ensemble, p.u, tspan)
     JumpParticle(u_end, weight)
 end
@@ -45,7 +45,7 @@ struct Setup{Configuration,Ensemble}
     ensemble::Ensemble
 end
 
-function propagate(p::JumpParticleSlow, tspan::Tuple{T,T}, setup) where T
+function propagate(p::JumpParticleSlow, tspan::Tuple{T,T}, setup) where {T}
     u_end, weight = propagate(setup.configuration, setup.ensemble, p.u, tspan)
     p.u = u_end
     p.weight = weight
@@ -71,7 +71,7 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
     # 1) propagate all particles forwards in time and compute their weights
     # 2) update the log_marginal_estimate
     # 3) check whether we should resample the particle bag, and resample if needed
-    for (i, tspan) in enumerate(zip(dtimes[begin:end - 1], dtimes[begin + 1:end]))
+    for (i, tspan) in enumerate(zip(dtimes[begin:end-1], dtimes[begin+1:end]))
 
         # PROPAGATE
         for j in eachindex(particle_bag)
@@ -90,7 +90,7 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
         prob_weights = StatsBase.weights(exp.(weights .- maximum(weights)))
 
         # We only resample if the effective sample size becomes smaller than 1/2 the number of particles
-        effective_sample_size = 1/sum(p -> (p / sum(prob_weights)) ^ 2, prob_weights)
+        effective_sample_size = 1 / sum(p -> (p / sum(prob_weights))^2, prob_weights)
         if effective_sample_size < nparticles / 2
             # sample parent indices
             parent_indices = systematic_sample(prob_weights)
@@ -115,14 +115,13 @@ in the `weights` array.
 
 The number of samples returned is equal to the length of `weights`.
 """
-function systematic_sample(weights)
-    N = length(weights)
-    inc = 1/N
+function systematic_sample(weights; N=length(weights))
+    inc = 1 / N
     x = inc * rand()
-    j=1
+    j = 1
     y = weights[j] / sum(weights)
     result = zeros(Int, N)
-    for i=1:N
+    for i = 1:N
         while y < x
             j += 1
             y += weights[j] / sum(weights)
