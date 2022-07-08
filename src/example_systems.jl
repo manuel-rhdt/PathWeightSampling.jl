@@ -344,7 +344,7 @@ function cooperative_chemotaxis_system(;
         Catalyst.addspecies!(rn, receptor_species)
     end
 
-    p_active(l, m) = m == 0 ? 0.0 : (m == mmax ? 1.0 : 1 / (1 + exp(E0 + l * δg + m * δf)))
+    p_active(l, m) = 1 / (1 + exp(E0 + l * δg + m * δf))
 
     for l = 0:lmax, m = 0:mmax
 
