@@ -1,7 +1,7 @@
-import DiffEqJump
+import JumpProcesses
 
 struct SSAIter{F,uType,tType,P,S,CB,SA,OPT,TS}
-    integrator::DiffEqJump.SSAIntegrator{F,uType,tType,P,S,CB,SA,OPT,TS}
+    integrator::JumpProcesses.SSAIntegrator{F,uType,tType,P,S,CB,SA,OPT,TS}
 end
 
 Base.IteratorSize(::Type{SSAIter{F,uType,tType,P,S,CB,SA,OPT,TS}}) where {F,uType,tType,P,S,CB,SA,OPT,TS} = Base.SizeUnknown()
@@ -32,7 +32,7 @@ end
 
 function Base.iterate(iter::SSAIter, state::Tuple{})
     integrator = iter.integrator
-    if DiffEqJump.should_continue_solve(integrator)
+    if JumpProcesses.should_continue_solve(integrator)
         end_time = integrator.sol.prob.tspan[2]
         step!(integrator)
         aggregator = integrator.cb.condition

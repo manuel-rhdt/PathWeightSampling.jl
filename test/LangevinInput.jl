@@ -1,5 +1,5 @@
 using PathWeightSampling
-using DiffEqJump
+using JumpProcesses
 using StochasticDiffEq
 using Catalyst
 using Test
@@ -116,3 +116,39 @@ mi = PathWeightSampling.mutual_information(sds, alg)
 # using Statistics
 # plot(sds.dtimes, mean(mi.MutualInformation))
 # plot!(sds.dtimes, 1.0 .* sds.dtimes)
+
+p = (;
+    E₀=2 * 0.5 * 6, # \alpha * m_0 
+    lmax=6,
+    mmax=4 * 6,
+    Kₐ=2900, # unit: μM (from MeASP data)
+    Kᵢ=18, # unit: μM
+    δf=-2.0,
+    k_B=0.075, # demethylation of active receptor
+    k_R=0.15, # methylation of inactive receptor
+    n_clusters=800,
+    k⁺=1 / (0.01 * (2900 + 100)), # ligand binding rate to active or inactive receptor
+    n_chey=10_000,
+    mean_l=100,
+    tau_l=1.0,
+    phosphorylate=1 / 6 * 10 * 3 / 800,
+    dephosphorylate=10,
+    # these parameters are from Mattingly et al.
+    velocity_decay=0.862,
+    velocity_noise=sqrt(2 * 0.862 * 157.1),
+    gradient_steepness=0.2e-3,
+    dtimes=collect(0.0:0.1:200.0)
+)
+
+@time system = PathWeightSampling.sde_chemotaxis_system(; aggregator=SortingDirect(), dist_aggregator=PathWeightSampling.DepGraphDirect(), p...)
+@time conf = PathWeightSampling.generate_configuration(system)
+
+using Plots
+plot(conf)
+
+@time compiled_system = PathWeightSampling.compile(system, marginal_aggregator=SortingDirect(), conditional_aggregator=SortingDirect());
+alg = PathWeightSampling.SMCEstimate(5)
+@time PathWeightSampling.simulate(alg, conf, compiled_system.marginal_ensemble)
+@profview PathWeightSampling.simulate(alg, conf, compiled_system.marginal_ensemble)
+@time PathWeightSampling.simulate(alg, conf, compiled_system.conditional_ensemble)
+@profview PathWeightSampling.simulate(alg, conf, compiled_system.conditional_ensemble)

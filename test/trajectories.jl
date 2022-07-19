@@ -1,6 +1,6 @@
 using Test
 using PathWeightSampling
-using DiffEqJump
+using JumpProcesses
 using Catalyst
 using StaticArrays
 

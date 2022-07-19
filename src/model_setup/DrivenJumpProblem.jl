@@ -3,7 +3,7 @@ module DrivenJumpProblems
 
 export DrivenJumpProblem
 
-using DiffEqJump
+using JumpProcesses
 using SciMLBase
 using PathWeightSampling: Trajectory
 using StaticArrays
@@ -37,7 +37,7 @@ function (tc::TrajectoryCallback)(integrator::DiffEqBase.DEIntegrator) # affect!
         end
     end
     # it is important to call this to properly update reaction rates
-    DiffEqJump.reset_aggregated_jumps!(integrator; update_jump_params=false)
+    JumpProcesses.reset_aggregated_jumps!(integrator; update_jump_params=false)
     nothing
 end
 
@@ -104,7 +104,7 @@ function SciMLBase.init(prob::DrivenJumpProblem; kwargs...)
     to = searchsortedlast(tstops, tspan[2])
     tstops_clipped = @view tstops[from:to]
 
-    integrator = DiffEqJump.init(
+    integrator = JumpProcesses.init(
         prob.prob,
         SSAStepper();
         callback=prob.callback,

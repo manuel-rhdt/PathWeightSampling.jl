@@ -1,4 +1,4 @@
-using DiffEqJump
+using JumpProcesses
 using StochasticDiffEq
 import Catalyst: ReactionSystem
 import ModelingToolkit: SDESystem, get_states, get_iv, get_ps, @named
@@ -152,7 +152,7 @@ function SimpleSystem(sn, xn, u0, ps, px, dtimes, dist=nothing; aggregator=Direc
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, px)
     dprob = DiscreteProblem(joint, sample_initial_condition(u0), tp, p)
-    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, joint), dprob, aggregator, save_positions=(false, false))
+    jprob = JumpProblem(joint, dprob, aggregator, save_positions=(false, false))
 
     if dist === nothing
         update_map = build_update_map(joint, xn)
@@ -293,7 +293,7 @@ function ComplexSystem(sn, rn, xn, u0, ps, pr, px, dtimes, dist=nothing; aggrega
     tp = (first(dtimes), last(dtimes))
     p = vcat(ps, pr, px)
     dprob = DiscreteProblem(joint, sample_initial_condition(u0), tp, p)
-    jprob = JumpProblem(convert(ModelingToolkit.JumpSystem, joint), dprob, aggregator, save_positions=(false, false))
+    jprob = JumpProblem(joint, dprob, aggregator; save_positions=(false, false))
 
     if dist === nothing
         update_map = build_update_map(joint, xn)
@@ -792,8 +792,7 @@ function sample(configuration::Union{SXconfiguration,SRXconfiguration}, ensemble
     if θ != 0.0
         error("can only use DirectMC with JumpNetwork")
     end
-    integrator = create_integrator(configuration, ensemble, ensemble.jump_problem.prob.u0, ensemble.jump_problem.prob.tspan)
-    iter = SSAIter(integrator)
+    iter = create_integrator(configuration, ensemble, ensemble.jump_problem.prob.u0, ensemble.jump_problem.prob.tspan)
     rtraj = collect_sub_trajectory(iter, ensemble.indep_idxs)
     SRXconfiguration(configuration.s_traj, rtraj, configuration.x_traj)
 end

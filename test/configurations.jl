@@ -1,6 +1,6 @@
 using PathWeightSampling
 using Test
-using DiffEqJump
+using JumpProcesses
 using StaticArrays
 using Catalyst
 using ModelingToolkit

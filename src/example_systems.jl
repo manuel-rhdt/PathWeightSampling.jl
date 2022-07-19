@@ -302,7 +302,7 @@ function cooperative_chemotaxis_system(;
     phi_y=1.0 / 6.0,
     dephosphorylate=inv(tau_y * (1 + phi_y)),
     phosphorylate=dephosphorylate * phi_y / (n_clusters / 2),
-    dtimes=0:0.1:20.0, aggregator=DiffEqJump.SortingDirect(),
+    dtimes=0:0.1:20.0, aggregator=JumpProcesses.SortingDirect(),
     dist_aggregator=DepGraphDirect(),
     varargs...
 )
@@ -560,7 +560,7 @@ end
 #     n_chey=10_000, # number of total cheY
 #     ϕ_y=1.0 / 6.0, # fraction of phosphorylated CheY
 #     dtimes=0:0.1:20.0,
-#     aggregator=DiffEqJump.SortingDirect(),
+#     aggregator=JumpProcesses.SortingDirect(),
 #     dist_aggregator=DepGraphDirect(),
 #     params...
 # )
