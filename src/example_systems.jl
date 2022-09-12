@@ -480,6 +480,171 @@ function sde_chemotaxis_system(;
     )
 end
 
+struct ChemotaxisJumps <: AbstractJumpSet
+    KD_a::Float64
+    KD_i::Float64
+    N::Int64
+    k_B::Float64
+    k_R::Float64
+    k_A::Float64
+    k_Z::Float64
+    δf::Float64
+    m_0::Float64
+    ligand::Int32
+    receptors::UnitRange{Int32}
+    Yp::Int32
+    Y::Int32
+end
+
+num_species(jumps::ChemotaxisJumps) = 3 + length(jumps.receptors)
+num_reactions(jumps::ChemotaxisJumps) = 3 * length(jumps.receptors) + 1
+
+@inline function reaction_type(j::ChemotaxisJumps, rxidx::Integer)
+    nstates = length(j.receptors)
+    m = (rxidx - 1) % nstates
+    type = (rxidx - 1) ÷ nstates
+    (type, m)
+end
+
+@inline @fastmath function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, jumps::ChemotaxisJumps)
+    nstates = length(jumps.receptors)
+    @inbounds ligand_c = speciesvec[jumps.ligand]
+    type, m = reaction_type(jumps, rxidx)
+
+    E_m = jumps.δf * (m - jumps.m_0)
+    z_a = exp(-E_m) * (1 + (ligand_c / jumps.KD_a))^jumps.N
+    z_i = (1 + (ligand_c / jumps.KD_i))^jumps.N
+    p_a = z_a / (z_a + z_i)
+
+    @inbounds rec_m = jumps.receptors[m+1]
+
+    if type == 0 # methylate
+        if m == (nstates - 1)
+            return 0.0
+        end
+        @inbounds (1 - p_a) * jumps.k_R * speciesvec[rec_m]
+    elseif type == 1 # demethylate
+        if m == 0
+            return 0.0
+        end
+        @inbounds p_a * jumps.k_B * speciesvec[rec_m]
+    elseif type == 2 # phosphorylate
+        @inbounds p_a * jumps.k_A * speciesvec[rec_m] * speciesvec[jumps.Y]
+    else # dephosphorylate
+        @inbounds jumps.k_Z * speciesvec[jumps.Yp]
+    end
+end
+
+function executerx!(speciesvec::AbstractVector, rxidx::Integer, jumps::ChemotaxisJumps)
+    type, m = reaction_type(jumps, rxidx)
+
+    if type == 0 # methylate
+        @inbounds speciesvec[jumps.receptors[m+1]] -= 1
+        @inbounds speciesvec[jumps.receptors[m+2]] += 1
+    elseif type == 1 # demethylate
+        @inbounds speciesvec[jumps.receptors[m+1]] -= 1
+        @inbounds speciesvec[jumps.receptors[m]] += 1
+    elseif type == 2 # phosphorylate
+        @inbounds speciesvec[jumps.Y] -= 1
+        @inbounds speciesvec[jumps.Yp] += 1
+    else # dephosphorylate
+        @inbounds speciesvec[jumps.Y] += 1
+        @inbounds speciesvec[jumps.Yp] -= 1
+    end
+end
+
+function simple_chemotaxis_system(;
+    n_clusters=25,
+    duration=200.0,
+    c_0=100.0,
+    Kₐ=2900.0,
+    Kᵢ=18.0,
+    n=15, # cooperativity
+    k_R=0.1,
+    k_B=0.2,
+    a_0=k_R / (k_R + k_B),
+    δf=-2.0,
+    m_0=0.5,
+    k_Z=10.0,
+    phi_y=1 / 6,
+    k_A=k_Z * phi_y / ((1 - phi_y) * a_0 * n_clusters),
+    velocity_decay=0.862,
+    velocity_noise=sqrt(2 * velocity_decay * 157.1),
+    gradient_steepness=0.2e-3,
+    harmonic_rate=nothing
+)
+    jumps = ChemotaxisJumps(
+        Kₐ,
+        Kᵢ,
+        n,
+        k_B,
+        k_R,
+        k_A,
+        k_Z,
+        δf,
+        m_0,
+        1,
+        range(2, length=n * 4 + 1),
+        n * 4 + 3,
+        n * 4 + 4
+    )
+
+    m = 0:(n*4)
+    a_m = activity_given_methylation.(m, c=c_0, N=n, K_a=Kₐ, K_i=Kᵢ, δfₘ=δf, m₀=m_0)
+    p_m = steady_state_methylation(a_m, k_B=k_B, k_R=k_R)
+
+    u0 = zeros(Float64, num_species(jumps))
+    u0[jumps.ligand] = c_0
+    for s in systematic_sample(p_m, N=n_clusters)
+        u0[jumps.receptors[s]] += 1
+    end
+    u0[jumps.Y] = 10000
+
+    rid_to_gid = zeros(Int32, num_reactions(jumps))
+    rid_to_gid[length(jumps.receptors)*2+1:length(jumps.receptors)*3] .= 1
+    rid_to_gid[end] = 2
+    rid_to_gid
+
+    ModelingToolkit.@variables t V(t) L(t)
+    ModelingToolkit.@parameters λ σ g ω₀
+
+    D = ModelingToolkit.Differential(t)
+
+    if harmonic_rate === nothing
+        eqs = [
+            D(V) ~ -λ * V,
+            D(L) ~ g * L * V
+        ]
+        noiseeqs = [σ, 0]
+        sparams = [λ, σ, g]
+        ps = [velocity_decay, velocity_noise, gradient_steepness]
+    else
+        c₀ = 100.0 # μM
+        eqs = [
+            D(V) ~ -ω₀^2 * (L - c₀) - λ * V,
+            D(L) ~ g * c₀ * V
+        ]
+        noiseeqs = [σ, 0]
+        sparams = [λ, σ, g, ω₀]
+        ps = [velocity_decay, velocity_noise, gradient_steepness, harmonic_rate]
+    end
+
+    tspan = (0.0, duration)
+    ModelingToolkit.@named sn = SDESystem(eqs, noiseeqs, t, [V, L], sparams)
+    s_prob = SDEProblem(sn, [0.0, u0[1]], tspan, ps)
+
+    HybridJumpSystem(
+        GillespieDirect(),
+        jumps,
+        u0,
+        tspan,
+        s_prob,
+        0.1,
+        rid_to_gid,
+        BitSet(length(jumps.receptors)*2:length(jumps.receptors)*3-1)
+    )
+end
+
 getname(sym) = String(ModelingToolkit.operation(sym).name)
 
 function parse_receptor(species)
