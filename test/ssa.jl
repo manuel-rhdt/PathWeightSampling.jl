@@ -154,48 +154,25 @@ hr = HillReactions(
 
 # ChemotaxisJumps
 
-n_clusters = 25
-ch_jumps = PathWeightSampling.ChemotaxisJumps(
-    2900.0, # KD_a
-    18.0,   # KD_i
-    15,
-    0.2,
-    0.1,
-    10.0 * 1 / 6 / ((1 - 1 / 6) * 1 / 3 * n_clusters),
-    10.0,
-    -2.0,
-    0.5,
-    1,
-    range(2, length=15 * 4),
-    62,
-    63
-)
-
-@test PathWeightSampling.num_species(ch_jumps) == 63
-@test PathWeightSampling.num_reactions(ch_jumps) == 3 * 15 * 4 + 1
-
-u0 = zeros(Float64, PathWeightSampling.num_species(ch_jumps))
-u0[ch_jumps.ligand] = 100.0
-u0[ch_jumps.receptors[1]] = n_clusters
-u0[ch_jumps.Y] = 10000
-
-rid_to_gid = zeros(Int32, PathWeightSampling.num_reactions(ch_jumps))
-rid_to_gid[length(ch_jumps.receptors)*2+1:length(ch_jumps.receptors)*3] .= 1
-rid_to_gid[end] = 2
-rid_to_gid
-
-agg = PathWeightSampling.build_aggregator(PathWeightSampling.GillespieDirect(), ch_jumps, rid_to_gid)
-agg = PathWeightSampling.initialize_aggregator(agg, ch_jumps, u0=u)
-
-agg.sumrate
-
-trace = PathWeightSampling.ReactionTrace([], [])
-agg2 = PathWeightSampling.step_ssa(agg, ch_jumps, nothing, trace)
-
-system = PathWeightSampling.simple_chemotaxis_system()
+system = PathWeightSampling.simple_chemotaxis_system(duration=1.0, dt=0.05)
 @test sum(system.u0[system.reactions.receptors]) == 25
 
-@time agg, trace = PathWeightSampling.generate_trace(system, tspan=(0.0, 10.0))
-trace
+for (rid, gid) in enumerate(system.agg.ridtogroup)
+    if gid == 1
+        @test PathWeightSampling.reaction_type(system.reactions, rid)[1] == 2
+    elseif gid == 2
+        @test PathWeightSampling.reaction_type(system.reactions, rid)[1] == 3
+    else
+        @test PathWeightSampling.reaction_type(system.reactions, rid)[1] < 2
+    end
+end
 
+@time agg, trace = PathWeightSampling.generate_trace(system)
+trace.t
 PathWeightSampling.sample(trace, system)
+
+alg = SMCEstimate(128)
+
+mi = PathWeightSampling.mutual_information(system, alg)
+
+mi.MutualInformation

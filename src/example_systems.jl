@@ -556,6 +556,7 @@ end
 function simple_chemotaxis_system(;
     n_clusters=25,
     duration=200.0,
+    dt=0.01,
     c_0=100.0,
     Kₐ=2900.0,
     Kᵢ=18.0,
@@ -633,15 +634,20 @@ function simple_chemotaxis_system(;
     ModelingToolkit.@named sn = SDESystem(eqs, noiseeqs, t, [V, L], sparams)
     s_prob = SDEProblem(sn, [0.0, u0[1]], tspan, ps)
 
+    traced_reactions = BitSet(length(jumps.receptors)*2 + 1:length(jumps.receptors)*3 + 1)
+    @show traced_reactions
+    @assert length(traced_reactions) == length(jumps.receptors) + 1
+    @assert maximum(traced_reactions) == num_reactions(jumps)
+
     HybridJumpSystem(
         GillespieDirect(),
         jumps,
         u0,
         tspan,
         s_prob,
-        0.1,
+        dt,
         rid_to_gid,
-        BitSet(length(jumps.receptors)*2:length(jumps.receptors)*3-1)
+        traced_reactions
     )
 end
 

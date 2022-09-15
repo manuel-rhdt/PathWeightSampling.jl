@@ -176,6 +176,13 @@ function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridt
         0.0)
 end
 
+function Base.copy(agg::DirectAggregator)
+    agg = @set agg.u = copy(agg.u)
+    agg = @set agg.rates = copy(agg.rates)
+    agg = @set agg.grates = copy(agg.grates)
+    agg
+end
+
 struct DepGraphAggregator{U,Map,DepGraph} <: AbstractJumpRateAggregator
     "The current state vector"
     u::U
@@ -244,6 +251,14 @@ function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridto
         depgraph,
         collect(1:nreactions)
     )
+end
+
+function Base.copy(agg::DepGraphAggregator)
+    agg = @set agg.u = copy(agg.u)
+    agg = @set agg.rates = copy(agg.rates)
+    agg = @set agg.grates = copy(agg.grates)
+    agg = @set agg.jump_search_order = copy(agg.jump_search_order)
+    agg
 end
 
 function initialize_aggregator(
@@ -476,6 +491,22 @@ function step_ssa(
         push!(out_trace.t, tnow)
     end
 
+    agg
+end
+
+# Advance the aggregator until `t_end`.
+function advance_ssa(
+    agg::AbstractJumpRateAggregator,
+    reactions::AbstractJumpSet,
+    t_end::Float64,
+    trace::Union{Nothing,<:Trace},
+    out_trace::Union{Nothing,<:Trace}
+)
+    tspan = (agg.tprev, t_end)
+    agg = set_tspan(agg, tspan)
+    while agg.tprev < tspan[2]
+        agg = step_ssa(agg, reactions, trace, out_trace)
+    end
     agg
 end
 

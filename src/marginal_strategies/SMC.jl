@@ -55,10 +55,12 @@ end
 weight(p::JumpParticle) = p.weight
 weight(p::JumpParticleSlow) = p.weight
 
-# This is the main routine to compute the marginal probability in SMC-PWS.
-function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=JumpParticle)
+# This is the main routine to compute the marginal probability in RR-PWS.
+function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParticle)
     particle_bag = [new_particle(setup) for i = 1:nparticles]
     weights = zeros(nparticles)
+    dtimes = discrete_times(setup)
+
     log_marginal_estimate = zeros(length(dtimes))
 
     # First, handle initial condition
@@ -92,6 +94,9 @@ function sample(nparticles, dtimes, setup; inspect=Base.identity, new_particle=J
         # We only resample if the effective sample size becomes smaller than 1/2 the number of particles
         effective_sample_size = 1 / sum(p -> (p / sum(prob_weights))^2, prob_weights)
         if effective_sample_size < nparticles / 2
+            if effective_sample_size <= 5
+                @warn "Small effective sample size" tspan effective_sample_size
+            end
             # sample parent indices
             parent_indices = systematic_sample(prob_weights)
 
@@ -163,6 +168,6 @@ log_marginal(result::SMCResult) = result.log_marginal_estimate
 
 function simulate(algorithm::SMCEstimate, initial, system; kwargs...)
     setup = Setup(initial, system)
-    log_marginal_estimate = sample(algorithm.num_particles, system.dtimes, setup; kwargs...)
+    log_marginal_estimate = sample(setup, algorithm.num_particles; kwargs...)
     SMCResult(log_marginal_estimate)
 end

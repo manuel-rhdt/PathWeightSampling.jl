@@ -67,7 +67,7 @@ function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
     p = Progress(num_samples; showspeed=true, enabled=show_progress)
     result = progress_map(1:num_samples, progress=p) do i
         # draw an independent sample
-        sample = generate_configuration(compiled_system.system)
+        sample = generate_configuration(compiled_system)
 
         # compute P(x|s) and P(x)
         cond_result = @timed conditional_density(compiled_system, algorithm, sample)
@@ -78,16 +78,16 @@ function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
         stats.TimeMarginal[i] = marg_result.time
 
         # summary of the configuration
-        dtimes = vec(compiled_system.system.dtimes)
-        summary = vcat(sample.s_traj(dtimes), sample.x_traj(dtimes))
+        #dtimes = vec(compiled_system.system.dtimes)
+        #summary = vcat(sample.s_traj(dtimes), sample.x_traj(dtimes))
 
         # compute a sample for the mutual information using
         # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
-        cond_result.value - marg_result.value, summary
+        cond_result.value - marg_result.value, nothing#summary
     end
 
     stats[!, :MutualInformation] = getindex.(result, 1)
-    stats[!, :Trajectory] = getindex.(result, 2)
+    # stats[!, :Trajectory] = getindex.(result, 2)
 
     stats
 end
