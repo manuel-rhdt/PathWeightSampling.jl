@@ -167,12 +167,15 @@ for (rid, gid) in enumerate(system.agg.ridtogroup)
     end
 end
 
-@time agg, trace = PathWeightSampling.generate_trace(system)
+@time conf = PathWeightSampling.generate_configuration(system)
+
+@test conf.traj[1, 2:end] == conf.trace.u
+
 trace.t
 PathWeightSampling.sample(trace, system)
 
 alg = SMCEstimate(128)
 
 mi = PathWeightSampling.mutual_information(system, alg)
-
 mi.MutualInformation
+mi.Trajectory

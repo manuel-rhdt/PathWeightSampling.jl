@@ -13,7 +13,12 @@ end
 
 Compute log(mean(exp(x))) in a numerically stable way.
 """
-logmeanexp(x::AbstractArray; dims=nothing) = if dims === nothing _logmeanexp(x) else mapslices(_logmeanexp, x, dims=dims) end
+logmeanexp(x::AbstractArray; dims=nothing) =
+    if dims === nothing
+        _logmeanexp(x)
+    else
+        mapslices(_logmeanexp, x, dims=dims)
+    end
 
 include("ThermodynamicIntegration.jl")
 include("AIS.jl")
@@ -47,7 +52,7 @@ the columns can be accessed by:
 - `result.TimeMarginal`: A vector containing, for each sample, the CPU time in seconds used for the computation of the marginal entropy.
 - `result.TimeConditional`: A vector containing, for each sample, the CPU time in seconds used for the computation of the conditional entropy.
 """
-function mutual_information(system, algorithm; num_samples::Integer=1, progress=true, compile_args = (;))
+function mutual_information(system, algorithm; num_samples::Integer=1, progress=true, compile_args=(;))
     # initialize the ensembles
     compiled_system = compile(system; compile_args...)
 
@@ -60,8 +65,8 @@ end
 
 function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
     stats = DataFrame(
-        TimeConditional=zeros(Float64, num_samples), 
-        TimeMarginal=zeros(Float64, num_samples), 
+        TimeConditional=zeros(Float64, num_samples),
+        TimeMarginal=zeros(Float64, num_samples),
     )
 
     p = Progress(num_samples; showspeed=true, enabled=show_progress)
@@ -78,16 +83,15 @@ function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
         stats.TimeMarginal[i] = marg_result.time
 
         # summary of the configuration
-        #dtimes = vec(compiled_system.system.dtimes)
-        #summary = vcat(sample.s_traj(dtimes), sample.x_traj(dtimes))
+        s = summary(sample)
 
         # compute a sample for the mutual information using
         # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
-        cond_result.value - marg_result.value, nothing#summary
+        cond_result.value - marg_result.value, s
     end
 
     stats[!, :MutualInformation] = getindex.(result, 1)
-    # stats[!, :Trajectory] = getindex.(result, 2)
+    stats[!, :Trajectory] = getindex.(result, 2)
 
     stats
 end
