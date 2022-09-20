@@ -332,8 +332,8 @@ function species_to_dependent_reaction_map(reactions::AbstractJumpSet)
     nspecies = num_species(reactions)
     # map from a species to reactions that depend on it
     spec_to_dep_rxs = [Vector{Int}() for n = 1:nspecies]
-    for (rx, complex) in enumerate(reactions.rstoich)
-        for (spec, stoch) in complex
+    for rx in 1:num_reactions(reactions)
+        for spec in dependend_species(reactions, rx)
             push!(spec_to_dep_rxs[spec], rx)
         end
     end
@@ -356,6 +356,7 @@ function species_to_dependent_reaction_map(js::JumpSet)
     map_reactions
 end
 
+dependend_species(rs::AbstractJumpSet, index) = (spec for (spec, stoch) in rs.rstoich[index])
 mutated_species(rs::AbstractJumpSet, index) = (spec for (spec, stoch) in rs.nstoich[index])
 function mutated_species(js::JumpSet, index)
     nreactions = num_reactions(js.reactions)

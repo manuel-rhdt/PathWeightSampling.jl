@@ -553,6 +553,41 @@ function executerx!(speciesvec::AbstractVector, rxidx::Integer, jumps::Chemotaxi
     end
 end
 
+function dependend_species(jumps::ChemotaxisJumps, rxidx::Integer)
+    type, m = reaction_type(jumps, rxidx)
+
+    if type == 0 # methylate
+        [jumps.receptors[m+1]]
+    elseif type == 1 # demethylate
+        [jumps.receptors[m+1]]
+    elseif type == 2 # phosphorylate
+        [jumps.receptors[m+1], jumps.Y]
+    else # dephosphorylate
+        [jumps.Yp]
+    end
+end
+
+function mutated_species(jumps::ChemotaxisJumps, rxidx::Integer)
+    type, m = reaction_type(jumps, rxidx)
+    nstates = length(jumps.receptors)
+
+    if type == 0 # methylate
+        if m == (nstates - 1)
+            return []
+        end
+        [jumps.receptors[m+1], jumps.receptors[m+2]]
+    elseif type == 1 # demethylate
+        if m == 0
+            return []
+        end
+        [jumps.receptors[m+1], jumps.receptors[m]]
+    elseif type == 2 # phosphorylate
+        [jumps.Y, jumps.Yp]
+    else # dephosphorylate
+        [jumps.Y, jumps.Yp]
+    end
+end
+
 function simple_chemotaxis_system(;
     n_clusters=25,
     duration=200.0,
@@ -634,13 +669,13 @@ function simple_chemotaxis_system(;
     ModelingToolkit.@named sn = SDESystem(eqs, noiseeqs, t, [V, L], sparams)
     s_prob = SDEProblem(sn, [0.0, u0[1]], tspan, ps)
 
-    traced_reactions = BitSet(length(jumps.receptors)*2 + 1:length(jumps.receptors)*3 + 1)
+    traced_reactions = BitSet(length(jumps.receptors)*2+1:length(jumps.receptors)*3+1)
     @show traced_reactions
     @assert length(traced_reactions) == length(jumps.receptors) + 1
     @assert maximum(traced_reactions) == num_reactions(jumps)
 
     HybridJumpSystem(
-        GillespieDirect(),
+        DepGraphDirect(),
         jumps,
         u0,
         tspan,
