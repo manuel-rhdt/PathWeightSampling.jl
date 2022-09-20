@@ -501,20 +501,45 @@ num_reactions(jumps::ChemotaxisJumps) = 3 * length(jumps.receptors) + 1
 
 @inline function reaction_type(j::ChemotaxisJumps, rxidx::Integer)
     nstates = length(j.receptors)
-    m = (rxidx - 1) % nstates
-    type = (rxidx - 1) ÷ nstates
+    type, m = divrem(rxidx - 1, nstates)
     (type, m)
 end
 
-@inline @fastmath function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, jumps::ChemotaxisJumps)
+struct ChemotaxisCache
+    c_prev::Ref{Float64}
+    z_m::Vector{Float64}
+    p_a::Vector{Float64}
+end
+
+function Base.copy(cache::ChemotaxisCache)
+    ChemotaxisCache(Ref(cache.c_prev[]), copy(cache.z_m), copy(cache.p_a))
+end
+
+function initialize_cache(jumps::ChemotaxisJumps)
+    E_m = [jumps.δf * (m - jumps.m_0) for m in 0:length(jumps.receptors)-1]
+    ChemotaxisCache(
+        Ref(0.0),
+        exp.(-E_m),
+        zeros(length(jumps.receptors))
+    )
+end
+
+function update_cache!(agg, jumps::ChemotaxisJumps)
+    ligand_c = agg.u[jumps.ligand]
+    if agg.cache.c_prev[] != ligand_c
+        z_a = (1 + (ligand_c / jumps.KD_a))^jumps.N
+        z_i = (1 + (ligand_c / jumps.KD_i))^jumps.N
+        @. agg.cache.p_a = z_a * agg.cache.z_m / (z_a * agg.cache.z_m + z_i)
+        agg.cache.c_prev[] = ligand_c
+    end
+end
+
+@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, jumps::ChemotaxisJumps)
     nstates = length(jumps.receptors)
-    @inbounds ligand_c = speciesvec[jumps.ligand]
     type, m = reaction_type(jumps, rxidx)
 
-    E_m = jumps.δf * (m - jumps.m_0)
-    z_a = exp(-E_m) * (1 + (ligand_c / jumps.KD_a))^jumps.N
-    z_i = (1 + (ligand_c / jumps.KD_i))^jumps.N
-    p_a = z_a / (z_a + z_i)
+    speciesvec = agg.u
+    p_a = agg.cache.p_a[m+1]
 
     @inbounds rec_m = jumps.receptors[m+1]
 

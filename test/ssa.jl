@@ -8,12 +8,14 @@ nstoich = [[1 => 1], [1 => -1]]
 
 reactions = PathWeightSampling.ReactionSet(rates, rstoich, nstoich, 1)
 
-agg = PathWeightSampling.build_aggregator(PathWeightSampling.GillespieDirect(), reactions, 1:2)
+agg = PathWeightSampling.build_aggregator(PathWeightSampling.GillespieDirect(), reactions, 1:2; seed=1234)
 
+@test agg.rng == Xoshiro(1234)
 @test agg.sumrate == 0.0
 
 agg = PathWeightSampling.initialize_aggregator(agg, reactions)
 
+@test agg.rng != Xoshiro(1234)
 @test agg.u == [0]
 @test agg.tstop > 0
 @test agg.sumrate == 1.0
@@ -154,8 +156,12 @@ hr = HillReactions(
 
 # ChemotaxisJumps
 
-system = PathWeightSampling.simple_chemotaxis_system(duration=1.0, dt=0.05)
+system = PathWeightSampling.simple_chemotaxis_system(duration=20.0, dt=0.05)
 @test sum(system.u0[system.reactions.receptors]) == 25
+
+system.agg.cache
+
+PathWeightSampling.make_depgraph(system.reactions)
 
 for (rid, gid) in enumerate(system.agg.ridtogroup)
     if gid == 1
@@ -167,15 +173,20 @@ for (rid, gid) in enumerate(system.agg.ridtogroup)
     end
 end
 
-@time conf = PathWeightSampling.generate_configuration(system)
+conf = PathWeightSampling.generate_configuration(system)
+conf.traj
+system.agg.cache.p_a
 
 @test conf.traj[1, 2:end] == conf.trace.u
 
-trace.t
-PathWeightSampling.sample(trace, system)
+agg, trace = PathWeightSampling.generate_trace(system)
+agg.cache
+@time agg, trace = PathWeightSampling.generate_trace(system)
+
+agg.jump_search_order
 
 alg = SMCEstimate(128)
 
-mi = PathWeightSampling.mutual_information(system, alg)
+@time mi = PathWeightSampling.mutual_information(system, alg)
 mi.MutualInformation
 mi.Trajectory

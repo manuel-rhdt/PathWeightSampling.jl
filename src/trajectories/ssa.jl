@@ -5,8 +5,12 @@ import Catalyst: ReactionSystem
 using StaticArrays
 import Base.show
 using Setfield
+using Random
 
 abstract type AbstractJumpSet end
+
+initialize_cache(js::AbstractJumpSet) = nothing
+update_cache!(agg, js::AbstractJumpSet) = nothing
 
 struct ReactionSet <: AbstractJumpSet
     rates::Vector{Float64}
@@ -116,7 +120,7 @@ reaction from the group fires, the log-likelihood is updated by the log of the g
 every time a reaction fires that is not part of any group, the log-likelihood is updated by the sum of all
 groups' propensities (to account for the waiting time probability).
 """
-struct DirectAggregator{U,Map} <: AbstractJumpRateAggregator
+struct DirectAggregator{U,Map,Cache,Rng} <: AbstractJumpRateAggregator
     "The current state vector"
     u::U
 
@@ -156,9 +160,13 @@ struct DirectAggregator{U,Map} <: AbstractJumpRateAggregator
 
     "accumulated log-probability"
     weight::Float64
+
+    cache::Cache
+
+    rng::Rng
 end
 
-function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64))
+function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64); seed=rand(UInt))
     ngroups = maximum(ridtogroup)
     nreactions = num_reactions(reactions)
     nspecies = num_species(reactions)
@@ -173,17 +181,21 @@ function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridt
         tspan[1],
         tspan[1],
         1,
-        0.0)
+        0.0,
+        initialize_cache(reactions),
+        Xoshiro(seed))
 end
 
 function Base.copy(agg::DirectAggregator)
     agg = @set agg.u = copy(agg.u)
     agg = @set agg.rates = copy(agg.rates)
     agg = @set agg.grates = copy(agg.grates)
+    agg = @set agg.cache = copy(agg.cache)
+    Random.seed!(agg.rng)
     agg
 end
 
-struct DepGraphAggregator{U,Map,DepGraph} <: AbstractJumpRateAggregator
+struct DepGraphAggregator{U,Map,DepGraph,Cache,Rng} <: AbstractJumpRateAggregator
     "The current state vector"
     u::U
 
@@ -229,9 +241,13 @@ struct DepGraphAggregator{U,Map,DepGraph} <: AbstractJumpRateAggregator
 
     "optimized (sorted by rate) order to search for next jump"
     jump_search_order::Vector{Int}
+
+    cache::Cache
+
+    rng::Rng
 end
 
-function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64))
+function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64); seed=rand(UInt))
     ngroups = maximum(ridtogroup)
     nreactions = num_reactions(reactions)
     nspecies = num_species(reactions)
@@ -249,7 +265,9 @@ function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridto
         1,
         0.0,
         depgraph,
-        collect(1:nreactions)
+        collect(1:nreactions),
+        initialize_cache(reactions),
+        Xoshiro(seed)
     )
 end
 
@@ -258,6 +276,8 @@ function Base.copy(agg::DepGraphAggregator)
     agg = @set agg.rates = copy(agg.rates)
     agg = @set agg.grates = copy(agg.grates)
     agg = @set agg.jump_search_order = copy(agg.jump_search_order)
+    agg = @set agg.cache = copy(agg.cache)
+    Random.seed!(agg.rng)
     agg
 end
 
@@ -278,7 +298,8 @@ function initialize_aggregator(
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
     agg = update_rates(agg, reactions)
-    agg = @set agg.tstop = tspan[1] + randexp() / agg.sumrate
+    agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
+    Random.seed!(agg.rng)
     agg
 end
 
@@ -299,8 +320,9 @@ function initialize_aggregator(
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
     agg = update_rates(agg, reactions)
-    agg = @set agg.tstop = tspan[1] + randexp() / agg.sumrate
+    agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
     agg = @set agg.jump_search_order = collect(active_reactions)
+    Random.seed!(agg.rng)
     agg
 end
 
@@ -482,7 +504,7 @@ function step_ssa(
         agg = update_rates(agg, reactions, rx)
 
         # draw next tstop
-        new_tstop = tnow + randexp() / agg.sumrate
+        new_tstop = tnow + randexp(agg.rng) / agg.sumrate
         agg = @set agg.tstop = new_tstop
     end
 
@@ -513,7 +535,7 @@ end
 
 @inline @fastmath function select_reaction(agg::DirectAggregator)
     rx = 0
-    x = rand() * agg.sumrate
+    x = rand(agg.rng) * agg.sumrate
     @inbounds for reaction in agg.active_reactions
         rx = reaction
         if x <= agg.rates[rx]
@@ -527,7 +549,7 @@ end
 @inline @fastmath function select_reaction(agg::DepGraphAggregator)
     rx = 0
     jsidx = 1
-    x = rand() * agg.sumrate
+    x = rand(agg.rng) * agg.sumrate
     @inbounds for (i, reaction) in enumerate(agg.jump_search_order)
         rx = reaction
         jsidx = i
@@ -639,7 +661,8 @@ end
 cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVector) = cumulative_logpdf!(zeros(length(dtimes)), dist, trajectory, dtimes)
 
 
-@inline @fastmath function evalrxrate(speciesvec::AbstractVector{T}, rxidx::Int64, rs::ReactionSet) where {T}
+@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::ReactionSet) where {T}
+    speciesvec = agg.u
     val = Float64(1.0)
     @inbounds for specstoch in rs.rstoich[rxidx]
         @inbounds specpop = speciesvec[specstoch[1]]
@@ -653,7 +676,8 @@ cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVect
     @inbounds val * rs.rates[rxidx]
 end
 
-@inline @fastmath function evalrxrate(speciesvec::AbstractVector{T}, rxidx::Int64, js::JumpSet) where {T}
+@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, js::JumpSet) where {T}
+    speciesvec = agg.u
     nreactions = num_reactions(js.reactions)
     if rxidx <= nreactions
         evalrxrate(speciesvec, rxidx, js.reactions)
@@ -663,7 +687,7 @@ end
 end
 
 @inline function update_reaction_rate!(aggregator::AbstractJumpRateAggregator, reactions::AbstractJumpSet, rx::Int)
-    rate = evalrxrate(aggregator.u, rx, reactions)
+    rate = evalrxrate(aggregator, rx, reactions)
     @inbounds gid = aggregator.ridtogroup[rx]
     if gid != 0
         @inbounds aggregator.grates[gid] += -aggregator.rates[rx] + rate
@@ -673,6 +697,7 @@ end
 end
 
 @fastmath function update_rates(aggregator::DirectAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
+    update_cache!(aggregator, reactions)
     sumrate = zero(aggregator.sumrate)
     for rx in 1:num_reactions(reactions)
         update_reaction_rate!(aggregator, reactions, rx)
@@ -687,6 +712,7 @@ end
 end
 
 @fastmath function update_rates(aggregator::DepGraphAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
+    update_cache!(aggregator, reactions)
     sumrate = aggregator.sumrate
     if prev_reaction == 0
         # recompute all rates
