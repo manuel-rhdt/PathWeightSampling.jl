@@ -288,7 +288,7 @@ function propagate(particle::HybridParticle, tspan, setup::Setup)
     agg = advance_ssa(agg, system.reactions, tspan[2], trace, nothing)
 
     dt = system.sde_dt
-    reinit!(particle.integrator, t0=tspan[1], tf=tspan[2], u0=particle.integrator.u)
+    reinit!(particle.integrator, particle.integrator.u, t0=tspan[1], tf=tspan[2])
     step!(integrator, dt, true)
     agg.u[1] = integrator.u[end]
     agg = update_rates(agg, system.reactions)
