@@ -24,20 +24,9 @@ end
 # While this implementation of a particle is slower than the one above
 # it keeps track of the genealogy of a particle (i.e. its parent, grandparent, etc.).
 # This is useful for debugging and for collecting statistics.
-mutable struct JumpParticleSlow{uType}
-    u::uType
-    weight::Float64
-    parent::Union{JumpParticleSlow{uType},Nothing}
-
-    function JumpParticleSlow(setup)
-        u = sample_initial_condition(setup.ensemble)
-        w = initial_log_likelihood(setup.ensemble, u, setup.configuration.x_traj)
-        new{typeof(u)}(u, w, nothing)
-    end
-
-    function JumpParticleSlow(parent, setup)
-        new{typeof(parent.u)}(copy(parent.u), 0.0, parent)
-    end
+mutable struct ParentTrackingParticle{Inner}
+    p::Inner
+    parent::Union{ParentTrackingParticle{Inner},Nothing}
 end
 
 struct Setup{Configuration,Ensemble}
@@ -45,15 +34,22 @@ struct Setup{Configuration,Ensemble}
     ensemble::Ensemble
 end
 
-function propagate(p::JumpParticleSlow, tspan::Tuple{T,T}, setup) where {T}
-    u_end, weight = propagate(setup.configuration, setup.ensemble, p.u, tspan)
-    p.u = u_end
-    p.weight = weight
+function ParentTrackingParticle{Inner}(setup) where {Inner}
+    ParentTrackingParticle(Inner(setup), nothing)
+end
+
+function ParentTrackingParticle(parent::ParentTrackingParticle{Inner}, setup) where {Inner}
+    ParentTrackingParticle(Inner(parent.p, setup), parent)
+end
+
+function propagate(p::ParentTrackingParticle, tspan::Tuple{T,T}, setup) where {T}
+    new_p = propagate(p.p, tspan, setup)
+    p.p = new_p
     p
 end
 
 weight(p::JumpParticle) = p.weight
-weight(p::JumpParticleSlow) = p.weight
+weight(p::ParentTrackingParticle) = weight(p.p)
 
 # This is the main routine to compute the marginal probability in RR-PWS.
 function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParticle)
@@ -80,6 +76,8 @@ function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParti
             particle_bag[j] = propagate(particle_bag[j], tspan, setup)
             weights[j] += weight(particle_bag[j])
         end
+
+        inspect(particle_bag) #< useful for collecting statistics
 
         # UPDATE ESTIMATE
         log_marginal_estimate[i+1] += logmeanexp(weights)
@@ -108,7 +106,6 @@ function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParti
         end
     end
 
-    inspect(particle_bag) #< useful for collecting statistics
     log_marginal_estimate
 end
 

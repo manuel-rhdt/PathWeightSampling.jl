@@ -72,6 +72,9 @@ struct HybridTrace{U} <: Trace
     dt::Float64
 end
 
+ReactionTrace(ht::HybridTrace) = ReactionTrace(ht.t, ht.rx)
+
+
 abstract type AbstractJumpRateAggregatorAlgorithm end
 
 struct GillespieDirect <: AbstractJumpRateAggregatorAlgorithm end

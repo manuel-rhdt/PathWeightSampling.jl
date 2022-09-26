@@ -101,6 +101,35 @@ function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tsp
     agg, trace
 end
 
+function sample(trace::ReactionTrace, system::HybridJumpSystem; u0=system.u0, tspan=system.tspan)
+    # deactivate all traced reactions
+    active_reactions = BitSet(1:num_reactions(system.reactions))
+    setdiff!(active_reactions, system.agg.traced_reactions)
+
+    agg = initialize_aggregator(
+        system.agg,
+        system.reactions,
+        u0=copy(u0),
+        tspan=tspan,
+        active_reactions=active_reactions,
+        traced_reactions=BitSet(),
+    )
+
+    dt = system.sde_dt
+    s_prob = remake(system.sde_prob, tspan=tspan, u0=[0.0, u0[1]])
+    integrator = init(s_prob, EM(), dt=dt / 5, save_start=false, save_everystep=false, save_end=false)
+
+    tstops = range(tspan[1], tspan[2], step=dt)
+    for tstop in tstops[2:end]
+        agg = advance_ssa(agg, system.reactions, tstop, trace, nothing)
+        step!(integrator, dt, true)
+        agg.u[1] = integrator.u[end]
+        agg = update_rates(agg, system.reactions)
+    end
+
+    agg.weight
+end
+
 function sample(trace::HybridTrace, system::HybridJumpSystem; u0=system.u0, tspan=system.tspan)
     # deactivate all traced reactions
     active_reactions = BitSet(1:num_reactions(system.reactions))
@@ -259,7 +288,7 @@ function propagate(particle::HybridParticle, tspan, setup::Setup)
     agg = advance_ssa(agg, system.reactions, tspan[2], trace, nothing)
 
     dt = system.sde_dt
-    reinit!(particle.integrator, t0=tspan[1], tf=tspan[2])
+    reinit!(particle.integrator, t0=tspan[1], tf=tspan[2], u0=particle.integrator.u)
     step!(integrator, dt, true)
     agg.u[1] = integrator.u[end]
     agg = update_rates(agg, system.reactions)
