@@ -58,7 +58,7 @@ end
 
 Base.:(==)(t1::ReactionTrace, t2::ReactionTrace) = (t1.t == t2.t && t1.rx == t2.rx)
 
-struct HybridTrace{U} <: Trace
+struct HybridTrace{U,T} <: Trace
     "a vector of reaction times"
     t::Vector{Float64}
 
@@ -68,8 +68,8 @@ struct HybridTrace{U} <: Trace
     "a vector of external signal"
     u::U
 
-    "sampling interval of external trajectory"
-    dt::Float64
+    "sampling times of external trajectory"
+    dtimes::T
 end
 
 ReactionTrace(ht::HybridTrace) = ReactionTrace(ht.t, ht.rx)
@@ -536,22 +536,6 @@ function step_ssa(
         push!(out_trace.t, tnow)
     end
 
-    agg
-end
-
-# Advance the aggregator until `t_end`.
-function advance_ssa(
-    agg::AbstractJumpRateAggregator,
-    reactions::AbstractJumpSet,
-    t_end::Float64,
-    trace::Union{Nothing,<:Trace},
-    out_trace::Union{Nothing,<:Trace}
-)
-    tspan = (agg.tprev, t_end)
-    agg = set_tspan(agg, tspan)
-    while agg.tprev < tspan[2]
-        agg = step_ssa(agg, reactions, trace, out_trace)
-    end
     agg
 end
 
