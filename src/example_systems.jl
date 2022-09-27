@@ -616,7 +616,8 @@ end
 function simple_chemotaxis_system(;
     n_clusters=25,
     duration=200.0,
-    dt=0.01,
+    dt=0.1,
+    sde_dt=dt/10,
     c_0=100.0,
     Kₐ=2900.0,
     Kᵢ=18.0,
@@ -704,8 +705,9 @@ function simple_chemotaxis_system(;
         jumps,
         u0,
         tspan,
-        s_prob,
         dt,
+        s_prob,
+        sde_dt,
         rid_to_gid,
         traced_reactions
     )

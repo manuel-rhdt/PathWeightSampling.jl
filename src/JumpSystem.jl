@@ -54,6 +54,7 @@ struct HybridJumpSystem{A,JS,U,Prob}
     reactions::JS
     u0::U
     tspan::Tuple{Float64,Float64}
+    dt::Float64
     sde_prob::Prob
     sde_dt::Float64
 end
@@ -63,14 +64,38 @@ function HybridJumpSystem(
     reactions::AbstractJumpSet,
     u0::AbstractVector,
     tspan::Tuple{Float64,Float64},
+    dt::Real,
     sde_prob,
-    sde_dt,
+    sde_dt::Real,
     ridtogroup,
     traced_reactions::BitSet
 )
     agg = build_aggregator(alg, reactions, ridtogroup)
     agg = @set agg.traced_reactions = traced_reactions
-    HybridJumpSystem(agg, reactions, u0, tspan, sde_prob, sde_dt)
+    HybridJumpSystem(agg, reactions, u0, tspan, dt, sde_prob, sde_dt)
+end
+
+function advance_ssa_sde(
+    agg::AbstractJumpRateAggregator,
+    reactions::AbstractJumpSet,
+    integrator,
+    t_end::Float64,
+    trace::Union{Nothing,<:Trace},
+    out_trace::Union{Nothing,<:Trace}
+)
+    add_tstop!(integrator, t_end)
+    step!(integrator)
+    while integrator.t <= t_end
+        agg = advance_ssa(agg, reactions, integrator.t, trace, out_trace)
+        agg.u[1] = integrator.u[end]
+        agg = update_rates(agg, reactions)
+        if integrator.t == t_end
+            break
+        end
+        step!(integrator)
+    end
+
+    agg
 end
 
 function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing)
@@ -81,21 +106,18 @@ function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tsp
         traj[:, 1] .= u0
     end
 
-    dt = system.sde_dt
-    integrator = init(s_prob, EM(), dt=dt / 5, save_start=false, save_everystep=false, save_end=false)
+    dt = system.dt
+    sde_dt = system.sde_dt
+    integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false)
 
     trace = HybridTrace(Float64[], Int16[], Float64[], dt)
     tstops = range(tspan[1], tspan[2], step=dt)
     for (i, tstop) in enumerate(tstops[2:end])
-        agg = advance_ssa(agg, system.reactions, tstop, nothing, trace)
-        step!(integrator, dt, true)
-        agg.u[1] = integrator.u[end]
+        agg = advance_ssa_sde(agg, system.reactions, integrator, tstop, nothing, trace)
         push!(trace.u, integrator.u[end])
-        agg = update_rates(agg, system.reactions)
         if traj !== nothing
             traj[:, i+1] .= agg.u
         end
-        tstop += dt
     end
 
     agg, trace
@@ -121,10 +143,7 @@ function sample(trace::ReactionTrace, system::HybridJumpSystem; u0=system.u0, ts
 
     tstops = range(tspan[1], tspan[2], step=dt)
     for tstop in tstops[2:end]
-        agg = advance_ssa(agg, system.reactions, tstop, trace, nothing)
-        step!(integrator, dt, true)
-        agg.u[1] = integrator.u[end]
-        agg = update_rates(agg, system.reactions)
+        agg = advance_ssa_sde(agg, system.reactions, integrator, tstop, trace, nothing)
     end
 
     agg.weight
@@ -228,8 +247,8 @@ function HybridParticle(setup::Setup)
     )
 
     s_prob = remake(system.sde_prob, u0=[0.0, u0[1]])
-    dt = system.sde_dt
-    integrator = init(s_prob, EM(), dt=dt / 5, save_everystep=false, save_start=false, save_end=false)
+    sde_dt = system.sde_dt
+    integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false)
 
     HybridParticle(agg, integrator)
 end
@@ -244,8 +263,8 @@ function HybridParticle(parent::HybridParticle, setup::Setup)
     agg = parent.agg
 
     s_prob = remake(system.sde_prob, u0=copy(parent.integrator.u))
-    dt = system.sde_dt
-    integrator = init(s_prob, EM(), dt=dt / 5, save_everystep=false, save_start=false, save_end=false)
+    sde_dt = system.sde_dt
+    integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false)
 
     HybridParticle(copy(agg), integrator)
 end
@@ -284,19 +303,14 @@ function propagate(particle::HybridParticle, tspan, setup::Setup)
     agg = particle.agg
     agg = @set agg.weight = 0.0
     integrator = particle.integrator
-
-    agg = advance_ssa(agg, system.reactions, tspan[2], trace, nothing)
-
-    dt = system.sde_dt
     reinit!(particle.integrator, particle.integrator.u, t0=tspan[1], tf=tspan[2])
-    step!(integrator, dt, true)
-    agg.u[1] = integrator.u[end]
-    agg = update_rates(agg, system.reactions)
+
+    agg = advance_ssa_sde(agg, system.reactions, integrator, tspan[2], trace, nothing)
 
     HybridParticle(agg, integrator)
 end
 
-discrete_times(setup::Setup{<:Trace,<:HybridJumpSystem}) = range(setup.ensemble.tspan[1], setup.ensemble.tspan[2], step=setup.ensemble.sde_dt)
+discrete_times(setup::Setup{<:Trace,<:HybridJumpSystem}) = range(setup.ensemble.tspan[1], setup.ensemble.tspan[2], step=setup.ensemble.dt)
 
 struct TraceAndTrajectory{Trace}
     trace::Trace
