@@ -319,7 +319,7 @@ end
 summary(t::TraceAndTrajectory) = t.traj
 
 function generate_configuration(system::HybridJumpSystem)
-    traj = zeros(Float64, (length(system.u0), length(system.tspan[1]:system.sde_dt:system.tspan[2])))
+    traj = zeros(Float64, (length(system.u0), length(system.tspan[1]:system.dt:system.tspan[2])))
     agg, trace = generate_trace(system; traj=traj)
     TraceAndTrajectory(trace, traj)
 end

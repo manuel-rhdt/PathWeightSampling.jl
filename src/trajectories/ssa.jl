@@ -190,12 +190,21 @@ function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridt
 end
 
 function Base.copy(agg::DirectAggregator)
-    agg = @set agg.u = copy(agg.u)
-    agg = @set agg.rates = copy(agg.rates)
-    agg = @set agg.grates = copy(agg.grates)
-    agg = @set agg.cache = copy(agg.cache)
-    Random.seed!(agg.rng)
-    agg
+    DirectAggregator(
+        copy(agg.u),
+        agg.sumrate, copy(agg.rates),
+        agg.gsumrate, copy(agg.grates),
+        agg.active_reactions,
+        agg.traced_reactions,
+        agg.ridtogroup,
+        agg.tspan,
+        agg.tprev,
+        agg.tstop,
+        agg.trace_index,
+        agg.weight,
+        copy(agg.cache),
+        Xoshiro(rand(agg.rng, UInt))
+    )
 end
 
 struct DepGraphAggregator{U,Map,DepGraph,Cache,Rng} <: AbstractJumpRateAggregator
@@ -275,13 +284,23 @@ function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridto
 end
 
 function Base.copy(agg::DepGraphAggregator)
-    agg = @set agg.u = copy(agg.u)
-    agg = @set agg.rates = copy(agg.rates)
-    agg = @set agg.grates = copy(agg.grates)
-    agg = @set agg.jump_search_order = copy(agg.jump_search_order)
-    agg = @set agg.cache = copy(agg.cache)
-    Random.seed!(agg.rng)
-    agg
+    DepGraphAggregator(
+        copy(agg.u),
+        agg.sumrate, copy(agg.rates),
+        agg.gsumrate, copy(agg.grates),
+        agg.active_reactions,
+        agg.traced_reactions,
+        agg.ridtogroup,
+        agg.tspan,
+        agg.tprev,
+        agg.tstop,
+        agg.trace_index,
+        agg.weight,
+        agg.depgraph,
+        copy(agg.jump_search_order),
+        copy(agg.cache),
+        Xoshiro(rand(agg.rng, UInt))
+    )
 end
 
 function initialize_aggregator(
