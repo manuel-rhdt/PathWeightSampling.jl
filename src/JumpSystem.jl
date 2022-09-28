@@ -289,25 +289,29 @@ function HybridParticle(setup::Setup)
 
     s_prob = remake(system.sde_prob, u0=[0.0, u0[1]])
     sde_dt = system.sde_dt
-    integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false)
+    seed = rand(agg.rng, UInt64)
+    integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false, seed=seed)
 
     HybridParticle(agg, integrator)
 end
 
 function MarkovParticle(parent::MarkovParticle, setup::Setup)
-    agg = parent.agg
-    MarkovParticle(copy(agg))
+    agg = copy(parent.agg)
+    agg = @set agg.weight = 0.0
+    MarkovParticle(agg)
 end
 
 function HybridParticle(parent::HybridParticle, setup::Setup)
     system = setup.ensemble
-    agg = parent.agg
+    agg = copy(parent.agg)
+    agg = @set agg.weight = 0.0
 
     s_prob = remake(system.sde_prob, u0=copy(parent.integrator.u))
     sde_dt = system.sde_dt
-    integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false)
+    seed = rand(agg.rng, UInt64)
+    integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false, seed=seed)
 
-    HybridParticle(copy(agg), integrator)
+    HybridParticle(agg, integrator)
 end
 
 function propagate(particle::MarkovParticle, tspan, setup::Setup)
@@ -325,7 +329,7 @@ function propagate(particle::HybridParticle, tspan, setup::Setup)
     agg = particle.agg
     agg = @set agg.weight = 0.0
     integrator = particle.integrator
-    reinit!(particle.integrator, particle.integrator.u, t0=tspan[1], tf=tspan[2])
+    reinit!(particle.integrator, particle.integrator.u, t0=tspan[1], tf=tspan[2], reinit_cache=false)
     agg = advance_ssa_sde(agg, system.reactions, integrator, tspan[2], trace, nothing)
     HybridParticle(agg, integrator)
 end

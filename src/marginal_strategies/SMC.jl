@@ -93,7 +93,7 @@ function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParti
         effective_sample_size = 1 / sum(p -> (p / sum(prob_weights))^2, prob_weights)
         if effective_sample_size < nparticles / 2
             if effective_sample_size <= 5
-                @warn "Small effective sample size" tspan effective_sample_size
+                @warn "Small effective sample size" i tspan effective_sample_size
             end
             # sample parent indices
             parent_indices = systematic_sample(prob_weights)
