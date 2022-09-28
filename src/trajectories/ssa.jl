@@ -584,7 +584,8 @@ end
         @inbounds gid = agg.ridtogroup[rx]
         gid != 0 && @inbounds log_jump_prob += log(agg.grates[gid])
     end
-    agg = @set agg.weight = agg.weight + log_jump_prob - Δt * agg.gsumrate
+    log_waiting_prob = -Δt * agg.gsumrate
+    agg = @set agg.weight = agg.weight + log_jump_prob + log_waiting_prob
     agg = @set agg.tprev = tnow
 end
 
