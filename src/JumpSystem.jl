@@ -118,7 +118,7 @@ function advance_ssa_sde(
     reactions::AbstractJumpSet,
     integrator,
     t_end::Float64,
-    trace::Union{Nothing,<:Trace},
+    trace::Union{Nothing,<:ReactionTrace},
     out_trace::Union{Nothing,<:HybridTrace}
 )
     add_tstop!(integrator, t_end)
@@ -271,7 +271,7 @@ function MarkovParticle(setup::Setup)
     MarkovParticle(agg)
 end
 
-function HybridParticle(setup::Setup)
+function HybridParticle(setup::Setup{<:ReactionTrace})
     system = setup.ensemble
     active_reactions = BitSet(1:num_reactions(system.reactions))
     setdiff!(active_reactions, system.agg.traced_reactions)
