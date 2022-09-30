@@ -520,7 +520,7 @@ function initialize_cache(jumps::ChemotaxisJumps)
     ChemotaxisCache(
         Ref(0.0),
         exp.(-E_m),
-        zeros(length(jumps.receptors))
+        fill(1 / 2, length(jumps.receptors))
     )
 end
 
@@ -539,7 +539,7 @@ end
     type, m = reaction_type(jumps, rxidx)
 
     speciesvec = agg.u
-    p_a = agg.cache.p_a[m+1]
+    @inbounds p_a = agg.cache.p_a[m+1]
 
     @inbounds rec_m = jumps.receptors[m+1]
 
@@ -615,9 +615,10 @@ end
 
 function simple_chemotaxis_system(;
     n_clusters=25,
+    methylation_sites=4,
     duration=200.0,
     dt=0.1,
-    sde_dt=dt/10,
+    sde_dt=dt / 10,
     c_0=100.0,
     Kₐ=2900.0,
     Kᵢ=18.0,
@@ -646,12 +647,12 @@ function simple_chemotaxis_system(;
         δf,
         m_0,
         1,
-        range(2, length=n * 4 + 1),
-        n * 4 + 3,
-        n * 4 + 4
+        range(2, length=n * methylation_sites + 1),
+        n * methylation_sites + 3,
+        n * methylation_sites + 4
     )
 
-    m = 0:(n*4)
+    m = 0:(n*methylation_sites)
     a_m = activity_given_methylation.(m, c=c_0, N=n, K_a=Kₐ, K_i=Kᵢ, δfₘ=δf, m₀=m_0)
     p_m = steady_state_methylation(a_m, k_B=k_B, k_R=k_R)
 
