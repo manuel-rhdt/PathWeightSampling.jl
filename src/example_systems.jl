@@ -615,6 +615,7 @@ end
 
 function simple_chemotaxis_system(;
     n_clusters=25,
+    n_chey=10000,
     methylation_sites=4,
     duration=200.0,
     dt=0.1,
@@ -627,7 +628,7 @@ function simple_chemotaxis_system(;
     k_B=0.2,
     a_0=k_R / (k_R + k_B),
     δf=-2.0,
-    m_0=0.5,
+    m_0=0.5 * n,
     k_Z=10.0,
     phi_y=1 / 6,
     k_A=k_Z * phi_y / ((1 - phi_y) * a_0 * n_clusters),
@@ -661,7 +662,7 @@ function simple_chemotaxis_system(;
     for s in systematic_sample(p_m, N=n_clusters)
         u0[jumps.receptors[s]] += 1
     end
-    u0[jumps.Y] = 10000
+    u0[jumps.Y] = n_chey
 
     rid_to_gid = zeros(Int32, num_reactions(jumps))
     rid_to_gid[length(jumps.receptors)*2+1:length(jumps.receptors)*3] .= 1
