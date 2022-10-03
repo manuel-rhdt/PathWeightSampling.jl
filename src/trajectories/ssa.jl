@@ -309,7 +309,8 @@ function initialize_aggregator(
     u0=agg.u,
     tspan=(0.0, Inf64),
     active_reactions=agg.active_reactions,
-    traced_reactions=agg.traced_reactions)
+    traced_reactions=agg.traced_reactions,
+    seed=nothing)
     agg = @set agg.u = u0
     agg = @set agg.active_reactions = active_reactions
     agg = @set agg.traced_reactions = traced_reactions
@@ -321,7 +322,11 @@ function initialize_aggregator(
     agg = @set agg.trace_index = 1
     agg = update_rates(agg, reactions)
     agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
-    Random.seed!(agg.rng)
+    if seed === nothing
+        Random.seed!(agg.rng)
+    else
+        Random.seed!(agg.rng, seed)
+    end
     agg
 end
 
@@ -331,7 +336,8 @@ function initialize_aggregator(
     u0=agg.u,
     tspan=(0.0, Inf64),
     active_reactions=agg.active_reactions,
-    traced_reactions=agg.traced_reactions)
+    traced_reactions=agg.traced_reactions,
+    seed=nothing)
     agg = @set agg.u = u0
     agg = @set agg.active_reactions = active_reactions
     agg = @set agg.traced_reactions = traced_reactions
@@ -344,7 +350,11 @@ function initialize_aggregator(
     agg = update_rates(agg, reactions)
     agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
     agg = @set agg.jump_search_order = collect(active_reactions)
-    Random.seed!(agg.rng)
+    if seed === nothing
+        Random.seed!(agg.rng)
+    else
+        Random.seed!(agg.rng, seed)
+    end
     agg
 end
 

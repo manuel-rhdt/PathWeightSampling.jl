@@ -140,8 +140,8 @@ function advance_ssa_sde(
     agg
 end
 
-function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing)
-    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan)
+function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing, seed=nothing)
+    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=seed)
     s_prob = remake(system.sde_prob, tspan=tspan, u0=[0.0, u0[1]])
 
     if traj !== nothing
@@ -150,7 +150,7 @@ function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tsp
 
     dt = system.dt
     sde_dt = system.sde_dt
-    integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false)
+    integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false, seed=seed)
 
     trace = HybridTrace(Float64[], Int16[], Float64[], Float64[])
     tstops = range(tspan[1], tspan[2], step=dt)
@@ -219,9 +219,9 @@ function sample(trace::HybridTrace, system::HybridJumpSystem; u0=system.u0, tspa
     agg.weight
 end
 
-function generate_trajectory(system::Union{MarkovJumpSystem,HybridJumpSystem}, dtimes; u0=system.u0, driving_traj=nothing)
+function generate_trajectory(system::Union{MarkovJumpSystem,HybridJumpSystem}, dtimes; u0=system.u0, driving_traj=nothing, seed=nothing)
     tspan = extrema(dtimes)
-    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan)
+    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=seed)
 
     traj = zeros(eltype(u0), (length(u0), length(dtimes)))
     traj[:, 1] .= u0
@@ -342,9 +342,9 @@ struct TraceAndTrajectory{Trace}
 end
 summary(t::TraceAndTrajectory) = t.traj
 
-function generate_configuration(system::HybridJumpSystem)
+function generate_configuration(system::HybridJumpSystem; seed=nothing)
     traj = zeros(Float64, (length(system.u0), length(system.tspan[1]:system.dt:system.tspan[2])))
-    agg, trace = generate_trace(system; traj=traj)
+    agg, trace = generate_trace(system; traj=traj, seed=seed)
     TraceAndTrajectory(trace, traj)
 end
 
