@@ -23,8 +23,8 @@ end
 # 1. simulate input & output and record only output trace
 # 2. simulate inputs with output deactivated, average likelihoods
 
-function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan)
-    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan)
+function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan, seed=nothing)
+    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=seed)
     trace = ReactionTrace([], [])
     agg = advance_ssa(agg, system.reactions, tspan[2], nothing, trace)
     agg, trace
@@ -150,7 +150,11 @@ function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tsp
 
     dt = system.dt
     sde_dt = system.sde_dt
-    integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false, seed=seed)
+    if seed === nothing
+        integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false)
+    else
+        integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false, seed=seed)
+    end
 
     trace = HybridTrace(Float64[], Int16[], Float64[], Float64[])
     tstops = range(tspan[1], tspan[2], step=dt)
