@@ -534,7 +534,7 @@ function update_cache!(agg, jumps::ChemotaxisJumps)
     end
 end
 
-@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, jumps::ChemotaxisJumps)
+@inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, jumps::ChemotaxisJumps)
     nstates = length(jumps.receptors)
     type, m = reaction_type(jumps, rxidx)
 

@@ -549,7 +549,7 @@ function step_ssa(
     agg
 end
 
-@inline @fastmath function select_reaction(agg::DirectAggregator)
+@inline function select_reaction(agg::DirectAggregator)
     rx = 0
     x = rand(agg.rng) * agg.sumrate
     @inbounds for reaction in agg.active_reactions
@@ -562,7 +562,7 @@ end
     rx
 end
 
-@inline @fastmath function select_reaction(agg::DepGraphAggregator)
+@inline function select_reaction(agg::DepGraphAggregator)
     rx = 0
     jsidx = 1
     x = rand(agg.rng) * agg.sumrate
@@ -600,7 +600,7 @@ end
 end
 
 # Code adapted from JumpProcesses.jl
-@inline @fastmath function executerx!(speciesvec::AbstractVector, rxidx::Integer, reactions::AbstractJumpSet)
+@inline function executerx!(speciesvec::AbstractVector, rxidx::Integer, reactions::AbstractJumpSet)
     @inbounds net_stoch = reactions.nstoich[rxidx]
     @inbounds for specstoch in net_stoch
         speciesvec[specstoch[1]] += specstoch[2]
@@ -608,7 +608,7 @@ end
     nothing
 end
 
-@inline @fastmath function executerx!(speciesvec::AbstractVector, rxidx::Integer, js::JumpSet)
+@inline function executerx!(speciesvec::AbstractVector, rxidx::Integer, js::JumpSet)
     nreactions = num_reactions(js.reactions)
     if rxidx <= nreactions
         executerx!(speciesvec, rxidx, js.reactions)
@@ -713,7 +713,7 @@ end
     rate
 end
 
-@fastmath function update_rates(aggregator::DirectAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
+function update_rates(aggregator::DirectAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
     update_cache!(aggregator, reactions)
     sumrate = zero(aggregator.sumrate)
     for rx in 1:num_reactions(reactions)
@@ -728,7 +728,7 @@ end
     aggregator = @set aggregator.sumrate = sumrate
 end
 
-@fastmath function update_rates(aggregator::DepGraphAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
+function update_rates(aggregator::DepGraphAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
     update_cache!(aggregator, reactions)
     sumrate = aggregator.sumrate
     if prev_reaction == 0
