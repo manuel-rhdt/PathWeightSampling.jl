@@ -586,7 +586,7 @@ end
     rx
 end
 
-@inline @fastmath function update_weight(agg::AbstractJumpRateAggregator, tnow, rx=nothing)
+@inline function update_weight(agg::AbstractJumpRateAggregator, tnow, rx=nothing)
     # compute log probability of jump; update weight
     Δt = tnow - agg.tprev
     log_jump_prob = 0.0
