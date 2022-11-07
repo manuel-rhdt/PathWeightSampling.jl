@@ -16,44 +16,45 @@ gaussian_data = DataFrame(load(joinpath(ddir, "gene-expression_2021-07-19_gaussi
 
 using CairoMakie
 
-# presentation_theme = Theme(font = "Noto Sans Regular", linewidth=3)
+presentation_theme = Theme(font = "Noto Sans Regular", linewidth=3)
 
-# fig1 = with_theme(presentation_theme) do
-#     f = Figure(resolution=(600, 800))
-#     ax = Axis(f[1, 1], xlabel="trajectory duration", ylabel="mutual information (nats)")
-#     dmc_d = groupby(dmc_data, :M)[end]
-#     dmc_lines = lines!(ax, dmc_d.DiscreteTimes, dmc_d.Mean, label="direct")
-#     smc_lines = lines!(ax, smc_estimate.DiscreteTimes, smc_estimate.Mean, color="black")
-#     zec_lines = lines!(zechner_data.Duration, zechner_data.PMI, linewidth=2, linestyle=:dash, color=:red)
+fig1 = with_theme(presentation_theme) do
+    f = Figure(resolution=(600, 600))
+    ax = Axis(f[1, 1], xlabel="trajectory duration", ylabel="mutual information (nats)")
+    dmc_d = groupby(dmc_data, :M)[end]
+    # dmc_lines = lines!(ax, dmc_d.DiscreteTimes, dmc_d.Mean, label="direct")
+    smc_lines = lines!(ax, smc_estimate.DiscreteTimes, smc_estimate.Mean, color="black")
+    # zec_lines = lines!(zechner_data.Duration, zechner_data.PMI, linewidth=2, linestyle=:dash, color=:red)
+    # lines!(gaussian_data.DiscreteTimes, gaussian_data.Value, linewidth = 4, linestyle = :dot, color = "#2b8cbe")
 
 
-#     legend = Legend(
-#         f[2, 1], 
-#         [dmc_lines, smc_lines, zec_lines],
-#         ["direct", "segment-by-segment", "Duso, Zechner (2019)"],
-#         orientation = :horizontal,
-#         tellheight = true
-#         # [group_color, ti_color, smc_color, approx_entry], 
-#         # [m_label, ["256 MCMC steps", "4096 MCMC steps"], 
-#         # ["M = 128"], ["Duso, Zechner (2019)", "Gaussian"]], 
-#         # ["brute force", "thermodynamic\nintegration", "particle filter", "approximations"], 
-#         # rowgap=0, 
-#         # titlegap=2, 
-#         # groupgap=5,
-#         # patchsize=(10,10),
-#         # padding=(3,3,3,3),
-#         # linewidth=1.0,
-#         # gridshalign=:left,
-#         # titlehalign=:left,
-#         # titlefont="Noto Sans Medium",
-#         # framevisible=false
-#     )
-#     xlims!(ax, 0, 8)
-#     ylims!(ax, 0, 20)
+    # legend = Legend(
+    #     f[2, 1], 
+    #     [dmc_lines, smc_lines, zec_lines],
+    #     ["direct", "segment-by-segment", "Duso, Zechner (2019)"],
+    #     orientation = :horizontal,
+    #     tellheight = true
+    #     # [group_color, ti_color, smc_color, approx_entry], 
+    #     # [m_label, ["256 MCMC steps", "4096 MCMC steps"], 
+    #     # ["M = 128"], ["Duso, Zechner (2019)", "Gaussian"]], 
+    #     # ["brute force", "thermodynamic\nintegration", "particle filter", "approximations"], 
+    #     # rowgap=0, 
+    #     # titlegap=2, 
+    #     # groupgap=5,
+    #     # patchsize=(10,10),
+    #     # padding=(3,3,3,3),
+    #     # linewidth=1.0,
+    #     # gridshalign=:left,
+    #     # titlehalign=:left,
+    #     # titlefont="Noto Sans Medium",
+    #     # framevisible=false
+    # )
+    xlims!(ax, 0, 8)
+    ylims!(ax, 0, 16)
 
-#     f
-# end
-# save(projectdir("plots", "figure_gene_expr", "gene-expr-figure-p.pdf"), fig1, pt_per_unit = 1)
+    f
+end
+save(projectdir("figures", "figure_gene_expr", "gene-expr-figure-p.png"), fig1, pt_per_unit = 1)
 
 normalfont = projectdir("figures", "fonts", "NotoSans-Condensed.ttf")
 titlefont = projectdir("figures", "fonts", "NotoSans-SemiBoldItalic.ttf")

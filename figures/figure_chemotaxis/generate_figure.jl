@@ -73,7 +73,7 @@ end
 Legend(fig[1, 3], ax1, "input\ncorrelation\ntime", orientation = :vertical, tellwidth = true)
 # colgap!(fig.layout, 2, Fixed(-35))
 
-ax2 = Axis(fig[1, 2], xlabel = "traj. duration (s)", title = "information\n rate (bits/s)")
+ax2 = Axis(fig[1, 2], xlabel = "traj. duration (s)", title = "information\nrate (bits/s)")
 for (g, c) in zip(groups, colors)
     nodes = g.DiscreteTimes[1]:10*diff(g.DiscreteTimes)[1]:g.DiscreteTimes[end]
     itp = CubicSplineInterpolation(nodes, g.Mean[begin:10:end] ./ log(2))
