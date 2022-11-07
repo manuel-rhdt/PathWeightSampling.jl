@@ -356,6 +356,9 @@ function generate_configuration(system::HybridJumpSystem; seed=nothing)
     TraceAndTrajectory(trace, traj)
 end
 
+marginal_density(system::HybridJumpSystem, algorithm::DirectMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(SMCEstimate(algorithm.num_samples), ReactionTrace(conf.trace), system; new_particle=HybridParticle, resample_threshold=0, kwargs...))
+conditional_density(system::HybridJumpSystem, algorithm::DirectMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(SMCEstimate(algorithm.num_samples), conf.trace, system; new_particle=MarkovParticle, resample_threshold=0, kwargs...))
+
 marginal_density(system::HybridJumpSystem, algorithm::SMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(algorithm, ReactionTrace(conf.trace), system; new_particle=HybridParticle, kwargs...))
 conditional_density(system::HybridJumpSystem, algorithm::SMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(algorithm, conf.trace, system; new_particle=MarkovParticle, kwargs...))
 compile(system::HybridJumpSystem) = system

@@ -52,7 +52,7 @@ weight(p::JumpParticle) = p.weight
 weight(p::ParentTrackingParticle) = weight(p.p)
 
 # This is the main routine to compute the marginal probability in RR-PWS.
-function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParticle)
+function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParticle, resample_threshold=nparticles / 2)
     particle_bag = [new_particle(setup) for i = 1:nparticles]
     weights = zeros(nparticles)
     dtimes = discrete_times(setup)
@@ -82,7 +82,7 @@ function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParti
         # UPDATE ESTIMATE
         log_marginal_estimate[i+1] += logmeanexp(weights)
 
-        if (i + 1) == lastindex(dtimes)
+        if (i + 1) >= lastindex(dtimes)
             break
         end
 
@@ -91,7 +91,8 @@ function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParti
 
         # We only resample if the effective sample size becomes smaller than 1/2 the number of particles
         effective_sample_size = 1 / sum(p -> (p / sum(prob_weights))^2, prob_weights)
-        if effective_sample_size < nparticles / 2
+        if effective_sample_size < resample_threshold
+            @info "Resample" i tspan effective_sample_size
             if effective_sample_size <= 5
                 @warn "Small effective sample size" i tspan effective_sample_size
             end
@@ -110,12 +111,13 @@ function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParti
 end
 
 """
-    systematic_sample(weights)::Vector{Int}
+    systematic_sample(weights[; N])::Vector{Int}
 
 Take random samples from `1:len(weights)` using weights given by the corresponding values
 in the `weights` array.
 
-The number of samples returned is equal to the length of `weights`.
+The number of samples returned is by default equal to the length of `weights`. If a different
+number of samples is required, set `N` to the desired number.
 """
 function systematic_sample(weights; N=length(weights))
     inc = 1 / N
