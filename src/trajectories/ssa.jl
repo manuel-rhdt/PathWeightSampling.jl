@@ -164,6 +164,8 @@ struct DirectAggregator{U,Map,Cache,Rng} <: AbstractJumpRateAggregator
     "accumulated log-probability"
     weight::Float64
 
+    compensate_float_error::Float64
+
     cache::Cache
 
     rng::Rng
@@ -185,6 +187,7 @@ function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridt
         tspan[1],
         1,
         0.0,
+        0.0,
         initialize_cache(reactions),
         Xoshiro(seed))
 end
@@ -202,6 +205,7 @@ function Base.copy(agg::DirectAggregator)
         agg.tstop,
         agg.trace_index,
         agg.weight,
+        agg.compensate_float_error,
         copy(agg.cache),
         Xoshiro(rand(agg.rng, UInt))
     )
@@ -248,6 +252,8 @@ struct DepGraphAggregator{U,Map,DepGraph,Cache,Rng} <: AbstractJumpRateAggregato
     "accumulated log-probability"
     weight::Float64
 
+    compensate_float_error::Float64
+
     "dependency graph"
     depgraph::DepGraph
 
@@ -276,6 +282,7 @@ function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridto
         tspan[1],
         1,
         0.0,
+        0.0,
         depgraph,
         collect(1:nreactions),
         initialize_cache(reactions),
@@ -296,6 +303,7 @@ function Base.copy(agg::DepGraphAggregator)
         agg.tstop,
         agg.trace_index,
         agg.weight,
+        agg.compensate_float_error,
         agg.depgraph,
         copy(agg.jump_search_order),
         copy(agg.cache),
@@ -317,6 +325,7 @@ function initialize_aggregator(
     agg = @set agg.tspan = tspan
     agg = @set agg.tprev = tspan[1]
     agg = @set agg.weight = 0.0
+    agg = @set agg.compensate_float_error = 0.0
     agg = @set agg.sumrate = 0.0
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
@@ -344,6 +353,7 @@ function initialize_aggregator(
     agg = @set agg.tspan = tspan
     agg = @set agg.tprev = tspan[1]
     agg = @set agg.weight = 0.0
+    agg = @set agg.compensate_float_error = 0.0
     agg = @set agg.sumrate = 0.0
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
@@ -586,16 +596,32 @@ end
     rx
 end
 
+@inline function fast2sum(x, y)
+    s = x + y
+    t = y - (s - x)
+    s, t
+end
+
 @inline function update_weight(agg::AbstractJumpRateAggregator, tnow, rx=nothing)
     # compute log probability of jump; update weight
     Δt = tnow - agg.tprev
     log_jump_prob = 0.0
     if !isnothing(rx)
         @inbounds gid = agg.ridtogroup[rx]
-        gid != 0 && @inbounds log_jump_prob += log(agg.grates[gid])
+        gid != 0 && @inbounds log_jump_prob = log(agg.grates[gid])
     end
     log_waiting_prob = -Δt * agg.gsumrate
-    agg = @set agg.weight = agg.weight + log_jump_prob + log_waiting_prob
+
+    # calculate new weight with compensated summation
+    c = agg.compensate_float_error
+    x = agg.weight
+    y = log_jump_prob + c
+    x, c = fast2sum(x, y)
+    y = log_waiting_prob + c
+    x, c = fast2sum(x, y)
+
+    agg = @set agg.weight = x
+    agg = @set agg.compensate_float_error = c
     agg = @set agg.tprev = tnow
 end
 
