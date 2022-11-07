@@ -302,7 +302,6 @@ end
 function MarkovParticle(parent::MarkovParticle, setup::Setup)
     agg = copy(parent.agg)
     agg = @set agg.weight = 0.0
-    agg = @set agg.compensate_float_error = 0.0
     MarkovParticle(agg)
 end
 
@@ -310,7 +309,6 @@ function HybridParticle(parent::HybridParticle, setup::Setup)
     system = setup.ensemble
     agg = copy(parent.agg)
     agg = @set agg.weight = 0.0
-    agg = @set agg.compensate_float_error = 0.0
 
     s_prob = remake(system.sde_prob, u0=copy(parent.integrator.u))
     sde_dt = system.sde_dt
@@ -325,7 +323,6 @@ function propagate(particle::MarkovParticle, tspan, setup::Setup)
     trace = setup.configuration
     agg = particle.agg
     agg = @set agg.weight = 0.0
-    agg = @set agg.compensate_float_error = 0.0
     agg = advance_ssa(agg, system.reactions, tspan[2], trace, nothing)
     MarkovParticle(agg)
 end
@@ -335,7 +332,6 @@ function propagate(particle::HybridParticle, tspan, setup::Setup)
     trace = setup.configuration
     agg = particle.agg
     agg = @set agg.weight = 0.0
-    agg = @set agg.compensate_float_error = 0.0
     integrator = particle.integrator
     reinit!(particle.integrator, particle.integrator.u, t0=tspan[1], tf=tspan[2], reinit_cache=false)
     agg = advance_ssa_sde(agg, system.reactions, integrator, tspan[2], trace, nothing)
