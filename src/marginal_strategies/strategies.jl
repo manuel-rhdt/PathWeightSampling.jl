@@ -3,6 +3,7 @@ using ProgressMeter
 
 abstract type SimulationResult end
 
+
 function _logmeanexp(x::AbstractArray)
     x_max = maximum(x)
     log(mean(xi -> exp(xi - x_max), x)) + x_max
@@ -24,6 +25,7 @@ include("ThermodynamicIntegration.jl")
 include("AIS.jl")
 include("DirectMC.jl")
 include("SMC.jl")
+include("flatPERM.jl")
 
 """
     mutual_information(system, algorithm; num_samples=1, progress=true)

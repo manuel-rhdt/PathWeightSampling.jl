@@ -4,6 +4,7 @@ struct MarkovJumpSystem{A,R,U}
     reactions::R
     u0::U
     tspan::Tuple{Float64,Float64}
+    dt::Float64
 end
 
 function MarkovJumpSystem(
@@ -12,11 +13,12 @@ function MarkovJumpSystem(
     u0::AbstractVector,
     tspan::Tuple{Float64,Float64},
     ridtogroup,
-    traced_reactions::BitSet
+    traced_reactions::BitSet;
+    dt=(tspan[2] - tspan[1]) / 1000
 )
     agg = build_aggregator(alg, reactions, ridtogroup)
     agg = @set agg.traced_reactions = traced_reactions
-    MarkovJumpSystem(agg, reactions, u0, tspan)
+    MarkovJumpSystem(agg, reactions, u0, tspan, dt)
 end
 
 # to compute the marginal entropy
@@ -28,6 +30,11 @@ function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tsp
     trace = ReactionTrace([], [])
     agg = advance_ssa(agg, system.reactions, tspan[2], nothing, trace)
     agg, trace
+end
+
+function generate_configuration(system::MarkovJumpSystem; seed=nothing)
+    agg, trace = generate_trace(system; seed=seed)
+    trace
 end
 
 function sample(trace::ReactionTrace, system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan)
@@ -338,6 +345,85 @@ function propagate(particle::HybridParticle, tspan, setup::Setup)
     HybridParticle(agg, integrator)
 end
 
+"""
+    BennettParticle
+
+This one directly computes the difference between marginal and conditional entropy.
+"""
+struct BennettParticle{AggMarginal,AggConditional,Integrator}
+    agg_marginal::AggMarginal
+    agg_conditional::AggConditional
+    integrator::Integrator
+end
+
+function BennettParticle(setup::Setup{<:HybridTrace})
+    system = setup.ensemble
+    active_reactions = BitSet(1:num_reactions(system.reactions))
+    setdiff!(active_reactions, system.agg.traced_reactions)
+
+    tspan = system.tspan
+    u0 = system.u0
+
+    agg_marginal = initialize_aggregator(
+        copy(system.agg),
+        system.reactions,
+        u0=copy(u0),
+        tspan=tspan,
+        active_reactions=active_reactions,
+    )
+
+    agg_conditional = initialize_aggregator(
+        copy(system.agg),
+        system.reactions,
+        u0=copy(u0),
+        tspan=tspan,
+        active_reactions=active_reactions,
+    )
+
+    s_prob = remake(system.sde_prob, u0=[0.0, u0[1]])
+    sde_dt = system.sde_dt
+    seed = rand(agg_marginal.rng, UInt64)
+    integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false, seed=seed)
+
+    BennettParticle(agg_marginal, agg_conditional, integrator)
+end
+
+function BennettParticle(parent::BennettParticle, setup::Setup)
+    system = setup.ensemble
+    agg_marginal = copy(parent.agg_marginal)
+    agg_conditional = copy(parent.agg_conditional)
+    agg_marginal = @set agg_marginal.weight = 0.0
+    agg_conditional = @set agg_conditional.weight = 0.0
+
+    s_prob = remake(system.sde_prob, u0=copy(parent.integrator.u))
+    sde_dt = system.sde_dt
+    seed = rand(agg_marginal.rng, UInt64)
+    integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false, seed=seed)
+
+    BennettParticle(agg_marginal, agg_conditional, integrator)
+end
+
+function propagate(particle::BennettParticle, tspan, setup::Setup)
+    system = setup.ensemble
+    trace = setup.configuration
+
+    agg_marginal = particle.agg_marginal
+    agg_marginal = @set agg_marginal.weight = 0.0
+    agg_conditional = particle.agg_conditional
+    agg_conditional = @set agg_conditional.weight = 0.0
+
+    integrator = particle.integrator
+    reinit!(particle.integrator, particle.integrator.u, t0=tspan[1], tf=tspan[2], reinit_cache=false)
+
+    agg_marginal = advance_ssa_sde(agg_marginal, system.reactions, integrator, tspan[2], ReactionTrace(trace), nothing)
+    agg_conditional = advance_ssa(agg_conditional, system.reactions, tspan[2], trace, nothing)
+
+    BennettParticle(agg_marginal, agg_conditional, integrator)
+end
+
+weight(particle::BennettParticle) = particle.agg_marginal.weight - particle.agg_conditional.weight
+
+discrete_times(setup::Setup{<:Trace,<:MarkovJumpSystem}) = range(setup.ensemble.tspan[1], setup.ensemble.tspan[2], step=setup.ensemble.dt)
 discrete_times(setup::Setup{<:Trace,<:HybridJumpSystem}) = range(setup.ensemble.tspan[1], setup.ensemble.tspan[2], step=setup.ensemble.dt)
 
 struct TraceAndTrajectory{Trace}
@@ -355,6 +441,6 @@ end
 marginal_density(system::HybridJumpSystem, algorithm::DirectMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(SMCEstimate(algorithm.num_samples), ReactionTrace(conf.trace), system; new_particle=HybridParticle, resample_threshold=0, kwargs...))
 conditional_density(system::HybridJumpSystem, algorithm::DirectMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(SMCEstimate(algorithm.num_samples), conf.trace, system; new_particle=MarkovParticle, resample_threshold=0, kwargs...))
 
-marginal_density(system::HybridJumpSystem, algorithm::SMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(algorithm, ReactionTrace(conf.trace), system; new_particle=HybridParticle, kwargs...))
-conditional_density(system::HybridJumpSystem, algorithm::SMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(algorithm, conf.trace, system; new_particle=MarkovParticle, kwargs...))
+marginal_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(algorithm, ReactionTrace(conf.trace), system; new_particle=HybridParticle, kwargs...))
+conditional_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(algorithm, conf.trace, system; new_particle=MarkovParticle, kwargs...))
 compile(system::HybridJumpSystem) = system

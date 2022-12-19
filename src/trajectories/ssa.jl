@@ -202,7 +202,7 @@ function Base.copy(agg::DirectAggregator)
         agg.tstop,
         agg.trace_index,
         agg.weight,
-        copy(agg.cache),
+        isnothing(agg.cache) ? nothing : copy(agg.cache),
         Xoshiro(rand(agg.rng, UInt))
     )
 end
@@ -298,7 +298,7 @@ function Base.copy(agg::DepGraphAggregator)
         agg.weight,
         agg.depgraph,
         copy(agg.jump_search_order),
-        copy(agg.cache),
+        isnothing(agg.cache) ? nothing : copy(agg.cache),
         Xoshiro(rand(agg.rng, UInt))
     )
 end
@@ -678,7 +678,7 @@ end
 cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVector) = cumulative_logpdf!(zeros(length(dtimes)), dist, trajectory, dtimes)
 
 
-@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::ReactionSet) where {T}
+@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::ReactionSet)
     speciesvec = agg.u
     val = Float64(1.0)
     @inbounds for specstoch in rs.rstoich[rxidx]
@@ -693,7 +693,7 @@ cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVect
     @inbounds val * rs.rates[rxidx]
 end
 
-@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, js::JumpSet) where {T}
+@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, js::JumpSet)
     speciesvec = agg.u
     nreactions = num_reactions(js.reactions)
     if rxidx <= nreactions

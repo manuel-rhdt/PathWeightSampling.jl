@@ -613,6 +613,23 @@ function mutated_species(jumps::ChemotaxisJumps, rxidx::Integer)
     end
 end
 
+function average_activity(jumps::ChemotaxisJumps, agg::AbstractJumpRateAggregator)
+    n_receptors = sum(agg.u[jumps.receptors])
+    sum(agg.cache.p_a .* agg.u[jumps.receptors]) / n_receptors
+end
+
+function max_methylation_level(jumps::ChemotaxisJumps, u::AbstractVector)
+    (length(jumps.receptors) - 1) * Int(sum(@view u[jumps.receptors]))
+end
+
+function methylation_level(jumps::ChemotaxisJumps, u::AbstractVector)
+    sum = 0
+    for (i, m) in zip(jumps.receptors, 0:length(jumps.receptors)-1)
+        sum += Int(u[i]) * m
+    end
+    sum
+end
+
 function simple_chemotaxis_system(;
     n_clusters=25,
     n_chey=10000,
