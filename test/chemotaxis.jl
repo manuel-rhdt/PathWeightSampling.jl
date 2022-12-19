@@ -1,52 +1,42 @@
-import PathWeightSampling
+import PathWeightSampling as PWS
 using Test
+using Statistics
 
-system = PathWeightSampling.cooperative_chemotaxis_system(dtimes=0:0.1:10)
-conf = PathWeightSampling.generate_full_configuration(system)
-@test length(conf.s_traj[:, 1]) == 1
-@test length(conf.r_traj[:, 1]) == 40
-@test length(conf.x_traj[:, 1]) == 2
+# ChemotaxisJumps
 
-mconf = PathWeightSampling.generate_configuration(system)
-@test length(mconf.s_traj[:, 1]) == 1
-@test length(mconf.x_traj[:, 1]) == 2
+system = PWS.simple_chemotaxis_system(
+    n_clusters=800,
+    n=6,
+    duration=100.0,
+    dt=0.1
+)
+dtimes = PWS.discrete_times(system)
 
-for u in conf.r_traj.u
-    @test sum(u) == sum(conf.r_traj.u[1]) # this is true because the total number of receptors must be a constant
+PWS.make_depgraph(system.reactions)
+
+for (rid, gid) in enumerate(system.agg.ridtogroup)
+    if gid == 1
+        @test PWS.reaction_type(system.reactions, rid)[1] == 2
+    elseif gid == 2
+        @test PWS.reaction_type(system.reactions, rid)[1] == 3
+    else
+        @test PWS.reaction_type(system.reactions, rid)[1] < 2
+    end
 end
 
-for u in conf.x_traj.u
-    @test sum(u) == sum(conf.x_traj.u[1]) # this is true because the total number of CheY proteins must be a constant
-end
+conf = PWS.generate_configuration(system, seed=2)
 
-cond_ens = PathWeightSampling.ConditionalEnsemble(system)
-for t = 0:0.1:10
-    local u0 = PathWeightSampling.sample_initial_condition(cond_ens)
-    u_new, weight = PathWeightSampling.propagate(mconf, cond_ens, u0, (0.0, t))
-    @test size(u0) == size(u_new)
-    @test sum(u0[2:end]) == sum(u_new[2:end]) # this is true because the total number of receptors must be a constant
-    @test !isinf(weight)
-end
+k_A = system.reactions.k_A
+k_Z = system.reactions.k_Z
+a = system.reactions.k_R / (system.reactions.k_R + system.reactions.k_B)
+n_clusters = 800
+n_chey = 10_000
+ϕ_y = 1/6
 
-algorithm = PathWeightSampling.SMCEstimate(16)
-result = PathWeightSampling.mutual_information(system, algorithm, num_samples=1)
-@test !all(isinf.(result.MutualInformation[1]))
+phosphorylation_rate = a * n_clusters * k_A * (1 - ϕ_y) * n_chey + k_Z * ϕ_y * n_chey
+rate_estimate = 1/mean(diff(conf.trace.t))
 
-system_direct_agg = PathWeightSampling.cooperative_chemotaxis_system(dtimes=0:0.1:10, dist_aggregator=PathWeightSampling.GillespieDirect())
-@test typeof(system.dist.aggregator) <: PathWeightSampling.DepGraphAggregator
-@test typeof(system_direct_agg.dist.aggregator) <: PathWeightSampling.DirectAggregator
+@test phosphorylation_rate≈rate_estimate rtol=0.05
 
-cens1 = PathWeightSampling.ConditionalEnsemble(system)
-cens2 = PathWeightSampling.ConditionalEnsemble(system_direct_agg)
-
-a = PathWeightSampling.energy_difference(conf, cens1)
-b = PathWeightSampling.energy_difference(conf, cens2)
-@test a == b
-
-mens1 = PathWeightSampling.MarginalEnsemble(system)
-mens2 = PathWeightSampling.MarginalEnsemble(system_direct_agg)
-
-mconf = PathWeightSampling.marginal_configuration(conf)
-a = PathWeightSampling.energy_difference(mconf, mens1)
-b = PathWeightSampling.energy_difference(mconf, mens2)
-@test a == b
+@test conf.trace isa PWS.HybridTrace
+@test PWS.ReactionTrace(conf.trace) isa PWS.ReactionTrace

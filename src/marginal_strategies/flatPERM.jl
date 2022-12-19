@@ -1,5 +1,4 @@
 import LogExpFunctions: logaddexp
-import UnicodePlots
 
 # ---------------------------------------------------------------------------- #
 #                                CURSOR CONTROL                                #
@@ -29,6 +28,8 @@ Compute the marginal trajectory probability using flatPERM.
 struct PERM
     num_chains::Int
 end
+
+name(x::PERM) = "PERM"
 
 const MAX_COPIES = 10
 
@@ -155,7 +156,6 @@ function flatperm(n_chains, setup; new_particle=JumpParticle, inspect=identity)
 
     # savecursor()
     for N in 1:n_chains
-        @show N
         log_marginal_estimate .+= log((N - 1) / N)
         n = 1
         p = new_particle(setup)

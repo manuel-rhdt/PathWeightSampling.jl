@@ -239,8 +239,8 @@ function generate_trajectory(system::Union{MarkovJumpSystem,HybridJumpSystem}, d
     if !isnothing(driving_traj)
         agg.u[1] = driving_traj[1]
     end
-    for i in eachindex(dtimes)[2:end]
-        agg = advance_ssa(agg, system.reactions, dtimes[i], nothing, nothing)
+    for (i, t) in Iterators.drop(enumerate(dtimes), 1)
+        agg = advance_ssa(agg, system.reactions, t, nothing, nothing)
         traj[:, i] .= agg.u
         if !isnothing(driving_traj)
             agg.u[1] = driving_traj[i]
@@ -423,8 +423,10 @@ end
 
 weight(particle::BennettParticle) = particle.agg_marginal.weight - particle.agg_conditional.weight
 
-discrete_times(setup::Setup{<:Trace,<:MarkovJumpSystem}) = range(setup.ensemble.tspan[1], setup.ensemble.tspan[2], step=setup.ensemble.dt)
-discrete_times(setup::Setup{<:Trace,<:HybridJumpSystem}) = range(setup.ensemble.tspan[1], setup.ensemble.tspan[2], step=setup.ensemble.dt)
+discrete_times(system::MarkovJumpSystem) = range(system.tspan[1], system.tspan[2], step=system.dt)
+discrete_times(system::HybridJumpSystem) = range(system.tspan[1], system.tspan[2], step=system.dt)
+discrete_times(setup::Setup{<:Trace,<:MarkovJumpSystem}) = discrete_times(setup.ensemble)
+discrete_times(setup::Setup{<:Trace,<:HybridJumpSystem}) = discrete_times(setup.ensemble)
 
 struct TraceAndTrajectory{Trace}
     trace::Trace

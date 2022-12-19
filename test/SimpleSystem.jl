@@ -1,39 +1,14 @@
-using Catalyst
-using PathWeightSampling
-using StaticArrays
+import PathWeightSampling as PWS
 using Test
 
-sn = @reaction_network begin
-    κ, ∅ --> L
-    λ, L --> ∅
-end κ λ
+system = PWS.simple_chemotaxis_system(n=3, n_clusters=800, duration=2.0, dt=0.1)
+dtimes = PWS.discrete_times(system)
 
-xn = @reaction_network begin
-    ρ, L --> L + X
-    μ, X --> ∅
-end ρ μ
-
-u0 = SA[10, 20]
-dtimes = 0:0.5:10.0
-ps = [5.0, 1.0]
-px = [3.0, 0.1]
-
-system = PathWeightSampling.SimpleSystem(sn, xn, u0, ps, px, dtimes)
-
-algorithms = [DirectMCEstimate(128), SMCEstimate(128), TIEstimate(0, 4, 128)]
+algorithms = [PWS.DirectMCEstimate(128), PWS.SMCEstimate(128), PWS.PERM(128)]
 for algorithm in algorithms
-    result = mutual_information(system, algorithm, num_samples = 10)
+    result = PWS.mutual_information(system, algorithm, num_samples=4)
     for v in result[!, :MutualInformation]
         @test v[1] == 0
-        @test length(v) == length(system.dtimes)
-    end
-
-    initial_condition = PathWeightSampling.empirical_dist(rand(50, 50), 0:49, 0:49)
-
-    system2 = PathWeightSampling.SimpleSystem(sn, xn, initial_condition, ps, px, dtimes)
-    result2 = mutual_information(system2, algorithm, num_samples = 10)
-    for v in result2[!, :MutualInformation]
-        @test v[1] != 0
-        @test length(v) == length(system.dtimes)
+        @test length(v) == length(dtimes)
     end
 end

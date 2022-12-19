@@ -92,7 +92,7 @@ function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParti
         # We only resample if the effective sample size becomes smaller than 1/2 the number of particles
         effective_sample_size = 1 / sum(p -> (p / sum(prob_weights))^2, prob_weights)
         if effective_sample_size < resample_threshold
-            @info "Resample" i tspan effective_sample_size
+            @debug "Resample" i tspan effective_sample_size
             if effective_sample_size <= 5
                 @warn "Small effective sample size" i tspan effective_sample_size
             end

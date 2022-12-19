@@ -1,7 +1,3 @@
-import ModelingToolkit
-import ModelingToolkit: build_function, substitute
-import Catalyst
-import Catalyst: ReactionSystem
 using StaticArrays
 import Base.show
 using Setfield
@@ -321,12 +317,12 @@ function initialize_aggregator(
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
     agg = update_rates(agg, reactions)
-    agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
     if seed === nothing
         Random.seed!(agg.rng)
     else
         Random.seed!(agg.rng, seed)
     end
+    agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
     agg
 end
 
@@ -348,39 +344,17 @@ function initialize_aggregator(
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
     agg = update_rates(agg, reactions)
-    agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
-    agg = @set agg.jump_search_order = collect(active_reactions)
     if seed === nothing
         Random.seed!(agg.rng)
     else
         Random.seed!(agg.rng, seed)
     end
+    agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
+    agg = @set agg.jump_search_order = collect(active_reactions)
     agg
 end
 
 set_tspan(agg::AbstractJumpRateAggregator, tspan) = @set agg.tspan = tspan
-
-
-function ReactionSet(js::ModelingToolkit.JumpSystem, p)
-    parammap = map(Pair, ModelingToolkit.parameters(js), p)
-    statetoid = Dict(ModelingToolkit.value(state) => i for (i, state) in enumerate(ModelingToolkit.states(js)))
-
-    rates = Float64[]
-    rstoich_vec = Vector{Pair{Int64,Int64}}[]
-    nstoich_vec = Vector{Pair{Int64,Int64}}[]
-
-    for eq in ModelingToolkit.equations(js)
-        rate = ModelingToolkit.value(ModelingToolkit.substitute(eq.scaled_rates, parammap))
-        rstoich = sort!([statetoid[ModelingToolkit.value(spec)] => stoich for (spec, stoich) in eq.reactant_stoch])
-        nstoich = sort!([statetoid[ModelingToolkit.value(spec)] => stoich for (spec, stoich) in eq.net_stoch])
-
-        push!(rates, rate)
-        push!(rstoich_vec, rstoich)
-        push!(nstoich_vec, nstoich)
-    end
-
-    ReactionSet(rates, rstoich_vec, nstoich_vec, length(ModelingToolkit.states(js)))
-end
 
 function species_to_dependent_reaction_map(reactions::AbstractJumpSet)
     nspecies = num_species(reactions)
@@ -450,42 +424,6 @@ function TrajectoryDistribution(reactions::ReactionSet, alg::AbstractJumpRateAgg
     TrajectoryDistribution(reactions, agg)
 end
 
-distribution(rn::ReactionSystem, p; update_map=1:Catalyst.numreactions(rn), alg=GillespieDirect()) = TrajectoryDistribution(ReactionSet(convert(ModelingToolkit.JumpSystem, rn), p), alg, update_map)
-
-@fastmath function Distributions.logpdf(dist::TrajectoryDistribution, trajectory)::Float64
-    traj_iter = trajectory_iterator(trajectory)
-    tprev = 0.0
-    result = 0.0
-    agg = initialize_aggregator(dist.aggregator)
-    for (u, t, i) in traj_iter
-        agg = update_rates(agg, dist.reactions)
-
-        dt = t - tprev
-        result -= dt * agg.sumrate
-        if i != 0
-            @inbounds gid = agg.ridtogroup[i]
-            gid != 0 && @inbounds result += log(agg.gsums[gid])
-        end
-
-        tprev = t
-    end
-
-    result
-end
-
-@fastmath function fold_logpdf(dist::TrajectoryDistribution, agg::AbstractJumpRateAggregator, (u, t, i))
-    agg = update_rates(agg, dist.reactions)
-    dt = t - agg.tprev
-    log_jump_prob = 0.0
-    if i != 0
-        @inbounds gid = agg.ridtogroup[i]
-        gid != 0 && @inbounds log_jump_prob = log(agg.gsums[gid])
-    end
-    log_surv_prob = -dt * agg.sumrate
-    agg = @set agg.weight = agg.weight + log_surv_prob + log_jump_prob
-    agg = @set agg.tprev = t
-end
-
 function step_ssa(
     agg::AbstractJumpRateAggregator,
     reactions::AbstractJumpSet,
@@ -494,7 +432,7 @@ function step_ssa(
 )
     tindex = agg.trace_index
 
-    if (!isnothing(trace)) && tindex <= length(trace.t) && agg.tstop >= trace.t[tindex]
+    if (!isnothing(trace)) && (tindex <= length(trace.t)) && (agg.tstop >= trace.t[tindex])
         # perform reaction from pre-recorded trace
 
         tnow = trace.t[tindex]
