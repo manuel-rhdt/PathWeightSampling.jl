@@ -1,6 +1,5 @@
 using Test
 import PathWeightSampling as PWS
-import Random
 
 # create a simple birth-death system
 rates = [1.0, 1.0]
