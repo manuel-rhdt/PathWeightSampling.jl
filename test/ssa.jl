@@ -120,4 +120,4 @@ agg2, trace2 = PWS.generate_trace(system_dep)
 
 result_dep = mean(ce .- samples_dep)
 
-@test result_direct ≈ result_dep rtol = 0.05
+@test result_direct ≈ result_dep rtol = 0.01
