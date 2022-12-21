@@ -9,6 +9,9 @@ end
 @testset "TrajectoryProbability" begin
     include("probability.jl")
 end
+@testset "SSA" begin
+    include("ssa.jl")
+end
 @testset "SimpleSystem" begin
     include("SimpleSystem.jl")
 end
@@ -18,4 +21,6 @@ end
 @testset "Gaussian" begin
     include("gaussian.jl")
 end
-# @testset "Chemotaxis" begin include("chemotaxis.jl") end
+@testset "Chemotaxis" begin
+    include("chemotaxis.jl")
+end

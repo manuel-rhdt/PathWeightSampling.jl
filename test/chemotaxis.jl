@@ -36,7 +36,7 @@ n_chey = 10_000
 phosphorylation_rate = a * n_clusters * k_A * (1 - ϕ_y) * n_chey + k_Z * ϕ_y * n_chey
 rate_estimate = 1/mean(diff(conf.trace.t))
 
-@test phosphorylation_rate≈rate_estimate rtol=0.05
+@test phosphorylation_rate ≈ rate_estimate rtol=0.05
 
 @test conf.trace isa PWS.HybridTrace
 @test PWS.ReactionTrace(conf.trace) isa PWS.ReactionTrace

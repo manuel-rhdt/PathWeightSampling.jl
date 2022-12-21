@@ -555,66 +555,6 @@ end
     end
 end
 
-function step_energy(dist::TrajectoryDistribution, agg::AbstractJumpRateAggregator, (u, t, i))
-    if t <= agg.tspan[1]
-        return agg
-    end
-    if t > agg.tspan[2]
-        if agg.tprev >= agg.tspan[2]
-            return agg
-        end
-        fold_logpdf(dist, agg, (u, agg.tspan[2], 0))
-    else
-        fold_logpdf(dist, agg, (u, t, i))
-    end
-end
-
-function trajectory_energy(dist::TrajectoryDistribution, traj; tspan=(0.0, Inf64))
-    agg = initialize_aggregator(dist.aggregator, tspan=tspan)
-    traj_iter = trajectory_iterator(traj)
-    agg = Base.foldl((acc, x) -> step_energy(dist, acc, x), traj_iter; init=agg)
-    agg.weight
-end
-
-function cumulative_logpdf!(result::AbstractVector, dist::TrajectoryDistribution, traj, dtimes::AbstractVector)
-    tspan = (first(dtimes), last(dtimes))
-    agg = initialize_aggregator(dist.aggregator, tspan=tspan)
-    result[1] = zero(eltype(result))
-    traj_iter = trajectory_iterator(traj)
-    result_agg, k = Base.foldl(traj_iter; init=(agg, 1)) do (agg, k), (u, t, i)
-        if t <= agg.tspan[1]
-            return agg, k
-        end
-
-        t = min(t, agg.tspan[2])
-        agg = update_rates(agg, dist.reactions)
-
-        tprev = agg.tprev
-        while k <= length(dtimes) && dtimes[k] < t
-            result[k] -= (dtimes[k] - tprev) * agg.sumrate
-            tprev = dtimes[k]
-            k += 1
-            result[k] = result[k-1]
-        end
-        result[k] -= (t - tprev) * agg.sumrate
-
-        log_jump_prob = 0.0
-        if i != 0
-            @inbounds gid = agg.ridtogroup[i]
-            gid != 0 && @inbounds log_jump_prob = log(agg.gsums[gid])
-        end
-        result[k] += log_jump_prob
-
-        agg = @set agg.weight = agg.weight - (t - agg.tprev) * agg.sumrate + log_jump_prob
-        agg = @set agg.tprev = t
-        agg, k
-    end
-
-    result
-end
-
-cumulative_logpdf(dist::TrajectoryDistribution, trajectory, dtimes::AbstractVector) = cumulative_logpdf!(zeros(length(dtimes)), dist, trajectory, dtimes)
-
 
 @inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::ReactionSet)
     speciesvec = agg.u
