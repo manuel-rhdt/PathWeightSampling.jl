@@ -1,6 +1,8 @@
 import PathWeightSampling as PWS
 using Test
 using Statistics
+import Distributed
+using Statistics
 
 # ChemotaxisJumps
 
@@ -43,9 +45,6 @@ rate_estimate = 1 / mean(diff(conf.trace.t))
 
 if haskey(ENV, "PWS_ALL_TESTS")
     println("RUN ALL TESTS")
-
-    import Distributed
-    using Statistics
 
     systemfn = () -> PWS.simple_chemotaxis_system(
         n_clusters=800,
