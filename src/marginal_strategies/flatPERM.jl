@@ -31,7 +31,7 @@ end
 
 name(x::PERM) = "PERM"
 
-const MAX_COPIES = 10
+const MAX_COPIES = 25
 
 function grow(
     p,
@@ -142,7 +142,7 @@ end
 log_marginal(result::PERMResult) = vcat(0.0, logsumexp(result.log_marginal_estimate, dims=2)[2:end, 1])
 
 # This is the main routine to compute the marginal probability in flatPERM.
-function flatperm(n_chains, setup; new_particle=JumpParticle, inspect=identity)
+function flatperm(convergence_criterion, setup; new_particle=JumpParticle, inspect=identity)
 
     # this determines the time-interfaces at which we enrich or prune
     dtimes = discrete_times(setup)
@@ -155,11 +155,13 @@ function flatperm(n_chains, setup; new_particle=JumpParticle, inspect=identity)
     num_samples_eff = zeros(length(dtimes), M)
 
     # savecursor()
-    for N in 1:n_chains
+    N = 1
+    while mean(num_samples_eff[2:end, :]) < convergence_criterion
         log_marginal_estimate .+= log((N - 1) / N)
         n = 1
         p = new_particle(setup)
         grow(p, n, 0, N, 0.0, log_marginal_estimate, num_samples, num_samples_eff, setup; new_particle, inspect)
+        N += 1
     end
 
     PERMResult(log_marginal_estimate, num_samples, num_samples_eff)
