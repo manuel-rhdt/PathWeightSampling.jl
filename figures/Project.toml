@@ -1,0 +1,7 @@
+[deps]
+CSVFiles = "5d742f6a-9f54-50ce-8119-2520741973ca"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
