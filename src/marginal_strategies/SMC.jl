@@ -1,4 +1,10 @@
+module SMC
+
+export SMCEstimate, weight, propagate
+
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
 import StatsBase
+
 
 # Each particle represents an independently evolving trajectory.
 struct JumpParticle{uType}
@@ -151,7 +157,7 @@ very little to the marginalization integral.
 Due to the periodic resampling of the trajectories, this method works much better than the 
 `DirectMCEstimate` for long trajectories.
 """
-struct SMCEstimate
+struct SMCEstimate <: AbstractSimulationAlgorithm
     num_particles::Int
 end
 
@@ -170,3 +176,5 @@ function simulate(algorithm::SMCEstimate, initial, system; kwargs...)
     log_marginal_estimate = sample(setup, algorithm.num_particles; kwargs...)
     SMCResult(log_marginal_estimate)
 end
+
+end # module

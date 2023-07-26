@@ -1,3 +1,10 @@
+module DirectMC
+
+export DirectMCEstimate
+
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate
+import ..SMC: SMCEstimate
+
 """
     DirectMCEstimate(M::Int)
 
@@ -20,25 +27,15 @@ can be computed via a Monte Carlo estimate by sampling `M` trajectories from
 \\mathrm{P}[\\bm{x}] = \\langle \\mathrm{P}[\\bm{x}|\\bm{s}] \\rangle_{\\mathrm{P}[\\bm{s}]}\\,.
 ```
 """
-struct DirectMCEstimate
+struct DirectMCEstimate <: AbstractSimulationAlgorithm
     num_samples::Int
 end
 
 name(x::DirectMCEstimate) = "Direct MC"
 
-struct DirectMCResult{Samples} <: SimulationResult
-    samples::Samples
-end
-
-log_marginal(result::DirectMCResult{<:AbstractMatrix}) = vec(logmeanexp(result.samples, dims=2))
-log_marginal(result::DirectMCResult{<:AbstractVector}) = logmeanexp(result.samples)
-
-
 function simulate(algorithm::DirectMCEstimate, initial, system; kwargs...)
-    samples = zeros(Float64, algorithm.num_samples)
-    for i in 1:algorithm.num_samples
-        signal = sample(initial, system)
-        samples[i] = -energy_difference(signal, system)
-    end
-    DirectMCResult(samples)
+    estimate = SMCEstimate(algorithm.num_samples)
+    simulate(estimate, initial, system; resample_threshold=0, kwargs...)
 end
+
+end # module

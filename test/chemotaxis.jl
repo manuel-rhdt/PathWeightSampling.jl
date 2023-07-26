@@ -14,7 +14,7 @@ system = PWS.simple_chemotaxis_system(
 )
 dtimes = PWS.discrete_times(system)
 
-PWS.make_depgraph(system.reactions)
+PWS.SSA.make_depgraph(system.reactions)
 
 for (rid, gid) in enumerate(system.agg.ridtogroup)
     if gid == 1

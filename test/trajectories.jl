@@ -22,7 +22,7 @@ bd_system = PWS.MarkovJumpSystem(
 
 dtimes = tspan[1]:0.1:tspan[2]
 trace = PWS.generate_configuration(bd_system, seed=1)
-agg, traj = PWS.generate_trajectory(bd_system, dtimes, seed=1)
+agg, traj = PWS.JumpSystem.generate_trajectory(bd_system, dtimes, seed=1)
 
 begin
     u_arr = [u0]

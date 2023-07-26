@@ -1,3 +1,6 @@
+module MCMCSampler
+
+export MarkovChain
 
 import Random
 import Base.Iterators
@@ -80,3 +83,5 @@ function sample(f, sampler::MetropolisSampler, num_samples::Integer)
     end
 end
 
+
+end # module

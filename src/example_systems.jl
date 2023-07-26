@@ -1,3 +1,7 @@
+import .SMC: systematic_sample
+
+using .SSA
+using LinearAlgebra
 using StochasticDiffEq
 
 """
@@ -111,8 +115,8 @@ struct ChemotaxisJumps <: AbstractJumpSet
     Y::Int32
 end
 
-num_species(jumps::ChemotaxisJumps) = 3 + length(jumps.receptors)
-num_reactions(jumps::ChemotaxisJumps) = 3 * length(jumps.receptors) + 1
+SSA.num_species(jumps::ChemotaxisJumps) = 3 + length(jumps.receptors)
+SSA.num_reactions(jumps::ChemotaxisJumps) = 3 * length(jumps.receptors) + 1
 
 @inline function reaction_type(j::ChemotaxisJumps, rxidx::Integer)
     nstates = length(j.receptors)
@@ -130,7 +134,7 @@ function Base.copy(cache::ChemotaxisCache)
     ChemotaxisCache(Ref(cache.c_prev[]), copy(cache.z_m), copy(cache.p_a))
 end
 
-function initialize_cache(jumps::ChemotaxisJumps)
+function SSA.initialize_cache(jumps::ChemotaxisJumps)
     E_m = [jumps.δf * (m - jumps.m_0) for m in 0:length(jumps.receptors)-1]
     ChemotaxisCache(
         Ref(0.0),
@@ -139,7 +143,7 @@ function initialize_cache(jumps::ChemotaxisJumps)
     )
 end
 
-function update_cache!(agg, jumps::ChemotaxisJumps)
+function SSA.update_cache!(agg, jumps::ChemotaxisJumps)
     ligand_c = agg.u[jumps.ligand]
     if agg.cache.c_prev[] != ligand_c
         z_a = (1 + (ligand_c / jumps.KD_a))^jumps.N
@@ -149,7 +153,7 @@ function update_cache!(agg, jumps::ChemotaxisJumps)
     end
 end
 
-@inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, jumps::ChemotaxisJumps)
+@inline function SSA.evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, jumps::ChemotaxisJumps)
     nstates = length(jumps.receptors)
     type, m = reaction_type(jumps, rxidx)
 
@@ -175,7 +179,7 @@ end
     end
 end
 
-function executerx!(speciesvec::AbstractVector, rxidx::Integer, jumps::ChemotaxisJumps)
+function SSA.executerx!(speciesvec::AbstractVector, rxidx::Integer, jumps::ChemotaxisJumps)
     type, m = reaction_type(jumps, rxidx)
 
     if type == 0 # methylate
@@ -193,7 +197,7 @@ function executerx!(speciesvec::AbstractVector, rxidx::Integer, jumps::Chemotaxi
     end
 end
 
-function dependend_species(jumps::ChemotaxisJumps, rxidx::Integer)
+function SSA.dependend_species(jumps::ChemotaxisJumps, rxidx::Integer)
     type, m = reaction_type(jumps, rxidx)
 
     if type == 0 # methylate
@@ -207,7 +211,7 @@ function dependend_species(jumps::ChemotaxisJumps, rxidx::Integer)
     end
 end
 
-function mutated_species(jumps::ChemotaxisJumps, rxidx::Integer)
+function SSA.mutated_species(jumps::ChemotaxisJumps, rxidx::Integer)
     type, m = reaction_type(jumps, rxidx)
     nstates = length(jumps.receptors)
 

@@ -1,6 +1,14 @@
+module AIS
+
+export AnnealingEstimate
+
+import ..MCMCSampler: MarkovChain, MetropolisSampler
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
 import StatsFuns: logsumexp
 
-struct AnnealingEstimate
+using Statistics
+
+struct AnnealingEstimate <: AbstractSimulationAlgorithm
     subsample::Int
     num_temps::Int
     num_samples::Int
@@ -80,3 +88,5 @@ end
 function summary(results::AnnealingEstimationResult...)
     DataFrame(Weights=[r.weights[end, :] for r in results])
 end
+
+end # module

@@ -1,5 +1,9 @@
+module EmpiricalDistributions
+
 using Random
 import StatsBase
+import Distributions
+using StaticArrays
 
 """
 An empirical distribution, defined by a histogram which assigns probabilities to
@@ -12,7 +16,7 @@ end
 
 Base.eltype(::Type{<:EmpiricalDistribution{Dims, T}}) where {Dims, T} = Vector{T}
 
-function empirical_dist(prob::AbstractArray{Float64,N}, axes::Vararg{<:AbstractVector,N}) where {N}
+function empirical_dist(prob::AbstractArray{Float64,N}, axes::Vararg{V,N}) where {N, V <: AbstractVector}
     EmpiricalDistribution{N, eltype(axes[1])}(prob ./ sum(prob), (axes...,))
 end
 
@@ -50,3 +54,5 @@ function marginalize(dist::EmpiricalDistribution, axis_index::Integer)
 	new_axes = deleteat(dist.axes, axis_index)
 	EmpiricalDistribution(new_prob, new_axes)
 end
+
+end # module

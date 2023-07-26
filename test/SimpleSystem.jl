@@ -12,3 +12,12 @@ for algorithm in algorithms
         @test length(v) == length(dtimes)
     end
 end
+
+
+# system = PWS.simple_chemotaxis_system(n=15, n_clusters=20, duration=20.0, dt=0.1)
+
+# alg = PWS.PERM(10)
+
+# conf = PWS.generate_configuration(system)
+# @time PWS.marginal_density(system, alg, conf)
+# @time PWS.conditional_density(system, alg, conf)

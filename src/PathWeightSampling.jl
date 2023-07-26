@@ -1,11 +1,8 @@
 module PathWeightSampling
 
 using Distributions
-import DiffEqBase
 
-include("MetropolisSampler.jl")
 include("marginal_strategies/strategies.jl")
-include("GaussianSystem.jl")
 include("trajectories/ssa.jl")
 include("JumpSystem.jl")
 include("EmpiricalDistribution.jl")
@@ -15,7 +12,15 @@ include("example_systems.jl")
 
 include("ParallelRun.jl")
 
-export TIEstimate, AnnealingEstimate, DirectMCEstimate, SMCEstimate,
+using .AIS
+using .DirectMC
+using .SMC
+using .ThermodynamicIntegration
+using .FlatPerm
+
+using .JumpSystem
+
+export TIEstimate, AnnealingEstimate, DirectMCEstimate, SMCEstimate, PERM,
     generate_configuration, mutual_information
 
 end # module

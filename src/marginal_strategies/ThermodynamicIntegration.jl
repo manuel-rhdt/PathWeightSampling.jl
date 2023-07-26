@@ -1,4 +1,11 @@
+module ThermodynamicIntegration
+
+export TIEstimate
+
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
+
 import Statistics
+
 using FastGaussQuadrature
 
 """
@@ -6,7 +13,7 @@ using FastGaussQuadrature
 
 Compute marginalization integrals using [thermodynamic integration](https://en.wikipedia.org/wiki/Thermodynamic_integration).
 """
-struct TIEstimate
+struct TIEstimate <: AbstractSimulationAlgorithm
     burn_in::Int
     integration_nodes::Int
     num_samples::Int
@@ -71,3 +78,5 @@ function simulate(algorithm::TIEstimate, initial, system; kwargs...)
 
     ThermodynamicIntegrationResult(weights, θrange, energies, accept)
 end
+
+end # module

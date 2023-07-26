@@ -1,3 +1,11 @@
+module SSA
+
+export AbstractJumpSet, ReactionSet, AbstractJumpRateAggregator, AbstractJumpRateAggregatorAlgorithm
+export DirectAggregator, DepGraphAggregator, GillespieDirect, DepGraphDirect, build_aggregator, initialize_aggregator
+export Trace, ReactionTrace, HybridTrace
+export num_reactions, num_species, set_tspan
+export step_ssa
+
 using StaticArrays
 import Base.show
 using Setfield
@@ -8,6 +16,20 @@ abstract type AbstractJumpSet end
 initialize_cache(js::AbstractJumpSet) = nothing
 update_cache!(agg, js::AbstractJumpSet) = nothing
 
+
+"""
+    struct ReactionSet <: AbstractJumpSet
+
+A struct that stores reactions for use with Gillespie simulation code.
+
+# Fields
+- `rates::Vector{Float64}`: Vector of reaction rates.
+- `rstoich::Vector{Vector{Pair{Int64,Int64}}}`: Vector of vectors specifying the reactant stoichiometry for each reaction. Each inner vector contains pairs of species index and stoichiometric coefficient.
+- `nstoich::Vector{Vector{Pair{Int64,Int64}}}`: Vector of vectors specifying the product stoichiometry for each reaction. Each inner vector contains pairs of species index and stoichiometric coefficient.
+- `nspecies::Int`: Number of species in the system.
+
+This struct represents a set of reactions to be used in Gillespie simulations. The reactions are defined by their rates, reactant stoichiometry, product stoichiometry, and the number of species in the system.
+"""
 struct ReactionSet <: AbstractJumpSet
     rates::Vector{Float64}
     rstoich::Vector{Vector{Pair{Int64,Int64}}}
@@ -29,12 +51,27 @@ num_species(js::JumpSet) = num_species(js.reactions)
 abstract type Trace end
 
 """
+    struct ReactionTrace <: Trace
+        "a vector of reaction times"
+        t::Vector{Float64}
+
+        "a vector of reaction indices"
+        rx::Vector{Int16}
+    end
+
 A (partial) record of a SSA execution.
 
-Contains a list of reaction firing times together with a list of the
-corresponding reaction indices. A full reaction trace contains every reaction
-that fired during the SSA. A partial trace only records reactions involving a
-specific species.
+A ReactionTrace is a data structure that captures information about the firing times and 
+indices of the reactions that occurred during a SSA simulation. It consists of two fields: 
+a vector of reaction firing times t and a vector of corresponding reaction indices rx.
+
+A full reaction trace records every reaction that fired during the SSA simulation, 
+whereas a partial trace only records reactions involving a specific species. This makes it 
+a useful tool for studying the behavior of a particular species in a reaction system.
+
+The `t` field stores the times at which each reaction occurred, sorted in ascending order. 
+The `rx` field stores the corresponding indices of the reactions that fired, with each index 
+referencing a reaction in the overall reaction system.
 """
 struct ReactionTrace <: Trace
     "a vector of reaction times"
@@ -54,6 +91,34 @@ end
 
 Base.:(==)(t1::ReactionTrace, t2::ReactionTrace) = (t1.t == t2.t && t1.rx == t2.rx)
 
+"""
+    struct HybridTrace{U,T} <: Trace
+        "a vector of reaction times"
+        t::Vector{Float64}
+
+        "a vector of reaction indices"
+        rx::Vector{Int16}
+
+        "a vector of external signal"
+        u::U
+
+        "sampling times of external trajectory"
+        dtimes::T
+    end
+
+A hybrid trace of a discrete-time stochastic simulation with external signals.
+
+A HybridTrace is a data structure that records the results of a hybrid simulation, which 
+is a type of stochastic simulation that combines a continuous-time simulation of a reaction 
+system with a discrete-time simulation of an external signal.
+
+The HybridTrace structure contains four fields: a vector of reaction firing times t, a vector 
+of corresponding reaction indices rx, a vector of external signals u, and a vector of sampling times dtimes.
+
+The t and rx fields have the same meaning as in ReactionTrace. The u field stores the values 
+of the external signal at each time step, and the dtimes field stores the times at which 
+the external signal is sampled.
+"""
 struct HybridTrace{U,T} <: Trace
     "a vector of reaction times"
     t::Vector{Float64}
@@ -69,6 +134,43 @@ struct HybridTrace{U,T} <: Trace
 end
 
 ReactionTrace(ht::HybridTrace) = ReactionTrace(ht.t, ht.rx)
+
+"""
+    filter_trace(trace::ReactionTrace, keep_reactions)
+
+Filters a given `ReactionTrace` to include only the specified reaction events.
+
+This function takes a `ReactionTrace` object and creates a new `ReactionTrace` object that only contains the reaction events specified in `keep_reactions` attribute. 
+The resulting `ReactionTrace` object only includes the firing times and corresponding indices of the specified reaction events.
+
+# Arguments
+- `trace::ReactionTrace`: The original `ReactionTrace` object to be filtered.
+- `keep_reactions`: The reaction events to keep in the filtered `ReactionTrace`. Can be either a single integer or an 
+iterable of integers specifying the reaction indices to keep. All other reactions are discarded.
+
+# Returns
+- A new `ReactionTrace` object that includes only the specified reaction events.
+
+# Examples
+```julia
+julia> trace = ReactionTrace([0.1, 0.5, 1.0, 1.5], [1, 2, 3, 2])
+julia> filter_trace(trace, [2, 3])
+ReactionTrace([0.5, 1.0, 1.5], [2, 3, 2])
+```
+"""
+function filter_trace(trace::ReactionTrace, keep_reactions)
+    filtered_t = Float64[]
+    filtered_rx = Int16[]
+    for i in 1:length(trace.t)
+        if trace.rx[i] in keep_reactions
+            push!(filtered_t, trace.t[i])
+            push!(filtered_rx, trace.rx[i])
+        end
+    end
+    ReactionTrace(filtered_t, filtered_rx)
+end
+
+filter_trace(trace::ReactionTrace, keep_reactions::Integer) = filter_trace(trace, (keep_reactions,))
 
 
 abstract type AbstractJumpRateAggregatorAlgorithm end
@@ -384,8 +486,8 @@ function species_to_dependent_reaction_map(js::JumpSet)
     map_reactions
 end
 
-dependend_species(rs::AbstractJumpSet, index) = (spec for (spec, stoch) in rs.rstoich[index])
-mutated_species(rs::AbstractJumpSet, index) = (spec for (spec, stoch) in rs.nstoich[index])
+dependend_species(rs::AbstractJumpSet, index) = (spec for (spec, _) in rs.rstoich[index])
+mutated_species(rs::AbstractJumpSet, index) = (spec for (spec, _) in rs.nstoich[index])
 function mutated_species(js::JumpSet, index)
     nreactions = num_reactions(js.reactions)
     if index <= nreactions
@@ -540,8 +642,8 @@ end
 # Code adapted from JumpProcesses.jl
 @inline function executerx!(speciesvec::AbstractVector, rxidx::Integer, reactions::AbstractJumpSet)
     @inbounds net_stoch = reactions.nstoich[rxidx]
-    @inbounds for specstoch in net_stoch
-        speciesvec[specstoch[1]] += specstoch[2]
+    for (species, diff) in net_stoch
+        @inbounds speciesvec[species] += diff
     end
     nothing
 end
@@ -555,23 +657,20 @@ end
     end
 end
 
-
-@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::ReactionSet)
-    speciesvec = agg.u
-    val = Float64(1.0)
-    @inbounds for specstoch in rs.rstoich[rxidx]
-        @inbounds specpop = speciesvec[specstoch[1]]
-        val *= Float64(specpop)
-        @inbounds for k = 2:specstoch[2]
-            specpop -= one(specpop)
-            val *= Float64(specpop)
-        end
+@inline function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, rs::ReactionSet)
+    @inbounds rstoich = rs.rstoich[rxidx]
+    @inbounds rate = rs.rates[rxidx]
+    rate * prod(rstoich; init=one(rate)) do (species, count)
+        @inbounds specpop = speciesvec[species]
+        prod(range(; length=count, start=specpop, step=-1); init=one(specpop))
     end
-
-    @inbounds val * rs.rates[rxidx]
 end
 
-@inline @fastmath function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, js::JumpSet)
+@inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::ReactionSet)
+    evalrxrate(agg.u, rxidx, rs)
+end
+
+@inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, js::JumpSet)
     speciesvec = agg.u
     nreactions = num_reactions(js.reactions)
     if rxidx <= nreactions
@@ -593,14 +692,11 @@ end
 
 function update_rates(aggregator::DirectAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
     update_cache!(aggregator, reactions)
-    sumrate = zero(aggregator.sumrate)
     for rx in 1:num_reactions(reactions)
         update_reaction_rate!(aggregator, reactions, rx)
     end
 
-    for rx in aggregator.active_reactions
-        sumrate += aggregator.rates[rx]
-    end
+    sumrate = sum(rx -> (@inbounds aggregator.rates[rx]), aggregator.active_reactions; init=zero(eltype(aggregator.rates)))
 
     aggregator = @set aggregator.gsumrate = sum(aggregator.grates)
     aggregator = @set aggregator.sumrate = sumrate
@@ -608,29 +704,23 @@ end
 
 function update_rates(aggregator::DepGraphAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
     update_cache!(aggregator, reactions)
-    sumrate = aggregator.sumrate
     if prev_reaction == 0
         # recompute all rates
         for rx in 1:num_reactions(reactions)
             update_reaction_rate!(aggregator, reactions, rx)
         end
-        sumrate = zero(sumrate)
-        for rx in aggregator.active_reactions
-            sumrate += aggregator.rates[rx]
-        end
+        sumrate = sum(rx -> aggregator.rates[rx], aggregator.active_reactions)
     else
         # only recompute dependent rates
-        @inbounds for rx in aggregator.depgraph[prev_reaction]
-            if rx ∈ aggregator.active_reactions
-                sumrate -= aggregator.rates[rx]
-                rate = update_reaction_rate!(aggregator, reactions, rx)
-                sumrate += rate
-            else
-                update_reaction_rate!(aggregator, reactions, rx)
-            end
+        sumrate = aggregator.sumrate + sum(aggregator.depgraph[prev_reaction]; init=zero(eltype(aggregator.rates))) do rx
+            @inbounds oldrate = aggregator.rates[rx]
+            newrate = update_reaction_rate!(aggregator, reactions, rx)
+            rx ∈ aggregator.active_reactions ? (newrate - oldrate) : zero(newrate)
         end
     end
 
     aggregator = @set aggregator.gsumrate = sum(aggregator.grates)
     aggregator = @set aggregator.sumrate = sumrate
 end
+
+end # module

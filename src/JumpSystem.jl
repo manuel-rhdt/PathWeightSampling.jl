@@ -1,5 +1,16 @@
+module JumpSystem
 
-struct MarkovJumpSystem{A,R,U}
+export MarkovJumpSystem, HybridJumpSystem
+
+import ..PathWeightSampling: AbstractSystem
+import ..PathWeightSampling as PWS
+import ..DirectMC: DirectMCEstimate
+import ..SMC
+using ..SSA
+using Setfield
+using StochasticDiffEq
+
+struct MarkovJumpSystem{A,R,U} <: AbstractSystem
     agg::A
     reactions::R
     u0::U
@@ -32,16 +43,36 @@ function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tsp
     agg, trace
 end
 
-function generate_configuration(system::MarkovJumpSystem; seed=nothing)
+function PWS.generate_configuration(system::MarkovJumpSystem; seed=nothing)
     agg, trace = generate_trace(system; seed=seed)
     trace
 end
 
-function sample(trace::ReactionTrace, system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan)
+# function sample(trace::ReactionTrace, system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan)
+#     # deactivate all traced reactions
+#     active_reactions = BitSet(1:length(system.reactions.rates))
+#     setdiff!(active_reactions, system.agg.traced_reactions)
+
+#     agg = initialize_aggregator(
+#         system.agg,
+#         system.reactions,
+#         u0=copy(u0),
+#         tspan=tspan,
+#         active_reactions=active_reactions,
+#         traced_reactions=BitSet(),
+#     )
+
+#     agg = advance_ssa(agg, system.reactions, tspan[2], trace, nothing)
+#     agg.weight
+# end
+
+function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dtimes=discrete_times(system), seed=nothing)
+    tspan = extrema(dtimes)
+    
     # deactivate all traced reactions
     active_reactions = BitSet(1:length(system.reactions.rates))
     setdiff!(active_reactions, system.agg.traced_reactions)
-
+    
     agg = initialize_aggregator(
         system.agg,
         system.reactions,
@@ -49,14 +80,20 @@ function sample(trace::ReactionTrace, system::MarkovJumpSystem; u0=system.u0, ts
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
+        seed=seed
     )
 
-    agg = advance_ssa(agg, system.reactions, tspan[2], trace, nothing)
-    agg.weight
+    cond_prob = zeros(Float64, length(dtimes))
+    for (i, t) in Iterators.drop(enumerate(dtimes), 1)
+        agg = advance_ssa(agg, system.reactions, t, trace, nothing)
+        cond_prob[i] = agg.weight
+    end
+
+    cond_prob
 end
 
 
-struct HybridJumpSystem{A,JS,U,Prob}
+struct HybridJumpSystem{A,JS,U,Prob} <: AbstractSystem
     agg::A
     reactions::JS
     u0::U
@@ -112,7 +149,7 @@ function advance_ssa(
         tstop = dtimes[i]
         agg = advance_ssa(agg, reactions, tstop, ReactionTrace(trace), out_trace)
         agg.u[1] = trace.u[i]
-        agg = update_rates(agg, reactions)
+        agg = SSA.update_rates(agg, reactions)
     end
     if dtimes[i2] != t_end
         agg = advance_ssa(agg, reactions, t_end, ReactionTrace(trace), out_trace)
@@ -137,7 +174,7 @@ function advance_ssa_sde(
             push!(out_trace.dtimes, integrator.t)
             push!(out_trace.u, integrator.u[end])
         end
-        agg = update_rates(agg, reactions)
+        agg = SSA.update_rates(agg, reactions)
         if integrator.t == t_end
             break
         end
@@ -223,7 +260,7 @@ function sample(trace::HybridTrace, system::HybridJumpSystem; u0=system.u0, tspa
         if i <= length(trace.u)
             agg.u[1] = trace.u[i]
             i += 1
-            agg = update_rates(agg, system.reactions)
+            agg = SSA.update_rates(agg, system.reactions)
         end
     end
 
@@ -244,7 +281,7 @@ function generate_trajectory(system::Union{MarkovJumpSystem,HybridJumpSystem}, d
         traj[:, i] .= agg.u
         if !isnothing(driving_traj)
             agg.u[1] = driving_traj[i]
-            agg = update_rates(agg, system.reactions)
+            agg = SSA.update_rates(agg, system.reactions)
         end
     end
 
@@ -260,11 +297,13 @@ struct HybridParticle{Agg,Integrator}
     integrator::Integrator
 end
 
-weight(particle::MarkovParticle) = particle.agg.weight
-weight(particle::HybridParticle) = particle.agg.weight
+SMC.weight(particle::MarkovParticle) = particle.agg.weight
+SMC.weight(particle::HybridParticle) = particle.agg.weight
 
-function MarkovParticle(setup::Setup)
+function MarkovParticle(setup::SMC.Setup)
     system = setup.ensemble
+
+    # only fire reactions that are not included in the trace
     active_reactions = BitSet(1:num_reactions(system.reactions))
     setdiff!(active_reactions, system.agg.traced_reactions)
 
@@ -282,7 +321,7 @@ function MarkovParticle(setup::Setup)
     MarkovParticle(agg)
 end
 
-function HybridParticle(setup::Setup{<:ReactionTrace})
+function HybridParticle(setup::SMC.Setup{<:ReactionTrace})
     system = setup.ensemble
     active_reactions = BitSet(1:num_reactions(system.reactions))
     setdiff!(active_reactions, system.agg.traced_reactions)
@@ -306,13 +345,13 @@ function HybridParticle(setup::Setup{<:ReactionTrace})
     HybridParticle(agg, integrator)
 end
 
-function MarkovParticle(parent::MarkovParticle, setup::Setup)
+function MarkovParticle(parent::MarkovParticle, setup::SMC.Setup)
     agg = copy(parent.agg)
     agg = @set agg.weight = 0.0
     MarkovParticle(agg)
 end
 
-function HybridParticle(parent::HybridParticle, setup::Setup)
+function HybridParticle(parent::HybridParticle, setup::SMC.Setup)
     system = setup.ensemble
     agg = copy(parent.agg)
     agg = @set agg.weight = 0.0
@@ -325,7 +364,7 @@ function HybridParticle(parent::HybridParticle, setup::Setup)
     HybridParticle(agg, integrator)
 end
 
-function propagate(particle::MarkovParticle, tspan, setup::Setup)
+function SMC.propagate(particle::MarkovParticle, tspan, setup::SMC.Setup)
     system = setup.ensemble
     trace = setup.configuration
     agg = particle.agg
@@ -334,7 +373,7 @@ function propagate(particle::MarkovParticle, tspan, setup::Setup)
     MarkovParticle(agg)
 end
 
-function propagate(particle::HybridParticle, tspan, setup::Setup)
+function SMC.propagate(particle::HybridParticle, tspan, setup::SMC.Setup)
     system = setup.ensemble
     trace = setup.configuration
     agg = particle.agg
@@ -345,10 +384,10 @@ function propagate(particle::HybridParticle, tspan, setup::Setup)
     HybridParticle(agg, integrator)
 end
 
-discrete_times(system::MarkovJumpSystem) = range(system.tspan[1], system.tspan[2], step=system.dt)
-discrete_times(system::HybridJumpSystem) = range(system.tspan[1], system.tspan[2], step=system.dt)
-discrete_times(setup::Setup{<:Trace,<:MarkovJumpSystem}) = discrete_times(setup.ensemble)
-discrete_times(setup::Setup{<:Trace,<:HybridJumpSystem}) = discrete_times(setup.ensemble)
+PWS.discrete_times(system::MarkovJumpSystem) = range(system.tspan[1], system.tspan[2], step=system.dt)
+PWS.discrete_times(system::HybridJumpSystem) = range(system.tspan[1], system.tspan[2], step=system.dt)
+PWS.discrete_times(setup::SMC.Setup{<:Trace,<:MarkovJumpSystem}) = PWS.discrete_times(setup.ensemble)
+PWS.discrete_times(setup::SMC.Setup{<:Trace,<:HybridJumpSystem}) = PWS.discrete_times(setup.ensemble)
 
 struct TraceAndTrajectory{Trace}
     trace::Trace
@@ -356,15 +395,13 @@ struct TraceAndTrajectory{Trace}
 end
 summary(t::TraceAndTrajectory) = t.traj
 
-function generate_configuration(system::HybridJumpSystem; seed=nothing)
+function PWS.generate_configuration(system::HybridJumpSystem; seed=nothing)
     traj = zeros(Float64, (length(system.u0), length(system.tspan[1]:system.dt:system.tspan[2])))
     agg, trace = generate_trace(system; traj=traj, seed=seed)
     TraceAndTrajectory(trace, traj)
 end
 
-marginal_density(system::HybridJumpSystem, algorithm::DirectMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(SMCEstimate(algorithm.num_samples), ReactionTrace(conf.trace), system; new_particle=HybridParticle, resample_threshold=0, kwargs...))
-conditional_density(system::HybridJumpSystem, algorithm::DirectMCEstimate, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(SMCEstimate(algorithm.num_samples), conf.trace, system; new_particle=MarkovParticle, resample_threshold=0, kwargs...))
+PWS.marginal_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...) = PWS.log_marginal(PWS.simulate(algorithm, ReactionTrace(conf.trace), system; new_particle=HybridParticle, kwargs...))
+PWS.conditional_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...) = PWS.log_marginal(PWS.simulate(algorithm, conf.trace, system; new_particle=MarkovParticle, kwargs...))
 
-marginal_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(algorithm, ReactionTrace(conf.trace), system; new_particle=HybridParticle, kwargs...))
-conditional_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...) = log_marginal(simulate(algorithm, conf.trace, system; new_particle=MarkovParticle, kwargs...))
-compile(system::HybridJumpSystem) = system
+end # module

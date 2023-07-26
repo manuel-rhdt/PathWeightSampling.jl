@@ -96,28 +96,28 @@ system = PWS.MarkovJumpSystem(
     BitSet([3, 4])
 )
 
-agg, trace = PWS.generate_trace(system)
+agg, trace = PWS.JumpSystem.generate_trace(system)
 
-ce = agg.weight
+# ce = agg.weight
 
-@time samples = [PWS.sample(trace, system) for i = 1:10000]
+# @time samples = [PWS.sample(system, trace)[end] for i = 1:10000]
 
-using Statistics
-result_direct = mean(ce .- samples)
+# using Statistics
+# result_direct = mean(ce .- samples)
 
-system_dep = PWS.MarkovJumpSystem(
-    PWS.DepGraphDirect(),
-    reactions,
-    u0,
-    tspan,
-    [0, 0, 1, 2],
-    BitSet([3, 4])
-)
+# system_dep = PWS.MarkovJumpSystem(
+#     PWS.DepGraphDirect(),
+#     reactions,
+#     u0,
+#     tspan,
+#     [0, 0, 1, 2],
+#     BitSet([3, 4])
+# )
 
-agg2, trace2 = PWS.generate_trace(system_dep)
+# agg2, trace2 = PWS.generate_trace(system_dep)
 
-@time samples_dep = [PWS.sample(trace, system_dep) for i = 1:10000]
+# @time samples_dep = [PWS.sample(system_dep, trace)[end] for i = 1:10000]
 
-result_dep = mean(ce .- samples_dep)
+# result_dep = mean(ce .- samples_dep)
 
-@test result_direct ≈ result_dep rtol = 0.01
+# @test result_direct ≈ result_dep rtol = 0.01

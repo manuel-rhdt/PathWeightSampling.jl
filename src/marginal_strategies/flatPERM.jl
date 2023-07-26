@@ -1,3 +1,10 @@
+module FlatPerm
+
+export PERM
+
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
+import ..SMC: Setup
+
 import LogExpFunctions: logaddexp
 
 # ---------------------------------------------------------------------------- #
@@ -25,7 +32,7 @@ PERM(num_chains::Int)
 
 Compute the marginal trajectory probability using flatPERM.
 """
-struct PERM
+struct PERM <: AbstractSimulationAlgorithm
     num_chains::Int
 end
 
@@ -171,3 +178,5 @@ function simulate(algorithm::PERM, initial, system; kwargs...)
     setup = Setup(initial, system)
     flatperm(algorithm.num_chains, setup; kwargs...)
 end
+
+end # module
