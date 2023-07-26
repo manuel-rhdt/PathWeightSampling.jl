@@ -5,6 +5,8 @@ export PERM
 import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
 import ..SMC: Setup
 
+using Statistics
+
 import LogExpFunctions: logaddexp
 
 # ---------------------------------------------------------------------------- #
