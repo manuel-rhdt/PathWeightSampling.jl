@@ -660,10 +660,16 @@ end
 @inline function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, rs::ReactionSet)
     @inbounds rstoich = rs.rstoich[rxidx]
     @inbounds rate = rs.rates[rxidx]
-    rate * prod(rstoich; init=one(rate)) do (species, count)
+    rate_mult = one(eltype(speciesvec))
+    for (species, count) in rstoich
         @inbounds specpop = speciesvec[species]
-        prod(range(; length=count, start=specpop, step=-1); init=one(specpop))
+        rate_mult *= specpop
+        for k = 2:count
+            specpop -= 1
+            rate_mult *= specpop
+        end
     end
+    rate * rate_mult
 end
 
 @inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::ReactionSet)
