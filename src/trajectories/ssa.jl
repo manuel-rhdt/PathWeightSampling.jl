@@ -702,7 +702,10 @@ function update_rates(aggregator::DirectAggregator, reactions::AbstractJumpSet, 
         update_reaction_rate!(aggregator, reactions, rx)
     end
 
-    sumrate = sum(rx -> (@inbounds aggregator.rates[rx]), aggregator.active_reactions; init=zero(eltype(aggregator.rates)))
+    sumrate = zero(eltype(aggregator.rates))
+    for rx in aggregator.active_reactions
+        sumrate += @inbounds aggregator.rates[rx]
+    end
 
     aggregator = @set aggregator.gsumrate = sum(aggregator.grates)
     aggregator = @set aggregator.sumrate = sumrate
@@ -715,13 +718,19 @@ function update_rates(aggregator::DepGraphAggregator, reactions::AbstractJumpSet
         for rx in 1:num_reactions(reactions)
             update_reaction_rate!(aggregator, reactions, rx)
         end
-        sumrate = sum(rx -> aggregator.rates[rx], aggregator.active_reactions)
+        sumrate = zero(eltype(aggregator.rates))
+        for rx in aggregator.active_reactions
+            sumrate += @inbounds aggregator.rates[rx]
+        end
     else
         # only recompute dependent rates
-        sumrate = aggregator.sumrate + sum(aggregator.depgraph[prev_reaction]; init=zero(eltype(aggregator.rates))) do rx
+        sumrate = aggregator.sumrate
+        for rx in aggregator.depgraph[prev_reaction]
             @inbounds oldrate = aggregator.rates[rx]
             newrate = update_reaction_rate!(aggregator, reactions, rx)
-            rx ∈ aggregator.active_reactions ? (newrate - oldrate) : zero(newrate)
+            if rx ∈ aggregator.active_reactions
+                sumrate += newrate - oldrate
+            end
         end
     end
 
