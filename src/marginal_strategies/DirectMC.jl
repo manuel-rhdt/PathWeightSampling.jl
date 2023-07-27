@@ -2,7 +2,7 @@ module DirectMC
 
 export DirectMCEstimate
 
-import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, name
 import ..SMC: SMCEstimate
 
 """

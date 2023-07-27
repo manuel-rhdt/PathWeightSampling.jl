@@ -2,8 +2,11 @@ module SMC
 
 export SMCEstimate, weight, propagate
 
-import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, discrete_times,
+    log_marginal, logmeanexp, name, simulate
 import StatsBase
+
+
 
 
 # Each particle represents an independently evolving trajectory.

@@ -3,7 +3,7 @@ module AIS
 export AnnealingEstimate
 
 import ..MCMCSampler: MarkovChain, MetropolisSampler
-import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal, name
 import StatsFuns: logsumexp
 
 using Statistics

@@ -2,12 +2,13 @@ module FlatPerm
 
 export PERM
 
-import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal, name
 import ..SMC: Setup, propagate, weight
 
 using Statistics
+using Random
 
-import LogExpFunctions: logaddexp
+import LogExpFunctions: logaddexp, logsumexp
 
 # ---------------------------------------------------------------------------- #
 #                                CURSOR CONTROL                                #

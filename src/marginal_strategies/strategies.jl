@@ -24,7 +24,7 @@ log_marginal(::SimulationResult) = error("Custom simulation result does not impl
 abstract type AbstractSimulationAlgorithm end
 
 simulate(s::AbstractSimulationAlgorithm, args...) = error("Unknown simulation algorihm", s)
-name(x::AbstractSimulationAlgorithm) = "unknown"
+name(x::AbstractSimulationAlgorithm) = string(typeof(x))
 
 function _logmeanexp(x::AbstractArray)
     x_max = maximum(x)

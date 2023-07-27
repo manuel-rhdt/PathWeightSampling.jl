@@ -2,8 +2,8 @@ module ThermodynamicIntegration
 
 export TIEstimate
 
-import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
-
+import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, discrete_times,
+    log_marginal, logmeanexp, name, simulate
 import Statistics
 
 using FastGaussQuadrature
