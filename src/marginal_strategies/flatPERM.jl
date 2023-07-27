@@ -3,7 +3,7 @@ module FlatPerm
 export PERM
 
 import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal
-import ..SMC: Setup
+import ..SMC: Setup, propagate, weight
 
 using Statistics
 
