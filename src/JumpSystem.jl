@@ -48,24 +48,6 @@ function PWS.generate_configuration(system::MarkovJumpSystem; seed=nothing)
     trace
 end
 
-# function sample(trace::ReactionTrace, system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan)
-#     # deactivate all traced reactions
-#     active_reactions = BitSet(1:length(system.reactions.rates))
-#     setdiff!(active_reactions, system.agg.traced_reactions)
-
-#     agg = initialize_aggregator(
-#         system.agg,
-#         system.reactions,
-#         u0=copy(u0),
-#         tspan=tspan,
-#         active_reactions=active_reactions,
-#         traced_reactions=BitSet(),
-#     )
-
-#     agg = advance_ssa(agg, system.reactions, tspan[2], trace, nothing)
-#     agg.weight
-# end
-
 function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dtimes=discrete_times(system), seed=nothing)
     tspan = extrema(dtimes)
     
