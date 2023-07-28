@@ -19,7 +19,7 @@ end
 
 abstract type SimulationResult end
 
-log_marginal(::SimulationResult) = error("Custom simulation result does not implement required function `log_marginal`.")
+log_marginal(::SimulationResult) = error("Custom subtype of SimulationResult does not implement required function `log_marginal`.")
 
 abstract type AbstractSimulationAlgorithm end
 
@@ -107,8 +107,6 @@ function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
         # summary of the configuration
         s = summary(sample)
 
-        # compute a sample for the mutual information using
-        # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
         result.value, s
     end
 
