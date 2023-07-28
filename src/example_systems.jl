@@ -1,8 +1,7 @@
 import .SMC: systematic_sample
-
-using .SSA
 using LinearAlgebra
 using StochasticDiffEq
+using .SSA
 
 """
     gene_expression_system(; mean_s=50, mean_x=mean_s, corr_time_s=1.0, corr_time_x=0.1, u0=SA[mean_s, mean_x], dtimes=0:0.1:2.0)
@@ -81,12 +80,12 @@ function gene_expression_system(;
     u0=[mean_s, mean_x],
     dtimes=0:0.1:2.0
 )
-    nspecies = 2
+    species = [:S, :X]
     rates = [kappa, lambda, rho, mu]
     rstoich = [[], [1 => 1], [1 => 1], [2 => 1]]
     nstoich = [[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
 
-    reactions = ReactionSet(rates, rstoich, nstoich, nspecies)
+    reactions = ReactionSet(rates, rstoich, nstoich, species)
 
     MarkovJumpSystem(
         GillespieDirect(),

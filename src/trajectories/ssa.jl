@@ -26,7 +26,7 @@ A struct that stores reactions for use with Gillespie simulation code.
 - `rates::Vector{Float64}`: Vector of reaction rates.
 - `rstoich::Vector{Vector{Pair{Int64,Int64}}}`: Vector of vectors specifying the reactant stoichiometry for each reaction. Each inner vector contains pairs of species index and stoichiometric coefficient.
 - `nstoich::Vector{Vector{Pair{Int64,Int64}}}`: Vector of vectors specifying the product stoichiometry for each reaction. Each inner vector contains pairs of species index and stoichiometric coefficient.
-- `nspecies::Int`: Number of species in the system.
+- `species::Vector{Symbol}`: The species in the system.
 
 This struct represents a set of reactions to be used in Gillespie simulations. The reactions are defined by their rates, reactant stoichiometry, product stoichiometry, and the number of species in the system.
 """
@@ -34,11 +34,11 @@ struct ReactionSet <: AbstractJumpSet
     rates::Vector{Float64}
     rstoich::Vector{Vector{Pair{Int64,Int64}}}
     nstoich::Vector{Vector{Pair{Int64,Int64}}}
-    nspecies::Int
+    species::Vector{Symbol}
 end
 
 num_reactions(rs::AbstractJumpSet) = length(rs.rates)
-num_species(rs::AbstractJumpSet) = rs.nspecies
+num_species(rs::AbstractJumpSet) = length(rs.species)
 
 struct JumpSet{Jumps} <: AbstractJumpSet
     reactions::ReactionSet
