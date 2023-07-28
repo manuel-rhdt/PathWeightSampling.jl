@@ -59,7 +59,7 @@ function run_parallel(systemfn, algorithm, num_samples; compile_args = (;))
                 result
             end
             put!(channel, nothing)
-            vcat(result...)
+            reduce(vcat, result)
         end
     end
     @info "Finished Parallel computation"
