@@ -21,7 +21,7 @@ agg = PWS.initialize_aggregator(agg, reactions)
 @test agg.tstop > 0
 @test agg.sumrate == 1.0
 
-trace = PWS.ReactionTrace([], [])
+trace = PWS.ReactionTrace([], [], BitSet(1:2))
 
 agg2 = PWS.step_ssa(agg, reactions, nothing, trace)
 
@@ -45,7 +45,7 @@ agg = PWS.initialize_aggregator(agg, reactions, u0=[0], active_reactions=BitSet(
 @test agg.tstop == Inf
 @test agg.trace_index == 1
 
-trace_new = PWS.ReactionTrace([], [])
+trace_new = PWS.ReactionTrace([], [], BitSet([1,2]))
 
 agg = PWS.step_ssa(agg, reactions, trace, trace_new)
 
@@ -92,8 +92,8 @@ system = PWS.MarkovJumpSystem(
     reactions,
     u0,
     tspan,
-    [0, 0, 1, 2],
-    BitSet([3, 4])
+    :S,
+    :X
 )
 
 agg, trace = PWS.JumpSystem.generate_trace(system)

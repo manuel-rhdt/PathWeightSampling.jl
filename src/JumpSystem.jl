@@ -27,7 +27,7 @@ function MarkovJumpSystem(
     tspan::Tuple{Float64,Float64},
     input_species::Symbol,
     output_species::Symbol,
-    dt=(tspan[2] - tspan[1]) / 1000
+    dt=(tspan[2] - tspan[1]) / 100
 )
     ridtogroup = make_reaction_groups(reactions, output_species)
     input_reactions = reactions_that_mutate_species(reactions, input_species)
@@ -222,7 +222,7 @@ end
 function sample(trace::ReactionTrace, system::HybridJumpSystem; u0=system.u0, tspan=system.tspan)
     # deactivate all traced reactions
     active_reactions = BitSet(1:num_reactions(system.reactions))
-    setdiff!(active_reactions, system.agg.traced_reactions)
+    setdiff!(active_reactions, trace.traced_reactions)
 
     agg = initialize_aggregator(
         system.agg,

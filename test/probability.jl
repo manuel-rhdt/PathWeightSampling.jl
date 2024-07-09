@@ -5,7 +5,7 @@ using Setfield
 κ = 50.0
 λ = 1.0
 
-species = [:X]
+species = [:X, :Y]
 rates = [κ, λ]
 rstoich = [[], [1 => 1]]
 nstoich = [[1 => 1], [1 => -1]]
@@ -20,11 +20,11 @@ bd_system = PWS.MarkovJumpSystem(
     bd_reactions,
     u0,
     tspan,
-    [1, 2],
-    BitSet(Int[])
+    :Y,
+    :X
 )
 
-trace = PWS.ReactionTrace([1.0, 2.0], [1, 2])
+trace = PWS.ReactionTrace([1.0, 2.0], [1, 2], BitSet([1, 2]))
 
 p_wait(s, dt) = exp(-(κ + s * λ) * dt)
 

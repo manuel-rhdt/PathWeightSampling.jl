@@ -5,7 +5,7 @@ rates = [50.0, 1.0]
 rstoich = [[], [1 => 1]]
 nstoich = [[1 => 1], [1 => -1]]
 
-bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
+bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X, :Y])
 
 u0 = [50.0]
 tspan = (0.0, 100.0)
@@ -15,8 +15,8 @@ bd_system = PWS.MarkovJumpSystem(
     bd_reactions,
     u0,
     tspan,
-    [0, 0],
-    BitSet(Int[1, 2])
+    :Y,
+    :X
 )
 
 dtimes = tspan[1]:0.1:tspan[2]
