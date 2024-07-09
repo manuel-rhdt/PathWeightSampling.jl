@@ -182,7 +182,16 @@ struct HybridTrace{U,T} <: Trace
     dtimes::T
 end
 
-ReactionTrace(ht::HybridTrace) = ReactionTrace(ht.t, ht.rx)
+ReactionTrace(ht::HybridTrace) = ReactionTrace(ht.t, ht.rx, BitSet(ht.rx))
+
+function DataFrame(trace::HybridTrace; kwargs...)
+    x = length(trace.t)
+    y = length(trace.dtimes)
+    t = vcat(trace.t, trace.dtimes)
+    rx = vcat(trace.rx, fill(nothing, y))
+    u = vcat(fill(nothing, x), trace.u)
+    sort!(DataFrame(Time=t, ReactionIndex=rx, U=u; kwargs...), :Time)
+end
 
 """
     filter_trace(trace::ReactionTrace, keep_reactions)
