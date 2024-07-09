@@ -1,5 +1,6 @@
 using DataFrames
 using ProgressMeter
+import Statistics: mean
 
 abstract type AbstractSystem end
 

@@ -1,3 +1,7 @@
+module MarkovMcmc
+
+import StaticArrays
+using ..SSA
 
 function cartesian_product(args...)
     n = length(args)
@@ -86,6 +90,65 @@ end
 # The initial probability is a distribution on this hyperrectangle.
 # The forward probabilities are computed from the initial probability and the "rate matrix"
 
-function propagate_probs(p::AbstractArray, reactions::AbstractJumpSet)
+function transition_matrix(reactions::SSA.ReactionSet, N::Integer, Ω::Real)
+    assert(num_species(reactions) == 2)
+    matrix = sparse(I, N^2, N^2)
+
+    state_to_index(state) = state[1] * N + state[2]
     
+
+
+end
+
+function propagate_probs(p::AbstractArray, jump_times::AbstractVector, reactions::SSA.ReactionSet, N::Integer, Ω::Real)
+    invΩ = 1 / Ω # because multiplication is more efficient than division
+
+    # allocate vector of matrixes
+    state_sequence = [p]
+    tprev = zero(eltype(jump_times))
+
+    # helper functions to map between array index and (s, x) state tuple
+    state_range = CartesianIndices((0:N, 0:N))
+    linear_range = LinearIndices(state_range)
+    index_to_state(index) = Tuple(state_range[index])
+    state_to_index(state) = linear_range[CartesianIndex(state) - state_range[begin] + CartesianIndex(1, 1)]
+
+    for t in jump_times
+        Δt = t - tprev
+        p = state_sequence[end]
+        pnew = zero(p)
+        for i in eachindex(p)
+            state = index_to_state(i)
+            sumrate = 0.0
+            for r in 1:SSA.num_reactions(reactions)
+                rate = SSA.evalrxrate(StaticArrays.SVector(state...), r, reactions)
+                rate *= invΩ
+                sumrate += rate
+                new_state = state
+                for (k, v) in reactions.nstoich[r]
+                    v = new_state[k] + v
+                    v = clamp(v, 0:N)
+                    new_state = Base.setindex(new_state, v, k)
+                end
+                j = state_to_index(new_state)
+                pnew[j] += p[i] * rate
+            end
+            pnew[i] += p[i] * (1 - sumrate)
+        end
+
+        push!(state_sequence, pnew)
+        tprev = t
+    end
+
+    state_sequence
+end
+
+function sample_mcmc_trajectory(prev_traj)
+    # insert latent jumps
+
+    # propagate probabilities based on jump times
+
+
+end
+
 end

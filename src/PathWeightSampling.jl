@@ -2,6 +2,7 @@ module PathWeightSampling
 
 include("marginal_strategies/strategies.jl")
 include("trajectories/ssa.jl")
+include("trajectories/path_mcmc.jl")
 include("JumpSystem.jl")
 include("EmpiricalDistribution.jl")
 include("write_hdf5.jl")

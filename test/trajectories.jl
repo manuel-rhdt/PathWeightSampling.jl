@@ -1,12 +1,11 @@
 using Test
 import PathWeightSampling as PWS
 
-nspecies = 1
 rates = [50.0, 1.0]
 rstoich = [[], [1 => 1]]
 nstoich = [[1 => 1], [1 => -1]]
 
-bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, nspecies)
+bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
 
 u0 = [50.0]
 tspan = (0.0, 100.0)

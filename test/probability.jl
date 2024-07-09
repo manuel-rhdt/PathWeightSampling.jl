@@ -5,12 +5,12 @@ using Setfield
 κ = 50.0
 λ = 1.0
 
-nspecies = 1
+species = [:X]
 rates = [κ, λ]
 rstoich = [[], [1 => 1]]
 nstoich = [[1 => 1], [1 => -1]]
 
-bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, nspecies)
+bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, species)
 
 u0 = [50.0]
 tspan = (0.0, 3.0)

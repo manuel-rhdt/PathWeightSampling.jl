@@ -7,7 +7,7 @@ rates = [1.0, 1.0]
 rstoich = [[], [1 => 1]]
 nstoich = [[1 => 1], [1 => -1]]
 
-reactions = PWS.ReactionSet(rates, rstoich, nstoich, 1)
+reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
 
 agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, 1:2; seed=1234)
 
@@ -67,7 +67,7 @@ end
 rates = [1.0]
 rstoich = [[1 => 1]]
 nstoich = [[1 => -1]]
-reactions = PWS.ReactionSet(rates, rstoich, nstoich, 1)
+reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
 
 agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, 1:1)
 agg = PWS.initialize_aggregator(agg, reactions, tspan=(0.0, 10.0))
@@ -83,7 +83,7 @@ rates = [50.0, 1.0, 1.0, 1.0]
 rstoich = [[], [1 => 1], [1 => 1], [2 => 1]]
 nstoich = [[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
 
-reactions = PWS.ReactionSet(rates, rstoich, nstoich, 2)
+reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:S, :X])
 
 u0 = [50, 50]
 tspan = (0.0, 10.0)

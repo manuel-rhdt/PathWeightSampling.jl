@@ -40,6 +40,24 @@ end
 num_reactions(rs::AbstractJumpSet) = length(rs.rates)
 num_species(rs::AbstractJumpSet) = length(rs.species)
 
+species_index(rs::ReactionSet, spec::Symbol) = findfirst(==(spec), rs.species)
+
+function make_reaction_groups(rs::ReactionSet, species::Symbol)
+    nstoich = rs.nstoich
+    comp = species_index(rs, species)
+    group_assignments = Dict{Pair{Int, Int}, Int}()
+    map(nstoich) do reaction_stoich
+        group = 0
+        for (species, stoich) in reaction_stoich
+            if species == comp
+                ngroups = length(group_assignments)
+                group = get!(group_assignments, species => stoich, ngroups + 1)
+            end
+        end
+        group
+    end
+end
+
 struct JumpSet{Jumps} <: AbstractJumpSet
     reactions::ReactionSet
     jumps::Jumps
@@ -126,7 +144,7 @@ struct HybridTrace{U,T} <: Trace
     "a vector of reaction indices"
     rx::Vector{Int16}
 
-    "a vector of external signal"
+    "a vector of external signal, sampled at discrete times"
     u::U
 
     "sampling times of external trajectory"
@@ -526,6 +544,10 @@ function TrajectoryDistribution(reactions::ReactionSet, alg::AbstractJumpRateAgg
     TrajectoryDistribution(reactions, agg)
 end
 
+function lerp(v0, v1, t::Real)
+    (1-t) * v0 + t * v1
+end
+
 function step_ssa(
     agg::AbstractJumpRateAggregator,
     reactions::AbstractJumpSet,
@@ -535,7 +557,7 @@ function step_ssa(
     tindex = agg.trace_index
 
     if (!isnothing(trace)) && (tindex <= length(trace.t)) && (agg.tstop >= trace.t[tindex])
-        # perform reaction from pre-recorded trace
+        # perform reaction from pre-recorded trace 
 
         tnow = trace.t[tindex]
         if tnow >= agg.tspan[2]
@@ -555,7 +577,7 @@ function step_ssa(
 
         # update tstop, taking into account the change of total propensity
         t1 = agg.tstop
-        agg = @set agg.tstop = t1 == Inf ? Inf : (srate1 * t1 + (srate2 - srate1) * tnow) / srate2
+        agg = @set agg.tstop = t1 == Inf ? Inf : lerp(tnow, t1, srate1/srate2)
 
         # advance trace
         agg = @set agg.trace_index = tindex + 1
