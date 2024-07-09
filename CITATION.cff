@@ -1,11 +1,20 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: PathWeightSampling.jl
+message: >-
+  If you use this software, please cite the article from
+  preferred-citation and the software itself.
+type: software
 authors:
   - given-names: Manuel
     family-names: Reinhardt
     affiliation: AMOLF
     email: reinhardt@amolf.nl
     orcid: 'https://orcid.org/0000-0001-8926-9513'
-cff-version: 1.2.0
-message: "If you use this software, please cite the article from preferred-citation and the software itself."
+repository-code: 'https://github.com/manuel-rhdt/PathWeightSampling.jl'
+license: MIT
 preferred-citation:
   authors:
     - given-names: Manuel
@@ -22,8 +31,12 @@ preferred-citation:
       affiliation: AMOLF
       orcid: 'https://orcid.org/0000-0001-9933-4016'
   title: "Path Weight Sampling: Exact Monte Carlo Computation of the Mutual Information between Stochastic Trajectories"
-  journal: arXiv
-  year: 2022
-  doi: 10.48550/arXiv.2203.03461
+  journal: Phys. Rev. X
+  volume: 13
+  issue: 4
+  pages: 041017
+  year: 2023
+  month: 10
+  publisher: "American Physical Society"
+  doi: '10.1103/PhysRevX.13.041017'
   type: article
-title: "PathWeightSampling.jl"
