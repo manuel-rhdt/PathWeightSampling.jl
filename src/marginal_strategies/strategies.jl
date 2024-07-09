@@ -83,36 +83,24 @@ function mutual_information(system::AbstractSystem, algorithm; num_samples::Inte
     compiled_system = compile(system; compile_args...)
 
     # this is the outer Direct Monte-Carlo loop
-    # result = Base.invokelatest(_mi_inner, compiled_system, algorithm, num_samples)
     result = _mi_inner(compiled_system, algorithm, num_samples, progress)
 
     result
 end
 
 function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
-    stats = DataFrame(
-        Time=zeros(Float64, num_samples),
-    )
-
     p = Progress(num_samples; showspeed=true, enabled=show_progress)
     result = progress_map(1:num_samples, progress=p) do i
-        # draw an independent sample
         sample = generate_configuration(compiled_system)
-
         # compute ln [P(x,s)/(P(x)P(s))]
         result = @timed information_density(compiled_system, algorithm, sample)
-
-        # record the simulation time
-        stats.Time[i] = result.time
-
-        # summary of the configuration
-        s = summary(sample)
-
-        result.value, s
+        DataFrame(N=i, CPUTime=result.time, MutualInformation=[result.value]), DataFrame(sample, N=i)
     end
 
-    stats[!, :MutualInformation] = getindex.(result, 1)
-    stats[!, :Trajectory] = getindex.(result, 2)
-
-    stats
+    result, traj = reduce(result) do l, r
+        result = vcat(l[1], r[1])
+        traj = vcat(l[2], r[2])
+        result, traj
+    end
+    Dict("mutual_information" => result, "trajectories" => conf)
 end

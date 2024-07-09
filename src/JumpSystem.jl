@@ -14,6 +14,8 @@ struct MarkovJumpSystem{A,R,U} <: AbstractSystem
     agg::A
     reactions::R
     u0::U
+    input_reactions::BitSet
+    output_reactions::BitSet
     tspan::Tuple{Float64,Float64}
     dt::Float64
 end
@@ -23,13 +25,18 @@ function MarkovJumpSystem(
     reactions::AbstractJumpSet,
     u0::AbstractVector,
     tspan::Tuple{Float64,Float64},
-    ridtogroup,
-    traced_reactions::BitSet;
+    input_species::Symbol,
+    output_species::Symbol,
     dt=(tspan[2] - tspan[1]) / 1000
 )
+    ridtogroup = make_reaction_groups(reactions, output_species)
+    input_reactions = reactions_that_mutate_species(reactions, input_species)
+    output_reactions = reactions_that_mutate_species(reactions, output_species)
+    if !isempty(intersect(input_reactions, output_reactions))
+        error("Reactions that directly affect both input and output species are not supported.")
+    end
     agg = build_aggregator(alg, reactions, ridtogroup)
-    agg = @set agg.traced_reactions = traced_reactions
-    MarkovJumpSystem(agg, reactions, u0, tspan, dt)
+    MarkovJumpSystem(agg, reactions, u0, input_reactions, output_reactions, tspan, dt)
 end
 
 # to compute the marginal entropy
@@ -38,7 +45,7 @@ end
 
 function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan, seed=nothing)
     agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=seed)
-    trace = ReactionTrace([], [])
+    trace = ReactionTrace([], [], agg.traced_reactions)
     agg = advance_ssa(agg, system.reactions, tspan[2], nothing, trace)
     agg, trace
 end
@@ -48,12 +55,12 @@ function PWS.generate_configuration(system::MarkovJumpSystem; seed=nothing)
     trace
 end
 
-function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dtimes=discrete_times(system), seed=nothing)
+function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dtimes=PWS.discrete_times(system), seed=nothing)
     tspan = extrema(dtimes)
     
     # deactivate all traced reactions
-    active_reactions = BitSet(1:length(system.reactions.rates))
-    setdiff!(active_reactions, system.agg.traced_reactions)
+    active_reactions = BitSet(1:num_reactions(system.reactions))
+    setdiff!(active_reactions, trace.traced_reactions)
     
     agg = initialize_aggregator(
         system.agg,
@@ -74,6 +81,24 @@ function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dt
     cond_prob
 end
 
+function PWS.conditional_density(system::MarkovJumpSystem, algorithm, conf::ReactionTrace; kwargs...)
+    traced_reactions = union(system.input_reactions, system.output_reactions)
+    conf = filter_trace(conf, traced_reactions)
+    if 1:num_reactions(system.reactions) ⊆ traced_reactions
+        # we don't need to marginalize
+        sample(system, conf; kwargs...)
+    else
+        marginalization_result = PWS.simulate(algorithm, conf, system; new_particle=MarkovParticle, kwargs...)
+        PWS.log_marginal(marginalization_result)
+    end
+end
+
+function PWS.marginal_density(system::MarkovJumpSystem, algorithm, conf::ReactionTrace; kwargs...)
+    traced_reactions = system.output_reactions
+    conf = filter_trace(conf, traced_reactions)
+    marginalization_result = PWS.simulate(algorithm, conf, system; new_particle=MarkovParticle, kwargs...)
+    PWS.log_marginal(marginalization_result)
+end
 
 struct HybridJumpSystem{A,JS,U,Prob} <: AbstractSystem
     agg::A
@@ -287,7 +312,7 @@ function MarkovParticle(setup::SMC.Setup)
 
     # only fire reactions that are not included in the trace
     active_reactions = BitSet(1:num_reactions(system.reactions))
-    setdiff!(active_reactions, system.agg.traced_reactions)
+    setdiff!(active_reactions, setup.configuration.traced_reactions)
 
     tspan = system.tspan
     u0 = system.u0

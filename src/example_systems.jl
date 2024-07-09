@@ -93,8 +93,8 @@ function gene_expression_system(;
         reactions,
         u0,
         extrema(dtimes),
-        [0, 0, 1, 2],
-        BitSet([3, 4])
+        :S,
+        :X
     )
 end
 

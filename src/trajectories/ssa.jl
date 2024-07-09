@@ -5,11 +5,13 @@ export DirectAggregator, DepGraphAggregator, GillespieDirect, DepGraphDirect, bu
 export Trace, ReactionTrace, HybridTrace
 export num_reactions, num_species, set_tspan
 export step_ssa
+export make_reaction_groups, reactions_that_mutate_species, filter_trace
 
 using StaticArrays
 import Base.show
 using Setfield
 using Random
+import DataFrames: DataFrame
 
 abstract type AbstractJumpSet end
 
@@ -41,6 +43,27 @@ num_reactions(rs::AbstractJumpSet) = length(rs.rates)
 num_species(rs::AbstractJumpSet) = length(rs.species)
 
 species_index(rs::ReactionSet, spec::Symbol) = findfirst(==(spec), rs.species)
+
+"""
+    reactions_that_mutate_species(rs::ReactionSet, species::Symbol)
+
+Returns the subset of reactions of `rs` which directly affect the copy number
+of `species`.
+"""
+function reactions_that_mutate_species(rs::ReactionSet, species::Symbol)
+    comp = species_index(rs, species)
+    result = BitSet()
+    
+    for (reaction_index, net_stoichiometry) in enumerate(rs.nstoich)
+        for (species, stoich) in net_stoichiometry
+            if species == comp && stoich != 0
+                union!(result, reaction_index)
+                break
+            end
+        end
+    end
+    result
+end
 
 function make_reaction_groups(rs::ReactionSet, species::Symbol)
     nstoich = rs.nstoich
@@ -97,17 +120,25 @@ struct ReactionTrace <: Trace
 
     "a vector of reaction indices"
     rx::Vector{Int16}
+
+    "set of traced reaction indices"
+    traced_reactions::BitSet
 end
 
-ReactiontTrace() = ReactionTrace([], [])
+ReactiontTrace() = ReactionTrace([], [], BitSet())
 
 function Base.empty!(trace::ReactionTrace)
     empty!(trace.t)
     empty!(trace.rx)
+    empty!(trace.traced_reactions)
     trace
 end
 
-Base.:(==)(t1::ReactionTrace, t2::ReactionTrace) = (t1.t == t2.t && t1.rx == t2.rx)
+Base.:(==)(t1::ReactionTrace, t2::ReactionTrace) = (t1.t == t2.t && t1.rx == t2.rx && t1.traced_reactions == t2.traced_reactions)
+
+function DataFrame(trace::ReactionTrace; kwargs...)
+    DataFrame(ReactionTime=trace.t, ReactionIndex=trace.rx; kwargs...)
+end
 
 """
     struct HybridTrace{U,T} <: Trace
@@ -177,6 +208,9 @@ ReactionTrace([0.5, 1.0, 1.5], [2, 3, 2])
 ```
 """
 function filter_trace(trace::ReactionTrace, keep_reactions)
+    if trace.traced_reactions ⊆ keep_reactions
+        return trace
+    end
     filtered_t = Float64[]
     filtered_rx = Int16[]
     for i in 1:length(trace.t)
@@ -185,7 +219,7 @@ function filter_trace(trace::ReactionTrace, keep_reactions)
             push!(filtered_rx, trace.rx[i])
         end
     end
-    ReactionTrace(filtered_t, filtered_rx)
+    ReactionTrace(filtered_t, filtered_rx, intersect(trace.traced_reactions, keep_reactions))
 end
 
 filter_trace(trace::ReactionTrace, keep_reactions::Integer) = filter_trace(trace, (keep_reactions,))
