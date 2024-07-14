@@ -20,6 +20,18 @@ struct MarkovJumpSystem{A,R,U} <: AbstractSystem
     dt::Float64
 end
 
+function Base.copy(js::MarkovJumpSystem)
+    MarkovJumpSystem(
+        copy(js.agg),
+        js.reactions,
+        js.u0,
+        js.input_reactions,
+        js.output_reactions,
+        js.tspan,
+        js.dt
+    )
+end
+
 function MarkovJumpSystem(
     alg::AbstractJumpRateAggregatorAlgorithm,
     reactions::AbstractJumpSet,

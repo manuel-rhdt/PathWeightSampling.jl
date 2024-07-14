@@ -89,13 +89,19 @@ function mutual_information(system::AbstractSystem, algorithm; num_samples::Inte
 end
 
 function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
-    p = Progress(num_samples; showspeed=true, enabled=show_progress)
-    result = progress_map(1:num_samples, progress=p) do i
-        sample = generate_configuration(compiled_system)
-        # compute ln [P(x,s)/(P(x)P(s))]
-        result = @timed information_density(compiled_system, algorithm, sample)
-        DataFrame(N=i, CPUTime=result.time, MutualInformation=[result.value]), DataFrame(sample, N=i)
+    p = Progress(num_samples; showspeed=false, enabled=show_progress)
+    tasks = Vector{Task}(undef, num_samples)
+    for i in 1:num_samples
+        new_system = copy(compiled_system)
+        tasks[i] = Threads.@spawn begin
+            sample = generate_configuration(new_system)
+            # compute ln [P(x,s)/(P(x)P(s))]
+            result = @timed information_density(compiled_system, algorithm, sample)
+            next!(p)
+            DataFrame(N=i, CPUTime=result.time, MutualInformation=[result.value]), DataFrame(sample, N=i)
+        end
     end
+    result = fetch.(tasks)
 
     result, traj = reduce(result) do l, r
         result = vcat(l[1], r[1])
