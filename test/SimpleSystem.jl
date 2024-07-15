@@ -7,7 +7,7 @@ dtimes = PWS.discrete_times(system)
 algorithms = [PWS.DirectMCEstimate(128), PWS.SMCEstimate(128), PWS.PERM(128)]
 for algorithm in algorithms
     result = PWS.mutual_information(system, algorithm, num_samples=4)
-    for v in result[!, :MutualInformation]
+    for v in result["mutual_information"].MutualInformation
         @test v[1] == 0
         @test length(v) == length(dtimes)
     end

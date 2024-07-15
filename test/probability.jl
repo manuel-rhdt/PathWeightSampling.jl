@@ -2,6 +2,8 @@ import PathWeightSampling as PWS
 using Test
 using Setfield
 
+import Random: Xoshiro
+
 κ = 50.0
 λ = 1.0
 
@@ -35,7 +37,7 @@ reac1 = log(κ)
 reac2 = log(51 * λ)
 
 function compute_logpdf(system, tspan, u0=u0)
-    agg = PWS.initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=1, active_reactions=BitSet())
+    agg = PWS.initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=Xoshiro(1), active_reactions=BitSet())
     agg = @set agg.trace_index = searchsortedfirst(trace.t, tspan[1])
     agg = PWS.JumpSystem.advance_ssa(agg, system.reactions, tspan[2], trace, nothing)
     agg.weight

@@ -15,6 +15,21 @@ import DataFrames: DataFrame
 
 abstract type AbstractJumpSet end
 
+"""
+Returns the indices of all species on which the reaction propensity of a specific reaction
+depends on.
+"""
+dependend_species(rs::AbstractJumpSet, rxidx) = error("Needs to be implemented by subtype")
+
+"""
+Returns the indices of all species on which the reaction propensity of a specific reaction
+depends on.
+"""
+mutated_species(rs::AbstractJumpSet, rxidx) = error("Needs to be implemented by subtype")
+
+speciesnames(rs::AbstractJumpSet) = error("Need to implement speciesnames")
+species_index(rs::AbstractJumpSet, spec::Symbol) = findfirst(==(spec), speciesnames(rs))
+
 initialize_cache(js::AbstractJumpSet) = nothing
 update_cache!(agg, js::AbstractJumpSet) = nothing
 
@@ -39,24 +54,33 @@ struct ReactionSet <: AbstractJumpSet
     species::Vector{Symbol}
 end
 
-num_reactions(rs::AbstractJumpSet) = length(rs.rates)
-num_species(rs::AbstractJumpSet) = length(rs.species)
+struct ConstantRateJumps{Rates} <: AbstractJumpSet
+    rates::Rates
+    rstoich::Vector{Vector{Pair{Int64,Int64}}}
+    nstoich::Vector{Vector{Pair{Int64,Int64}}}
+    species::Vector{Symbol}
+end
 
-species_index(rs::ReactionSet, spec::Symbol) = findfirst(==(spec), rs.species)
+num_reactions(rs::Union{ReactionSet, ConstantRateJumps}) = length(rs.rates)
+num_species(rs::Union{ReactionSet, ConstantRateJumps}) = length(rs.species)
+speciesnames(rs::Union{ReactionSet, ConstantRateJumps}) = rs.species
+
+dependend_species(rs::Union{ReactionSet, ConstantRateJumps}, index::Int) = (spec for (spec, _) in rs.rstoich[index])
+mutated_species(rs::Union{ReactionSet, ConstantRateJumps}, index::Int) = (spec for (spec, _) in rs.nstoich[index])
 
 """
-    reactions_that_mutate_species(rs::ReactionSet, species::Symbol)
+    reactions_that_mutate_species(jumpset::AbstractJumpSet, species::Symbol)
 
 Returns the subset of reactions of `rs` which directly affect the copy number
 of `species`.
 """
-function reactions_that_mutate_species(rs::ReactionSet, species::Symbol)
-    comp = species_index(rs, species)
+function reactions_that_mutate_species(jumpset::AbstractJumpSet, species::Symbol)
+    comp = species_index(jumpset, species)
     result = BitSet()
-    
-    for (reaction_index, net_stoichiometry) in enumerate(rs.nstoich)
-        for (species, stoich) in net_stoichiometry
-            if species == comp && stoich != 0
+
+    for reaction_index in 1:num_reactions(jumpset)
+        for spec in mutated_species(jumpset, reaction_index)
+            if spec == comp
                 union!(result, reaction_index)
                 break
             end
@@ -65,7 +89,25 @@ function reactions_that_mutate_species(rs::ReactionSet, species::Symbol)
     result
 end
 
-function make_reaction_groups(rs::ReactionSet, species::Symbol)
+"""
+Returns a vector of group assignments for each reaction.
+
+We need to group reactions such that all reactions that have the same observable effect on `species`
+are in the same group. Reactions that don't modify `species` are always assigned to group 0.
+"""
+function make_reaction_groups(js::AbstractJumpSet, species::Symbol)
+    relevant_reactions = reactions_that_mutate_species(js, species)
+    group_assignments = Dict(rx => group for (group, rx) in enumerate(relevant_reactions))
+    map(1:num_reactions(js)) do rx
+        if rx ∈ relevant_reactions
+            group_assignments[rx]
+        else
+            0
+        end
+    end
+end
+
+function make_reaction_groups(rs::Union{ReactionSet, ConstantRateJumps}, species::Symbol)
     nstoich = rs.nstoich
     comp = species_index(rs, species)
     group_assignments = Dict{Pair{Int, Int}, Int}()
@@ -88,6 +130,25 @@ end
 
 num_reactions(js::JumpSet) = num_reactions(js.reactions) + num_reactions(js.jumps)
 num_species(js::JumpSet) = num_species(js.reactions)
+speciesnames(js::JumpSet) = speciesnames(js.reactions)
+
+species_index(js::JumpSet, spec::Symbol) = species_index(js.reactions, spec)
+
+function dependend_species(js::JumpSet, rxidx::Int)
+    if rxidx <= num_reactions(js.reactions)
+        dependend_species(js.reactions, rxidx)
+    else
+        dependend_species(js.jumps, rxidx)
+    end
+end
+
+function mutated_species(js::JumpSet, rxidx::Int)
+    if rxidx <= num_reactions(js.reactions)
+        mutated_species(js.reactions, rxidx)
+    else
+        mutated_species(js.jumps, rxidx)
+    end
+end
 
 abstract type Trace end
 
@@ -175,6 +236,9 @@ struct HybridTrace{U,T} <: Trace
     "a vector of reaction indices"
     rx::Vector{Int16}
 
+    "set of traced reaction indices"
+    traced_reactions::BitSet
+
     "a vector of external signal, sampled at discrete times"
     u::U
 
@@ -182,7 +246,7 @@ struct HybridTrace{U,T} <: Trace
     dtimes::T
 end
 
-ReactionTrace(ht::HybridTrace) = ReactionTrace(ht.t, ht.rx, BitSet(ht.rx))
+ReactionTrace(ht::HybridTrace) = ReactionTrace(ht.t, ht.rx, ht.traced_reactions)
 
 function DataFrame(trace::HybridTrace; kwargs...)
     x = length(trace.t)
@@ -233,6 +297,11 @@ end
 
 filter_trace(trace::ReactionTrace, keep_reactions::Integer) = filter_trace(trace, (keep_reactions,))
 
+function filter_trace(trace::HybridTrace, keep_reactions)
+    subtrace = ReactionTrace(trace)
+    filtered = filter_trace(subtrace, keep_reactions)
+    HybridTrace(filtered.t, filtered.rx, filtered.traced_reactions, trace.u, trace.dtimes)
+end
 
 abstract type AbstractJumpRateAggregatorAlgorithm end
 
@@ -328,7 +397,7 @@ struct DirectAggregator{U,Map,Cache,Rng} <: AbstractJumpRateAggregator
     rng::Rng
 end
 
-function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64); seed=rand(UInt))
+function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64); rng=Random.default_rng())
     ngroups = maximum(ridtogroup)
     nreactions = num_reactions(reactions)
     nspecies = num_species(reactions)
@@ -345,7 +414,8 @@ function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridt
         1,
         0.0,
         initialize_cache(reactions),
-        Xoshiro(seed))
+        rng
+    )
 end
 
 function Base.copy(agg::DirectAggregator)
@@ -418,7 +488,7 @@ struct DepGraphAggregator{U,Map,DepGraph,Cache,Rng} <: AbstractJumpRateAggregato
     rng::Rng
 end
 
-function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64); seed=rand(UInt))
+function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64); rng=Random.default_rng())
     ngroups = maximum(ridtogroup)
     nreactions = num_reactions(reactions)
     nspecies = num_species(reactions)
@@ -438,7 +508,7 @@ function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridto
         depgraph,
         collect(1:nreactions),
         initialize_cache(reactions),
-        Xoshiro(seed)
+        rng
     )
 end
 
@@ -469,7 +539,7 @@ function initialize_aggregator(
     tspan=(0.0, Inf64),
     active_reactions=agg.active_reactions,
     traced_reactions=agg.traced_reactions,
-    seed=nothing)
+    rng=Random.default_rng())
     agg = @set agg.u = u0
     agg = @set agg.active_reactions = active_reactions
     agg = @set agg.traced_reactions = traced_reactions
@@ -480,11 +550,7 @@ function initialize_aggregator(
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
     agg = update_rates(agg, reactions)
-    if seed === nothing
-        Random.seed!(agg.rng)
-    else
-        Random.seed!(agg.rng, seed)
-    end
+    agg = @set agg.rng = rng
     agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
     agg
 end
@@ -496,7 +562,7 @@ function initialize_aggregator(
     tspan=(0.0, Inf64),
     active_reactions=agg.active_reactions,
     traced_reactions=agg.traced_reactions,
-    seed=nothing)
+    rng=Random.default_rng())
     agg = @set agg.u = u0
     agg = @set agg.active_reactions = active_reactions
     agg = @set agg.traced_reactions = traced_reactions
@@ -507,11 +573,7 @@ function initialize_aggregator(
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
     agg = update_rates(agg, reactions)
-    if seed === nothing
-        Random.seed!(agg.rng)
-    else
-        Random.seed!(agg.rng, seed)
-    end
+    agg = @set agg.rng = rng
     agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
     agg = @set agg.jump_search_order = collect(active_reactions)
     agg
@@ -547,8 +609,6 @@ function species_to_dependent_reaction_map(js::JumpSet)
     map_reactions
 end
 
-dependend_species(rs::AbstractJumpSet, index) = (spec for (spec, _) in rs.rstoich[index])
-mutated_species(rs::AbstractJumpSet, index) = (spec for (spec, _) in rs.nstoich[index])
 function mutated_species(js::JumpSet, index)
     nreactions = num_reactions(js.reactions)
     if index <= nreactions
@@ -737,17 +797,20 @@ end
     rate * rate_mult
 end
 
-@inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::ReactionSet)
+@inline function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, js::ConstantRateJumps)
+    @inbounds js.rates[rxidx](speciesvec)
+end
+
+@inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::Union{ReactionSet, ConstantRateJumps})
     evalrxrate(agg.u, rxidx, rs)
 end
 
 @inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, js::JumpSet)
-    speciesvec = agg.u
     nreactions = num_reactions(js.reactions)
     if rxidx <= nreactions
-        evalrxrate(speciesvec, rxidx, js.reactions)
+        evalrxrate(agg, rxidx, js.reactions)
     else
-        evalrxrate(speciesvec, rxidx - nreactions, js.jumps)
+        evalrxrate(agg, rxidx - nreactions, js.jumps)
     end
 end
 

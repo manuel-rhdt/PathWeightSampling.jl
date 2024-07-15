@@ -1,6 +1,8 @@
 using Test
 import PathWeightSampling as PWS
 
+import Random: Xoshiro
+
 rates = [50.0, 1.0]
 rstoich = [[], [1 => 1]]
 nstoich = [[1 => 1], [1 => -1]]
@@ -20,8 +22,8 @@ bd_system = PWS.MarkovJumpSystem(
 )
 
 dtimes = tspan[1]:0.1:tspan[2]
-trace = PWS.generate_configuration(bd_system, seed=1)
-agg, traj = PWS.JumpSystem.generate_trajectory(bd_system, dtimes, seed=1)
+trace = PWS.generate_configuration(bd_system; rng=Xoshiro(1))
+agg, traj = PWS.JumpSystem.generate_trajectory(bd_system, dtimes; rng=Xoshiro(1))
 
 begin
     u_arr = [u0]

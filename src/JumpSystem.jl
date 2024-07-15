@@ -10,6 +10,11 @@ using ..SSA
 using Setfield
 using StochasticDiffEq
 
+import DataFrames: DataFrame
+import SciMLBase
+
+import Random
+
 struct MarkovJumpSystem{A,R,U} <: AbstractSystem
     agg::A
     reactions::R
@@ -55,19 +60,19 @@ end
 # 1. simulate input & output and record only output trace
 # 2. simulate inputs with output deactivated, average likelihoods
 
-function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan, seed=nothing)
-    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=seed)
+function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan, rng=Random.default_rng())
+    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=rng)
     trace = ReactionTrace([], [], agg.traced_reactions)
     agg = advance_ssa(agg, system.reactions, tspan[2], nothing, trace)
     agg, trace
 end
 
-function PWS.generate_configuration(system::MarkovJumpSystem; seed=nothing)
-    agg, trace = generate_trace(system; seed=seed)
+function PWS.generate_configuration(system::MarkovJumpSystem; rng=Random.default_rng())
+    agg, trace = generate_trace(system; rng=rng)
     trace
 end
 
-function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dtimes=PWS.discrete_times(system), seed=nothing)
+function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dtimes=PWS.discrete_times(system), rng=Random.default_rng())
     tspan = extrema(dtimes)
     
     # deactivate all traced reactions
@@ -81,7 +86,7 @@ function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dt
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
-        seed=seed
+        rng=rng
     )
 
     cond_prob = zeros(Float64, length(dtimes))
@@ -120,6 +125,7 @@ struct HybridJumpSystem{A,JS,U,Prob} <: AbstractSystem
     dt::Float64
     sde_prob::Prob
     sde_dt::Float64
+    output_reactions::BitSet
 end
 
 function HybridJumpSystem(
@@ -128,14 +134,30 @@ function HybridJumpSystem(
     u0::AbstractVector,
     tspan::Tuple{Float64,Float64},
     dt::Real,
-    sde_prob,
+    sde_prob::SciMLBase.SDEProblem,
     sde_dt::Real,
-    ridtogroup,
-    traced_reactions::BitSet
+    input_species::Symbol,
+    output_species::Symbol,
 )
+    ridtogroup = make_reaction_groups(reactions, output_species)
+    input_reactions = reactions_that_mutate_species(reactions, input_species)
+    @assert input_reactions == Set() "we do not support reactions that mutate the input"
+    output_reactions = reactions_that_mutate_species(reactions, output_species)
     agg = build_aggregator(alg, reactions, ridtogroup)
-    agg = @set agg.traced_reactions = traced_reactions
-    HybridJumpSystem(agg, reactions, u0, tspan, dt, sde_prob, sde_dt)
+    HybridJumpSystem(agg, reactions, u0, tspan, dt, sde_prob, sde_dt, output_reactions)
+end
+
+function Base.copy(js::HybridJumpSystem)
+    HybridJumpSystem(
+        copy(js.agg),
+        js.reactions,
+        js.u0,
+        js.tspan,
+        js.dt,
+        remake(js.sde_prob),
+        js.sde_dt,
+        js.output_reactions
+    )
 end
 
 # Advance the aggregator until `t_end`.
@@ -203,8 +225,8 @@ function advance_ssa_sde(
     agg
 end
 
-function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing, seed=nothing)
-    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=seed)
+function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing, rng=Random.default_rng())
+    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=rng)
     s_prob = remake(system.sde_prob, tspan=tspan, u0=[0.0, u0[1]])
 
     if traj !== nothing
@@ -213,13 +235,10 @@ function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tsp
 
     dt = system.dt
     sde_dt = system.sde_dt
-    if seed === nothing
-        integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false)
-    else
-        integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false, seed=seed)
-    end
+    seed = rand(rng, UInt)
+    integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false, seed=seed)
 
-    trace = HybridTrace(Float64[], Int16[], Float64[], Float64[])
+    trace = HybridTrace(Float64[], Int16[], agg.traced_reactions, Float64[], Float64[])
     tstops = range(tspan[1], tspan[2], step=dt)
     for (i, tstop) in enumerate(tstops[2:end])
         agg = advance_ssa_sde(agg, system.reactions, integrator, tstop, nothing, trace)
@@ -231,7 +250,7 @@ function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tsp
     agg, trace
 end
 
-function sample(trace::ReactionTrace, system::HybridJumpSystem; u0=system.u0, tspan=system.tspan)
+function sample(trace::ReactionTrace, system::HybridJumpSystem; u0=system.u0, tspan=system.tspan, rng=Random.default_rng())
     # deactivate all traced reactions
     active_reactions = BitSet(1:num_reactions(system.reactions))
     setdiff!(active_reactions, trace.traced_reactions)
@@ -243,11 +262,13 @@ function sample(trace::ReactionTrace, system::HybridJumpSystem; u0=system.u0, ts
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
+        rng=rng
     )
 
     dt = system.sde_dt
     s_prob = remake(system.sde_prob, tspan=tspan, u0=[0.0, u0[1]])
-    integrator = init(s_prob, EM(), dt=dt / 5, save_start=false, save_everystep=false, save_end=false)
+    seed = rand(rng, UInt)
+    integrator = init(s_prob, EM(), dt=dt / 5, save_start=false, save_everystep=false, save_end=false, seed=seed)
 
     tstops = range(tspan[1], tspan[2], step=dt)
     for tstop in tstops[2:end]
@@ -257,7 +278,7 @@ function sample(trace::ReactionTrace, system::HybridJumpSystem; u0=system.u0, ts
     agg.weight
 end
 
-function sample(trace::HybridTrace, system::HybridJumpSystem; u0=system.u0, tspan=system.tspan)
+function sample(trace::HybridTrace, system::HybridJumpSystem; u0=system.u0, tspan=system.tspan, rng=Random.default_rng())
     # deactivate all traced reactions
     active_reactions = BitSet(1:num_reactions(system.reactions))
     setdiff!(active_reactions, system.agg.traced_reactions)
@@ -269,6 +290,7 @@ function sample(trace::HybridTrace, system::HybridJumpSystem; u0=system.u0, tspa
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
+        rng=rng
     )
 
     dt = trace.dt
@@ -286,9 +308,9 @@ function sample(trace::HybridTrace, system::HybridJumpSystem; u0=system.u0, tspa
     agg.weight
 end
 
-function generate_trajectory(system::Union{MarkovJumpSystem,HybridJumpSystem}, dtimes; u0=system.u0, driving_traj=nothing, seed=nothing)
+function generate_trajectory(system::Union{MarkovJumpSystem,HybridJumpSystem}, dtimes; u0=system.u0, driving_traj=nothing, rng=Random.default_rng())
     tspan = extrema(dtimes)
-    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=seed)
+    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=rng)
 
     traj = zeros(eltype(u0), (length(u0), length(dtimes)))
     traj[:, 1] .= u0
@@ -335,6 +357,7 @@ function MarkovParticle(setup::SMC.Setup)
         u0=copy(u0),
         tspan=tspan,
         active_reactions=active_reactions,
+        rng=setup.rng
     )
 
     MarkovParticle(agg)
@@ -354,6 +377,7 @@ function HybridParticle(setup::SMC.Setup{<:ReactionTrace})
         u0=copy(u0),
         tspan=tspan,
         active_reactions=active_reactions,
+        rng=setup.rng
     )
 
     s_prob = remake(system.sde_prob, u0=[0.0, u0[1]])
@@ -414,13 +438,27 @@ struct TraceAndTrajectory{Trace}
 end
 summary(t::TraceAndTrajectory) = t.traj
 
-function PWS.generate_configuration(system::HybridJumpSystem; seed=nothing)
+function DataFrame(trace::TraceAndTrajectory; kwargs...)
+    DataFrame(trace.trace; kwargs...)
+end
+
+
+function PWS.generate_configuration(system::HybridJumpSystem; rng=Random.default_rng())
     traj = zeros(Float64, (length(system.u0), length(system.tspan[1]:system.dt:system.tspan[2])))
-    agg, trace = generate_trace(system; traj=traj, seed=seed)
+    agg, trace = generate_trace(system; traj=traj, rng=rng)
     TraceAndTrajectory(trace, traj)
 end
 
-PWS.marginal_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...) = PWS.log_marginal(PWS.simulate(algorithm, ReactionTrace(conf.trace), system; new_particle=HybridParticle, kwargs...))
-PWS.conditional_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...) = PWS.log_marginal(PWS.simulate(algorithm, conf.trace, system; new_particle=MarkovParticle, kwargs...))
+function PWS.marginal_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...)
+    traced_reactions = system.output_reactions
+    trace = filter_trace(ReactionTrace(conf.trace), traced_reactions)
+    PWS.log_marginal(PWS.simulate(algorithm, trace, system; new_particle=HybridParticle, kwargs...))
+end
+
+function PWS.conditional_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...)
+    traced_reactions = system.output_reactions
+    trace = filter_trace(conf.trace, traced_reactions)
+    PWS.log_marginal(PWS.simulate(algorithm, trace, system; new_particle=MarkovParticle, kwargs...))
+end
 
 end # module

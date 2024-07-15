@@ -8,15 +8,16 @@ rstoich = [[], [1 => 1]]
 nstoich = [[1 => 1], [1 => -1]]
 
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
+reaction_groups = PWS.SSA.make_reaction_groups(reactions, :X)
+@test reaction_groups == [1, 2]
+@test PWS.SSA.make_reaction_groups(reactions, :S) == [0, 0]
 
-agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, 1:2; seed=1234)
+agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, reaction_groups)
 
-@test agg.rng == Random.Xoshiro(1234)
 @test agg.sumrate == 0.0
 
 agg = PWS.initialize_aggregator(agg, reactions)
 
-@test agg.rng != Random.Xoshiro(1234)
 @test agg.u == [0]
 @test agg.tstop > 0
 @test agg.sumrate == 1.0
@@ -69,7 +70,7 @@ rstoich = [[1 => 1]]
 nstoich = [[1 => -1]]
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
 
-agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, 1:1)
+agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, PWS.SSA.make_reaction_groups(reactions, :X))
 agg = PWS.initialize_aggregator(agg, reactions, tspan=(0.0, 10.0))
 @test agg.u == [0]
 @test agg.tstop == Inf
@@ -97,6 +98,9 @@ system = PWS.MarkovJumpSystem(
 )
 
 agg, trace = PWS.JumpSystem.generate_trace(system)
+
+@test issorted(trace.t)
+@test sort(unique(trace.rx)) == [1, 2, 3, 4]
 
 # ce = agg.weight
 

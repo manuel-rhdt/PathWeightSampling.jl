@@ -4,6 +4,8 @@ using Statistics
 import Distributed
 using Statistics
 
+import Random: Xoshiro
+
 # ChemotaxisJumps
 
 system = PWS.simple_chemotaxis_system(
@@ -26,7 +28,7 @@ for (rid, gid) in enumerate(system.agg.ridtogroup)
     end
 end
 
-conf = PWS.generate_configuration(system, seed=2)
+conf = PWS.generate_configuration(system, rng=Xoshiro(2))
 
 k_A = system.reactions.k_A
 k_Z = system.reactions.k_Z

@@ -1,5 +1,7 @@
 using DataFrames
 using ProgressMeter
+
+import Random
 import Statistics: mean
 
 abstract type AbstractSystem end
@@ -10,9 +12,9 @@ conditional_density(::AbstractSystem, algorithm, configuration) = error("Custom 
 marginal_density(::AbstractSystem, algorithm, configuration) = error("Custom system does not implement required function `marginal_density`.")
 compile(sys::AbstractSystem) = sys
 
-function information_density(s::AbstractSystem, algorithm, configuration)
-    cond = conditional_density(s, algorithm, configuration)
-    marg = marginal_density(s, algorithm, configuration)
+function information_density(s::AbstractSystem, algorithm, configuration; kwargs...)
+    cond = conditional_density(s, algorithm, configuration; kwargs...)
+    marg = marginal_density(s, algorithm, configuration; kwargs...)
 
     # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
     cond - marg
@@ -89,24 +91,33 @@ function mutual_information(system::AbstractSystem, algorithm; num_samples::Inte
 end
 
 function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
+    # We perform the outer Monte Carlo algorithm using all available threads.
     p = Progress(num_samples; showspeed=false, enabled=show_progress)
     tasks = Vector{Task}(undef, num_samples)
-    for i in 1:num_samples
+    result = Vector{Tuple{DataFrame, DataFrame}}(undef, num_samples)
+    @sync for i in 1:num_samples
         new_system = copy(compiled_system)
         tasks[i] = Threads.@spawn begin
-            sample = generate_configuration(new_system)
+            system = new_system
+            rng = Random.TaskLocalRNG()
+            sample = generate_configuration(system; rng=rng)
             # compute ln [P(x,s)/(P(x)P(s))]
-            result = @timed information_density(compiled_system, algorithm, sample)
+            info = @timed information_density(system, algorithm, sample; rng=rng)
             next!(p)
-            DataFrame(N=i, CPUTime=result.time, MutualInformation=[result.value]), DataFrame(sample, N=i)
+            val = DataFrame(
+                N=i,
+                CPUTime=info.time, 
+                MutualInformation=[info.value], 
+                Algorithm=name(algorithm)
+            ), DataFrame(sample, N=i)
+            result[i] = val
         end
     end
-    result = fetch.(tasks)
 
     result, traj = reduce(result) do l, r
         result = vcat(l[1], r[1])
         traj = vcat(l[2], r[2])
         result, traj
     end
-    Dict("mutual_information" => result, "trajectories" => conf)
+    Dict("mutual_information" => result, "trajectories" => traj)
 end

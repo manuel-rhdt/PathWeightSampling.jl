@@ -4,6 +4,8 @@ export SMCEstimate, weight, propagate
 
 import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, discrete_times,
     log_marginal, logmeanexp, name, simulate
+
+import Random
 import StatsBase
 
 
@@ -38,9 +40,10 @@ mutable struct ParentTrackingParticle{Inner}
     parent::Union{ParentTrackingParticle{Inner},Nothing}
 end
 
-struct Setup{Configuration,Ensemble}
+struct Setup{Configuration,Ensemble,RNG}
     configuration::Configuration
     ensemble::Ensemble
+    rng::RNG
 end
 
 function ParentTrackingParticle{Inner}(setup) where {Inner}
@@ -61,7 +64,14 @@ weight(p::JumpParticle) = p.weight
 weight(p::ParentTrackingParticle) = weight(p.p)
 
 # This is the main routine to compute the marginal probability in RR-PWS.
-function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParticle, resample_threshold=nparticles / 2)
+function sample(
+    setup,
+    nparticles;
+    inspect=Base.identity,
+    new_particle=JumpParticle,
+    resample_threshold=nparticles / 2,
+    rng=Random.default_rng()
+)
     particle_bag = [new_particle(setup) for i = 1:nparticles]
     weights = zeros(nparticles)
     dtimes = discrete_times(setup)
@@ -106,7 +116,7 @@ function sample(setup, nparticles; inspect=Base.identity, new_particle=JumpParti
                 @warn "Small effective sample size" i tspan effective_sample_size
             end
             # sample parent indices
-            parent_indices = systematic_sample(prob_weights)
+            parent_indices = systematic_sample(rng, prob_weights)
 
             particle_bag = map(parent_indices) do k
                 new_particle(particle_bag[k], setup)
@@ -128,9 +138,9 @@ in the `weights` array.
 The number of samples returned is by default equal to the length of `weights`. If a different
 number of samples is required, set `N` to the desired number.
 """
-function systematic_sample(weights; N=length(weights))
+function systematic_sample(rng, weights; N=length(weights))
     inc = 1 / N
-    x = inc * rand()
+    x = inc * rand(rng)
     j = 1
     y = weights[j] / sum(weights)
     result = zeros(Int, N)
@@ -174,9 +184,9 @@ end
 log_marginal(result::SMCResult) = result.log_marginal_estimate
 
 
-function simulate(algorithm::SMCEstimate, initial, system; kwargs...)
-    setup = Setup(initial, system)
-    log_marginal_estimate = sample(setup, algorithm.num_particles; kwargs...)
+function simulate(algorithm::SMCEstimate, initial, system; rng=Random.default_rng(), kwargs...)
+    setup = Setup(initial, system, rng)
+    log_marginal_estimate = sample(setup, algorithm.num_particles; rng=rng, kwargs...)
     SMCResult(log_marginal_estimate)
 end
 

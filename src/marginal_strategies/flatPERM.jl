@@ -177,8 +177,8 @@ function flatperm(convergence_criterion, setup; new_particle=JumpParticle, inspe
     PERMResult(log_marginal_estimate, num_samples, num_samples_eff)
 end
 
-function simulate(algorithm::PERM, initial, system; kwargs...)
-    setup = Setup(initial, system)
+function simulate(algorithm::PERM, initial, system; rng=Random.default_rng(), kwargs...)
+    setup = Setup(initial, system, rng)
     flatperm(algorithm.num_chains, setup; kwargs...)
 end
 

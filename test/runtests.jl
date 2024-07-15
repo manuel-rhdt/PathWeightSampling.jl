@@ -16,6 +16,9 @@ import PathWeightSampling as PWS
     @testset "SimpleSystem" begin
         include("SimpleSystem.jl")
     end
+    @testset "Three Species" begin
+        include("three_species.jl")
+    end
     @testset "SMCEstimate" begin
         include("SMCEstimate.jl")
     end

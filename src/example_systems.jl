@@ -4,6 +4,8 @@ using .SSA
 using LinearAlgebra
 using StochasticDiffEq
 
+import Random
+
 """
     gene_expression_system(; mean_s=50, mean_x=mean_s, corr_time_s=1.0, corr_time_x=0.1, u0=SA[mean_s, mean_x], dtimes=0:0.1:2.0)
 
@@ -117,6 +119,14 @@ end
 
 SSA.num_species(jumps::ChemotaxisJumps) = 3 + length(jumps.receptors)
 SSA.num_reactions(jumps::ChemotaxisJumps) = 3 * length(jumps.receptors) + 1
+function SSA.speciesnames(jumps::ChemotaxisJumps)
+    vcat(
+        :L,
+        [Symbol(:R, i) for i in 0:(length(jumps.receptors) - 1)],
+        :Yp,
+        :Y
+    )
+end
 
 @inline function reaction_type(j::ChemotaxisJumps, rxidx::Integer)
     nstates = length(j.receptors)
@@ -151,6 +161,13 @@ function SSA.update_cache!(agg, jumps::ChemotaxisJumps)
         @. agg.cache.p_a = z_a * agg.cache.z_m / (z_a * agg.cache.z_m + z_i)
         agg.cache.c_prev[] = ligand_c
     end
+end
+
+function SSA.make_reaction_groups(jumps::ChemotaxisJumps, species::Symbol)
+    rid_to_gid = zeros(Int32, num_reactions(jumps))
+    rid_to_gid[length(jumps.receptors)*2+1:length(jumps.receptors)*3] .= 1
+    rid_to_gid[end] = 2
+    rid_to_gid
 end
 
 @inline function SSA.evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, jumps::ChemotaxisJumps)
@@ -311,17 +328,13 @@ function simple_chemotaxis_system(;
     a_m = activity_given_methylation.(m, c=c_0, N=n, K_a=Kₐ, K_i=Kᵢ, δfₘ=δf, m₀=m_0)
     p_m = steady_state_methylation(a_m, k_B=k_B, k_R=k_R)
 
+    # we generate initial conditions close to the steady state
     u0 = zeros(Float64, num_species(jumps))
     u0[jumps.ligand] = c_0
-    for s in systematic_sample(p_m, N=n_clusters)
+    for s in systematic_sample(Random.default_rng(), p_m, N=n_clusters)
         u0[jumps.receptors[s]] += 1
     end
     u0[jumps.Y] = n_chey
-
-    rid_to_gid = zeros(Int32, num_reactions(jumps))
-    rid_to_gid[length(jumps.receptors)*2+1:length(jumps.receptors)*3] .= 1
-    rid_to_gid[end] = 2
-    rid_to_gid
 
     # if harmonic_rate === nothing
     function det_evolution!(du, u, p, t)
@@ -350,10 +363,6 @@ function simple_chemotaxis_system(;
     tspan = (0.0, duration)
     s_prob = SDEProblem(det_evolution!, noise!, [0.0, u0[1]], tspan, ps)
 
-    traced_reactions = BitSet(length(jumps.receptors)*2+1:length(jumps.receptors)*3+1)
-    @assert length(traced_reactions) == length(jumps.receptors) + 1
-    @assert maximum(traced_reactions) == num_reactions(jumps)
-
     HybridJumpSystem(
         DepGraphDirect(),
         jumps,
@@ -362,8 +371,8 @@ function simple_chemotaxis_system(;
         dt,
         s_prob,
         sde_dt,
-        rid_to_gid,
-        traced_reactions
+        :L,
+        :Yp
     )
 end
 
