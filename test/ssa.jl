@@ -97,10 +97,23 @@ system = PWS.MarkovJumpSystem(
     :X
 )
 
-agg, trace = PWS.JumpSystem.generate_trace(system)
+rng = Random.Xoshiro(1)
+agg, trace = PWS.JumpSystem.generate_trace(system; rng)
 
 @test issorted(trace.t)
 @test sort(unique(trace.rx)) == [1, 2, 3, 4]
+
+rng = Random.Xoshiro(1)
+conf = PWS.generate_configuration(system; rng)
+
+@test conf.trace == trace
+@test size(conf.traj, 1) == length(conf.species) == length(u0)
+@test conf.species == system.reactions.species
+
+df = PWS.to_dataframe(conf)
+@test df.time == PWS.discrete_times(system)
+@test df.S == conf.traj[1, :]
+@test df.X == conf.traj[2, :]
 
 # ce = agg.weight
 

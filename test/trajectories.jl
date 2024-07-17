@@ -21,9 +21,11 @@ bd_system = PWS.MarkovJumpSystem(
     :X
 )
 
-dtimes = tspan[1]:0.1:tspan[2]
-trace = PWS.generate_configuration(bd_system; rng=Xoshiro(1))
-agg, traj = PWS.JumpSystem.generate_trajectory(bd_system, dtimes; rng=Xoshiro(1))
+dtimes = PWS.discrete_times(bd_system)
+conf = PWS.generate_configuration(bd_system; rng=Xoshiro(1))
+trace = conf.trace
+traj = conf.traj
+@test conf.discrete_times == dtimes
 
 begin
     u_arr = [u0]
@@ -40,5 +42,5 @@ begin
     for (i, t) in enumerate(dtimes)
         @test u_at_time(t) == traj[:, i]
     end
-    @test u_arr[end] == agg.u == traj[:, end]
+    @test u_arr[end] == traj[:, end]
 end

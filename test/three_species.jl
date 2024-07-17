@@ -75,16 +75,20 @@ system = PWS.MarkovJumpSystem(
     u0,
     tspan,
     :S,
-    :X
+    :X,
+    1e-2
 )
 
 @test system.agg.ridtogroup == [0, 0, 0, 0, 1, 2]
 @test system.input_reactions == Set([1, 2])
 @test system.output_reactions == Set([5, 6])
 
-trace = PWS.generate_configuration(system)
+conf = PWS.generate_configuration(system)
+@test issorted(conf.trace.t)
 
-@test issorted(trace.t)
+cond_d = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
+marg_d = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
+@test cond_d[end] >= marg_d[end]
 
 result = PWS.mutual_information(system, PWS.SMCEstimate(128); num_samples=32)
 

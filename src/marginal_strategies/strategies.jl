@@ -11,6 +11,7 @@ generate_configuration(::AbstractSystem) = error("Custom system does not impleme
 conditional_density(::AbstractSystem, algorithm, configuration) = error("Custom system does not implement required function `conditional_density`.")
 marginal_density(::AbstractSystem, algorithm, configuration) = error("Custom system does not implement required function `marginal_density`.")
 compile(sys::AbstractSystem) = sys
+to_dataframe(::Any) = DataFrame()
 
 function information_density(s::AbstractSystem, algorithm, configuration; kwargs...)
     cond = conditional_density(s, algorithm, configuration; kwargs...)
@@ -96,14 +97,16 @@ end
 
 function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
     p = Progress(num_samples; showspeed=false, enabled=show_progress)
-    rng = Random.default_rng()
     result = Vector{Tuple{DataFrame, DataFrame}}(undef, num_samples)
     for i in 1:num_samples
-        system = copy(compiled_system)
+        system = compiled_system
+        rng = Random.Xoshiro(i)
         sample = generate_configuration(system; rng=rng)
         # compute ln [P(x,s)/(P(x)P(s))]
         info = @timed information_density(system, algorithm, sample; rng=rng)
         next!(p)
+        traj = to_dataframe(sample)
+        traj[!, :N] .= i
         val = (
             DataFrame(
                 N=i,
@@ -111,7 +114,7 @@ function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
                 MutualInformation=[info.value], 
                 Algorithm=name(algorithm)
             ),
-            DataFrame(sample, N=i)
+            traj
         )
         result[i] = val
     end

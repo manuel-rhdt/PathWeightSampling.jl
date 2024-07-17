@@ -15,6 +15,21 @@ import SciMLBase
 
 import Random
 
+struct TraceAndTrajectory{Trace}
+    trace::Trace
+    discrete_times::Vector{Float64}
+    traj::Matrix{Float64}
+    species::Vector{Symbol}
+end
+
+function PWS.to_dataframe(trace::TraceAndTrajectory)
+    cols = [:time => trace.discrete_times]
+    for (species, traj) in zip(trace.species, eachrow(trace.traj))
+        push!(cols, species => traj)
+    end
+    DataFrame(cols)
+end
+
 struct MarkovJumpSystem{A,R,U} <: AbstractSystem
     agg::A
     reactions::R
@@ -60,16 +75,29 @@ end
 # 1. simulate input & output and record only output trace
 # 2. simulate inputs with output deactivated, average likelihoods
 
-function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan, rng=Random.default_rng())
+function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing, rng=Random.default_rng())
     agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=rng)
     trace = ReactionTrace([], [], agg.traced_reactions)
-    agg = advance_ssa(agg, system.reactions, tspan[2], nothing, trace)
+
+    if traj !== nothing
+        traj[:, 1] = u0
+    end
+    tstops = range(tspan[1], tspan[2], step=system.dt)
+    for (i, tstop) in enumerate(tstops[2:end])
+        agg = advance_ssa(agg, system.reactions, tstop, nothing, trace)
+        if traj !== nothing
+            traj[:, i+1] .= agg.u
+        end
+    end
+
     agg, trace
 end
 
 function PWS.generate_configuration(system::MarkovJumpSystem; rng=Random.default_rng())
-    agg, trace = generate_trace(system; rng=rng)
-    trace
+    dtimes = PWS.discrete_times(system)
+    traj = zeros(Float64, (length(system.u0), length(dtimes)))
+    agg, trace = generate_trace(system; traj=traj, rng=rng)
+    TraceAndTrajectory(trace, Vector(dtimes), traj, PWS.SSA.speciesnames(system.reactions))
 end
 
 function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dtimes=PWS.discrete_times(system), rng=Random.default_rng())
@@ -98,22 +126,24 @@ function sample(system::MarkovJumpSystem, trace::ReactionTrace; u0=system.u0, dt
     cond_prob
 end
 
-function PWS.conditional_density(system::MarkovJumpSystem, algorithm, conf::ReactionTrace; kwargs...)
+function PWS.conditional_density(system::MarkovJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...)
+    trace = conf.trace
     traced_reactions = union(system.input_reactions, system.output_reactions)
-    conf = filter_trace(conf, traced_reactions)
+    trace = filter_trace(trace, traced_reactions)
     if 1:num_reactions(system.reactions) ⊆ traced_reactions
         # we don't need to marginalize
-        sample(system, conf; kwargs...)
+        sample(system, trace; kwargs...)
     else
-        marginalization_result = PWS.simulate(algorithm, conf, system; new_particle=MarkovParticle, kwargs...)
+        marginalization_result = PWS.simulate(algorithm, trace, system; new_particle=MarkovParticle, kwargs...)
         PWS.log_marginal(marginalization_result)
     end
 end
 
-function PWS.marginal_density(system::MarkovJumpSystem, algorithm, conf::ReactionTrace; kwargs...)
+function PWS.marginal_density(system::MarkovJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...)
+    trace = conf.trace
     traced_reactions = system.output_reactions
-    conf = filter_trace(conf, traced_reactions)
-    marginalization_result = PWS.simulate(algorithm, conf, system; new_particle=MarkovParticle, kwargs...)
+    trace = filter_trace(trace, traced_reactions)
+    marginalization_result = PWS.simulate(algorithm, trace, system; new_particle=MarkovParticle, kwargs...)
     PWS.log_marginal(marginalization_result)
 end
 
@@ -432,21 +462,12 @@ PWS.discrete_times(system::HybridJumpSystem) = range(system.tspan[1], system.tsp
 PWS.discrete_times(setup::SMC.Setup{<:Trace,<:MarkovJumpSystem}) = PWS.discrete_times(setup.ensemble)
 PWS.discrete_times(setup::SMC.Setup{<:Trace,<:HybridJumpSystem}) = PWS.discrete_times(setup.ensemble)
 
-struct TraceAndTrajectory{Trace}
-    trace::Trace
-    traj::Matrix{Float64}
-end
-summary(t::TraceAndTrajectory) = t.traj
-
-function DataFrame(trace::TraceAndTrajectory; kwargs...)
-    DataFrame(trace.trace; kwargs...)
-end
-
 
 function PWS.generate_configuration(system::HybridJumpSystem; rng=Random.default_rng())
-    traj = zeros(Float64, (length(system.u0), length(system.tspan[1]:system.dt:system.tspan[2])))
+    dtimes = PWS.discrete_times(system)
+    traj = zeros(Float64, (length(system.u0), length(dtimes)))
     agg, trace = generate_trace(system; traj=traj, rng=rng)
-    TraceAndTrajectory(trace, traj)
+    TraceAndTrajectory(trace, Vector(dtimes), traj, PWS.SSA.speciesnames(system.reactions))
 end
 
 function PWS.marginal_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...)
