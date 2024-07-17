@@ -80,17 +80,51 @@ the columns can be accessed by:
 - `result.TimeMarginal`: A vector containing, for each sample, the CPU time in seconds used for the computation of the marginal entropy.
 - `result.TimeConditional`: A vector containing, for each sample, the CPU time in seconds used for the computation of the conditional entropy.
 """
-function mutual_information(system::AbstractSystem, algorithm; num_samples::Integer=1, progress=true, compile_args=(;))
+function mutual_information(system::AbstractSystem, algorithm; num_samples::Integer=1, progress=true, threads=false, compile_args=(;))
     # initialize the ensembles
     compiled_system = compile(system; compile_args...)
 
     # this is the outer Direct Monte-Carlo loop
-    result = _mi_inner(compiled_system, algorithm, num_samples, progress)
+    result = if threads
+        _mi_inner_multithreaded(compiled_system, algorithm, num_samples, progress)
+    else
+        _mi_inner(compiled_system, algorithm, num_samples, progress)
+    end
 
     result
 end
 
 function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
+    p = Progress(num_samples; showspeed=false, enabled=show_progress)
+    rng = Random.default_rng()
+    result = Vector{Tuple{DataFrame, DataFrame}}(undef, num_samples)
+    for i in 1:num_samples
+        system = copy(compiled_system)
+        sample = generate_configuration(system; rng=rng)
+        # compute ln [P(x,s)/(P(x)P(s))]
+        info = @timed information_density(system, algorithm, sample; rng=rng)
+        next!(p)
+        val = (
+            DataFrame(
+                N=i,
+                CPUTime=info.time, 
+                MutualInformation=[info.value], 
+                Algorithm=name(algorithm)
+            ),
+            DataFrame(sample, N=i)
+        )
+        result[i] = val
+    end
+
+    result, traj = reduce(result) do l, r
+        result = vcat(l[1], r[1])
+        traj = vcat(l[2], r[2])
+        result, traj
+    end
+    Dict("mutual_information" => result, "trajectories" => traj)
+end
+
+function _mi_inner_multithreaded(compiled_system, algorithm, num_samples, show_progress)
     # We perform the outer Monte Carlo algorithm using all available threads.
     p = Progress(num_samples; showspeed=false, enabled=show_progress)
     tasks = Vector{Task}(undef, num_samples)
