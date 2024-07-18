@@ -4,6 +4,8 @@ using ProgressMeter
 import Random
 import Statistics: mean
 
+import Distributed: pmap
+
 abstract type AbstractSystem end
 
 discrete_times(::AbstractSystem) = error("Custom system does not implement required function `discrete_times`.")
