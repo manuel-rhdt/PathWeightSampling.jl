@@ -81,12 +81,22 @@ the columns can be accessed by:
 - `result.TimeMarginal`: A vector containing, for each sample, the CPU time in seconds used for the computation of the marginal entropy.
 - `result.TimeConditional`: A vector containing, for each sample, the CPU time in seconds used for the computation of the conditional entropy.
 """
-function mutual_information(system::AbstractSystem, algorithm; num_samples::Integer=1, progress=true, threads=false, compile_args=(;))
+function mutual_information(
+    system::AbstractSystem,
+    algorithm;
+    num_samples::Integer=1,
+    progress=true,
+    threads=false,
+    distributed=false,
+    compile_args=(;)
+)
     # initialize the ensembles
     compiled_system = compile(system; compile_args...)
 
     # this is the outer Direct Monte-Carlo loop
-    result = if threads
+    result = if distributed
+        _mi_inner_distributed(compiled_system, algorithm, num_samples, progress)
+    elseif threads
         _mi_inner_multithreaded(compiled_system, algorithm, num_samples, progress)
     else
         _mi_inner(compiled_system, algorithm, num_samples, progress)
@@ -95,31 +105,28 @@ function mutual_information(system::AbstractSystem, algorithm; num_samples::Inte
     result
 end
 
-function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
-    p = Progress(num_samples; showspeed=false, enabled=show_progress)
-    result = Vector{Tuple{DataFrame, DataFrame}}(undef, num_samples)
-    for i in 1:num_samples
-        system = compiled_system
-        rng = Random.Xoshiro(i)
-        sample = generate_configuration(system; rng=rng)
-        # compute ln [P(x,s)/(P(x)P(s))]
-        info = @timed information_density(system, algorithm, sample; rng=rng)
-        next!(p)
-        traj = to_dataframe(sample)
-        traj[!, :N] .= i
-        val = (
-            DataFrame(
-                N=i,
-                CPUTime=info.time, 
-                MutualInformation=[info.value], 
-                Algorithm=name(algorithm)
-            ),
-            traj
-        )
-        result[i] = val
+function _compute(system, algorithm, i, rng; progress=nothing)
+    sample = generate_configuration(system; rng=rng)
+    # compute ln [P(x,s)/(P(x)P(s))]
+    info = @timed information_density(system, algorithm, sample; rng=rng)
+    if progress !== nothing
+        next!(progress)
     end
+    traj = to_dataframe(sample)
+    traj[!, :N] .= i
+    (
+        DataFrame(
+            N=i,
+            CPUTime=info.time,
+            MutualInformation=[info.value],
+            Algorithm=name(algorithm)
+        ),
+        traj
+    )
+end
 
-    result, traj = reduce(result) do l, r
+function _reduce_results(results)
+    result, traj = reduce(results) do l, r
         result = vcat(l[1], r[1])
         traj = vcat(l[2], r[2])
         result, traj
@@ -127,34 +134,33 @@ function _mi_inner(compiled_system, algorithm, num_samples, show_progress)
     Dict("mutual_information" => result, "trajectories" => traj)
 end
 
+function _mi_inner(system, algorithm, num_samples, show_progress)
+    rng = Random.default_rng()
+    result = @showprogress show_speed=true enabled=show_progress map(1:num_samples) do i
+        _compute(system, algorithm, i, rng; progress=p)
+    end
+    _reduce_results(result)
+end
+
 function _mi_inner_multithreaded(compiled_system, algorithm, num_samples, show_progress)
     # We perform the outer Monte Carlo algorithm using all available threads.
     p = Progress(num_samples; showspeed=false, enabled=show_progress)
-    tasks = Vector{Task}(undef, num_samples)
-    result = Vector{Tuple{DataFrame, DataFrame}}(undef, num_samples)
+    result = Vector{Tuple{DataFrame,DataFrame}}(undef, num_samples)
     @sync for i in 1:num_samples
         new_system = copy(compiled_system)
-        tasks[i] = Threads.@spawn begin
-            system = new_system
+        Threads.@spawn begin
             rng = Random.TaskLocalRNG()
-            sample = generate_configuration(system; rng=rng)
-            # compute ln [P(x,s)/(P(x)P(s))]
-            info = @timed information_density(system, algorithm, sample; rng=rng)
-            next!(p)
-            val = DataFrame(
-                N=i,
-                CPUTime=info.time, 
-                MutualInformation=[info.value], 
-                Algorithm=name(algorithm)
-            ), DataFrame(sample, N=i)
-            result[i] = val
+            result[i] = _compute(new_system, algorithm, i, rng; progress=p)
         end
     end
+    _reduce_results(result)
+end
 
-    result, traj = reduce(result) do l, r
-        result = vcat(l[1], r[1])
-        traj = vcat(l[2], r[2])
-        result, traj
+function _mi_inner_distributed(system, algorithm, num_samples, show_progress)
+    result = @showprogress enabled=show_progress pmap(1:num_samples) do i
+        rng = Random.Xoshiro(i)
+        new_system = copy(system)
+        _compute(new_system, algorithm, i, rng; progress=p)
     end
-    Dict("mutual_information" => result, "trajectories" => traj)
+    _reduce_results(result)
 end
