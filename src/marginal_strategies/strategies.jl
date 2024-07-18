@@ -139,7 +139,7 @@ end
 function _mi_inner(system, algorithm, num_samples, show_progress)
     rng = Random.default_rng()
     result = @showprogress show_speed=true enabled=show_progress map(1:num_samples) do i
-        _compute(system, algorithm, i, rng; progress=p)
+        _compute(system, algorithm, i, rng)
     end
     _reduce_results(result)
 end
@@ -162,7 +162,7 @@ function _mi_inner_distributed(system, algorithm, num_samples, show_progress)
     result = @showprogress enabled=show_progress pmap(1:num_samples) do i
         rng = Random.Xoshiro(i)
         new_system = copy(system)
-        _compute(new_system, algorithm, i, rng; progress=p)
+        _compute(new_system, algorithm, i, rng)
     end
     _reduce_results(result)
 end
