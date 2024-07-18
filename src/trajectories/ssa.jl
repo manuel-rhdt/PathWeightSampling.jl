@@ -61,7 +61,7 @@ struct ConstantRateJumps{Rates} <: AbstractJumpSet
     species::Vector{Symbol}
 end
 
-num_reactions(rs::Union{ReactionSet, ConstantRateJumps}) = length(rs.rates)
+num_reactions(rs::Union{ReactionSet, ConstantRateJumps}) = length(rs.rstoich)
 num_species(rs::Union{ReactionSet, ConstantRateJumps}) = length(rs.species)
 speciesnames(rs::Union{ReactionSet, ConstantRateJumps}) = rs.species
 
@@ -798,7 +798,7 @@ end
 end
 
 @inline function evalrxrate(speciesvec::AbstractVector, rxidx::Int64, js::ConstantRateJumps)
-    @inbounds js.rates[rxidx](speciesvec)
+    js.rates(rxidx, speciesvec)
 end
 
 @inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::Union{ReactionSet, ConstantRateJumps})

@@ -14,10 +14,14 @@ rstoich = [Pair{Int64,Int64}[], [1 => 1]]
 nstoich = [[1 => 1], [1 => -1]]
 species = [:S]
 
-rates = (
-    u -> κ,
-    u -> u[1] * λ,
-)
+rates = (rxidx, u) -> 
+    if rxidx == 1
+        κ
+    elseif rxidx == 2
+        u[1] * λ
+    else
+        0.0
+    end
 
 jumps = PWS.SSA.ConstantRateJumps(rates, rstoich, nstoich, species)
 reaction_groups = PWS.SSA.make_reaction_groups(jumps, :S)
@@ -52,14 +56,34 @@ nstoich = [
 ]
 species = [:S, :V, :X]
 
-rates = (
-    u -> κ,
-    u -> u[1] * λ,
-    u -> u[1] * ρ,
-    u -> u[2] * μ,
-    u -> u[2] * ρ2,
-    u -> u[3] * μ2
-)
+struct ThreeSpeciesRates
+    κ::Float64
+    λ::Float64
+    ρ::Float64
+    μ::Float64
+    ρ2::Float64
+    μ2::Float64
+end
+
+function (rates::ThreeSpeciesRates)(rxidx, u::AbstractVector{Float64})
+    if rxidx == 1
+        rates.κ
+    elseif rxidx == 2
+        u[1] * rates.λ
+    elseif rxidx == 3
+        u[1] * rates.ρ
+    elseif rxidx == 4
+        u[2] * rates.μ
+    elseif rxidx == 5
+        u[2] * rates.ρ2
+    elseif rxidx == 6
+        u[3] * rates.μ2
+    else
+        0.0
+    end
+end
+
+rates = ThreeSpeciesRates(κ, λ, ρ, μ, ρ2, μ2)
 
 jumps = PWS.SSA.ConstantRateJumps(rates, rstoich, nstoich, species)
 u0 = [
