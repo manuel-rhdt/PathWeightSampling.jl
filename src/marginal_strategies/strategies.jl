@@ -138,7 +138,7 @@ end
 
 function _mi_inner(system, algorithm, num_samples, show_progress)
     rng = Random.default_rng()
-    result = @showprogress show_speed=true enabled=show_progress map(1:num_samples) do i
+    result = @showprogress showspeed=true enabled=show_progress map(1:num_samples) do i
         _compute(system, algorithm, i, rng)
     end
     _reduce_results(result)
