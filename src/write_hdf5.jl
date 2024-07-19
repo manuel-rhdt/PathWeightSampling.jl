@@ -1,5 +1,35 @@
 using HDF5
 
+"""
+Writes data from a dictionary or DataFrame to an HDF5 group.
+
+# Arguments
+- `group`: The HDF5 group where the data will be stored.
+- `dict::AbstractDict`: A dictionary containing data to write, with keys as names and values as data.
+- `df::AbstractDataFrame`: A DataFrame containing data to write, with column names as keys.
+
+# Description
+The function `write_hdf5!` serializes data from either a dictionary or a DataFrame into the specified HDF5 group. 
+For dictionaries, each key-value pair is processed, writing the value to the HDF5 group under the corresponding key name. 
+For DataFrames, each column is written using the column name as the key.
+
+# Behavior
+- For simple types like strings and numbers, values are stored as attributes.
+- For numerical arrays, values are stored directly in the group.
+- For more complex types (dictionaries or DataFrames), new groups are created recursively.
+
+# Example
+```julia
+using HDF5, DataFrames
+
+data = Dict("numbers" => [1, 2, 3], "info" => Dict("a" => 10, "b" => 20))
+df = DataFrame(a = 1:3, b = 4:6)
+
+h5open("data.h5", "w") do file
+    write_hdf5!(file, data)
+    write_hdf5!(file, df)
+end
+"""
 function write_hdf5!(group, dict::AbstractDict)
     for (name, value) in dict
         name = String(name)

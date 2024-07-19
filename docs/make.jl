@@ -8,6 +8,7 @@ makedocs(
         "systems.md",
         "examples.md",
         "marginalization.md",
+        "write_output.md"
     ]
 )
 
