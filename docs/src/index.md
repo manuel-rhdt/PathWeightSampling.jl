@@ -50,11 +50,11 @@ pkg> add PathWeightSampling
 
 After installation, the package can be loaded from directly from julia.
 ```julia
-julia> using PathWeightSampling
+julia> import PathWeightSampling as PWS
 ```
 We then need a *system* of reactions for which we want to compute the mutual information. We can use one of the included example systems, such as a simple model for gene expression.
 ```julia
-julia> system = PathWeightSampling.gene_expression_system()
+julia> system = PWS.gene_expression_system()
 SimpleSystem with 4 reactions
 Input variables: S(t)
 Output variables: X(t)

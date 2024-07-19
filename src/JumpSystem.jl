@@ -12,6 +12,7 @@ using StochasticDiffEq
 
 import DataFrames: DataFrame
 import SciMLBase
+using RecipesBase
 
 import Random
 
@@ -20,6 +21,12 @@ struct TraceAndTrajectory{Trace}
     discrete_times::Vector{Float64}
     traj::Matrix{Float64}
     species::Vector{Symbol}
+end
+
+# handy for quick plotting of configurations
+@recipe function f(conf::TraceAndTrajectory{Trace}) where {Trace}
+    label --> hcat([String(sym) for sym in conf.species]...)
+    conf.discrete_times, conf.traj'
 end
 
 function PWS.to_dataframe(trace::TraceAndTrajectory)

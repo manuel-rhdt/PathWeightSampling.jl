@@ -22,9 +22,9 @@ The first two reactions specify the evolution of the input signal `S`, and last 
 
 The first step is to create the system that we are going to use. The simple gene expression model shown above is already included as an example in PathWeightSampling.jl and can be directly used as follows:
 ```@example 1
-using PathWeightSampling
+import PathWeightSampling as PWS
 
-system = PathWeightSampling.gene_expression_system()
+system = PWS.gene_expression_system()
 ```
 The result is a `system` consisting of the 4 reactions mentioned above and default values for the initial condition and the parameters that specify the reaction rates.
 
@@ -32,7 +32,7 @@ The result is a `system` consisting of the 4 reactions mentioned above and defau
 
 We can generate a _configuration_ of this system. A configuration is a combination of an input trajectory and an output trajectories. Using `generate_configuration` we can create a configuration by first simulating an input trajectory and then use that input trajectory to simulate a corresponding output trajectory.
 ```@example 1
-conf = generate_configuration(system)
+conf = PWS.generate_configuration(system)
 ```
 
 Let us plot the generated configuration:
@@ -48,10 +48,10 @@ We see a plot of the generated input and output trajectories that make up the co
 
 The individual trajectories of the configuration can also be accessed directly:
 ```@example 1
-input_traj = conf.s_traj
-output_traj = conf.x_traj
-p1 = plot(input_traj, label="input")
-p2 = plot(output_traj, label="output")
+input_traj = conf.traj[1, :]
+output_traj = conf.traj[2, :]
+p1 = plot(conf.discrete_times, input_traj, label="input")
+p2 = plot(conf.discrete_times, output_traj, label="output")
 plot(p1, p2, layout = (2, 1))
 savefig("plot2.svg"); nothing # hide
 ```
@@ -61,7 +61,7 @@ savefig("plot2.svg"); nothing # hide
 
 For our system we can compute the trajectory mutual information straightforwardly. 
 ```@example 1
-result = PathWeightSampling.mutual_information(system, DirectMCEstimate(256), num_samples=100)
+result = PWS.mutual_information(system, PWS.DirectMCEstimate(256), num_samples=100)
 nothing # hide
 ```
 
@@ -73,9 +73,10 @@ mutual information. This is the number of samples taken in the *outer* Monte Car
 
 `result` is a `DataFrame` containing the simulation results. We can display the individual Monte Carlo samples:
 ```@example 1
+mi = result["mutual_information"].MutualInformation
 plot(
-    system.dtimes, 
-    result.MutualInformation, 
+    PWS.discrete_times(system), 
+    mi, 
     color=:black, 
     linewidth=0.2, 
     legend=false, 
@@ -92,7 +93,7 @@ The final Monte Carlo estimate is simply the `mean` of the individual samples:
 using Statistics
 plot(
     system.dtimes, 
-    mean(result.MutualInformation), 
+    mean(mi), 
     color=:black, 
     linewidth=2, 
     legend=false,
@@ -110,8 +111,8 @@ Note that since we only used 100 MC samples the fluctuation of the result is rel
 sem(x) = std(x) / sqrt(length(x))
 plot(
     system.dtimes, 
-    mean(result.MutualInformation),
-    yerr=sem(result.MutualInformation), 
+    mean(mi),
+    yerr=sem(mi), 
     color=:black, 
     linewidth=2, 
     legend=false,
@@ -137,9 +138,9 @@ We can compute the mutual information using each of these strategies and compare
 
 ```@example 1
 strategies = [
-    DirectMCEstimate(128), 
-    SMCEstimate(128), 
-    TIEstimate(0, 8, 16), 
+    PWS.DirectMCEstimate(128), 
+    PWS.SMCEstimate(128), 
+    PWS.TIEstimate(0, 8, 16), 
     # AnnealingEstimate(0, 128, 1)
 ]
 results = [PathWeightSampling.mutual_information(system, strat, num_samples=100, progress=false) for strat in strategies]
@@ -147,9 +148,9 @@ results = [PathWeightSampling.mutual_information(system, strat, num_samples=100,
 plot()
 for (strat, r) in zip(strategies, results)
     plot!(
-        system.dtimes, 
-        mean(r.MutualInformation),
-        label=PathWeightSampling.name(strat),
+        PWS.discrete_times(system), 
+        mean(r["mutual_information"].MutualInformation),
+        label=PWS.name(strat),
         xlabel="trajectory duration",
         ylabel="mutual information (nats)"
     )
