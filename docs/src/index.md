@@ -80,7 +80,7 @@ For this system, we can perform
 a PWS simulation to compute the mutual information between its input and output trajectories:
 
 ```julia
-julia> result = mutual_information(system, DirectMCEstimate(256), num_samples=1000)
+julia> result = PWS.mutual_information(system, PWS.DirectMCEstimate(256), num_samples=1000)
 ```
 
 Here we just made a default choice for which marginalization algorithm to use.

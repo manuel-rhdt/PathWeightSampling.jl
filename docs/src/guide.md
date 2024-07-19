@@ -73,7 +73,7 @@ mutual information. This is the number of samples taken in the *outer* Monte Car
 
 `result` is a `DataFrame` containing the simulation results. We can display the individual Monte Carlo samples:
 ```@example 1
-mi = result["mutual_information"].MutualInformation
+mi = result.mutual_information.MutualInformation
 plot(
     PWS.discrete_times(system), 
     mi, 
@@ -92,7 +92,7 @@ The final Monte Carlo estimate is simply the `mean` of the individual samples:
 ```@example 1
 using Statistics
 plot(
-    system.dtimes, 
+    PWS.discrete_times(system), 
     mean(mi), 
     color=:black, 
     linewidth=2, 
@@ -110,7 +110,7 @@ Note that since we only used 100 MC samples the fluctuation of the result is rel
 ```@example 1
 sem(x) = std(x) / sqrt(length(x))
 plot(
-    system.dtimes, 
+    PWS.discrete_times(system), 
     mean(mi),
     yerr=sem(mi), 
     color=:black, 
@@ -140,16 +140,14 @@ We can compute the mutual information using each of these strategies and compare
 strategies = [
     PWS.DirectMCEstimate(128), 
     PWS.SMCEstimate(128), 
-    PWS.TIEstimate(0, 8, 16), 
-    # AnnealingEstimate(0, 128, 1)
 ]
-results = [PathWeightSampling.mutual_information(system, strat, num_samples=100, progress=false) for strat in strategies]
+results = [PWS.mutual_information(system, strat, num_samples=100, progress=false) for strat in strategies]
 
 plot()
 for (strat, r) in zip(strategies, results)
     plot!(
         PWS.discrete_times(system), 
-        mean(r["mutual_information"].MutualInformation),
+        mean(r.mutual_information.MutualInformation),
         label=PWS.name(strat),
         xlabel="trajectory duration",
         ylabel="mutual information (nats)"

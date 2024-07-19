@@ -8,7 +8,7 @@ import Random: Xoshiro
 
 # ChemotaxisJumps
 
-system = PWS.simple_chemotaxis_system(
+system = PWS.chemotaxis_system(
     n_clusters=800,
     n=6,
     duration=100.0,
@@ -48,7 +48,7 @@ rate_estimate = 1 / mean(diff(conf.trace.t))
 if haskey(ENV, "PWS_ALL_TESTS")
     println("RUN ALL TESTS")
 
-    systemfn = () -> PWS.simple_chemotaxis_system(
+    systemfn = () -> PWS.chemotaxis_system(
         n_clusters=800,
         n=6,
         duration=10.0,

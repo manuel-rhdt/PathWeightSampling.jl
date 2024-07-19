@@ -29,6 +29,7 @@ h5open("data.h5", "w") do file
     write_hdf5!(file, data)
     write_hdf5!(file, df)
 end
+```
 """
 function write_hdf5!(group, dict::AbstractDict)
     for (name, value) in dict

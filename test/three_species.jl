@@ -116,4 +116,4 @@ marg_d = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 
 result = PWS.mutual_information(system, PWS.SMCEstimate(128); num_samples=32)
 
-@test length(unique(result["mutual_information"].MutualInformation)) == 32
+@test length(unique(result.mutual_information.MutualInformation)) == 32

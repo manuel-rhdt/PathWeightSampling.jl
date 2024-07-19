@@ -4,7 +4,7 @@ using Statistics
 
 import Random: Xoshiro
 
-system = PWS.simple_chemotaxis_system(n=3, n_clusters=800, duration=1.0, dt=0.1)
+system = PWS.chemotaxis_system(n=3, n_clusters=800, duration=1.0, dt=0.1)
 
 conf = PWS.generate_configuration(system, rng=Xoshiro(1))
 

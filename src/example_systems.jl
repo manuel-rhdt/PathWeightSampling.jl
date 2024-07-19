@@ -7,7 +7,18 @@ using StochasticDiffEq
 import Random
 
 """
-    gene_expression_system(; mean_s=50, mean_x=mean_s, corr_time_s=1.0, corr_time_x=0.1, u0=SA[mean_s, mean_x], dtimes=0:0.1:2.0)
+    gene_expression_system(;
+        mean_s=50,
+        mean_x=mean_s,
+        corr_time_s=1.0,
+        corr_time_x=0.1,
+        kappa=mean_s / corr_time_s,
+        lambda=1 / corr_time_s,
+        mu=1 / corr_time_x,
+        rho=mu * mean_x / mean_s,
+        u0=[mean_s, mean_x],
+        dtimes=0:0.1:2.0
+    )
 
 Creates a system for a very simple model of gene expression.
     
@@ -37,9 +48,10 @@ of  `S`.
 # Examples
 
 The values of the reaction rates can be specified directly as follows:
+
 ```jldoctest
-using PathWeightSampling
-system = PathWeightSampling.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 1.0)
+import PathWeightSampling as PWS
+system = PWS.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 1.0)
 
 # output
 
@@ -284,7 +296,44 @@ function activity_given_methylation(m; N=6, K_a=2000, K_i=20, δfₘ=-2.0, m₀=
     Z_a / (Z_a + Z_i)
 end
 
-function simple_chemotaxis_system(;
+"""
+
+    chemotaxis_system(;
+        n_clusters=25,
+        n_chey=10000,
+        methylation_sites=4,
+        duration=200.0,
+        dt=0.1,
+        sde_dt=dt / 10,
+        c_0=100.0,
+        Kₐ=2900.0,
+        Kᵢ=18.0,
+        n=15, # cooperativity
+        k_R=0.1,
+        k_B=0.2,
+        a_0=k_R / (k_R + k_B),
+        δf=-2.0,
+        m_0=0.5 * n,
+        k_Z=10.0,
+        phi_y=1 / 6,
+        k_A=k_Z * phi_y / ((1 - phi_y) * a_0 * n_clusters),
+        velocity_decay=0.862,
+        velocity_noise=sqrt(2 * velocity_decay * 157.1),
+        gradient_steepness=0.2e-3,
+    )
+
+Create a system for a stochastic chemotaxis model.
+
+# Model description
+
+This model describes the bacterial chemotaxis signaling network.
+
+    Rml -> Rm(l+1), with rate kon L(t) (lmax - l): ligand binding to active state
+    Rm(l+1) -> Rml, with rate koff_A l: ligand unbinding
+    Rml -> R(m+1)l with rate k_R: methylation rate
+    R(m+1)l -> Rml with rate k_B: demethylation rate
+"""
+function chemotaxis_system(;
     n_clusters=25,
     n_chey=10000,
     methylation_sites=4,

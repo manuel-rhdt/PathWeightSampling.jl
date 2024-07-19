@@ -133,7 +133,7 @@ function _reduce_results(results)
         traj = vcat(l[2], r[2])
         result, traj
     end
-    Dict("mutual_information" => result, "trajectories" => traj)
+    (mutual_information = result, trajectories = traj)
 end
 
 function _mi_inner(system, algorithm, num_samples, show_progress)
