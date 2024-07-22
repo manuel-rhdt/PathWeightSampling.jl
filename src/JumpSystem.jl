@@ -16,10 +16,10 @@ using RecipesBase
 
 import Random
 
-struct TraceAndTrajectory{Trace}
+struct TraceAndTrajectory{Trace, tType, uType}
     trace::Trace
-    discrete_times::Vector{Float64}
-    traj::Matrix{Float64}
+    discrete_times::Vector{tType}
+    traj::Matrix{uType}
     species::Vector{Symbol}
 end
 
@@ -30,7 +30,7 @@ end
 end
 
 function PWS.to_dataframe(trace::TraceAndTrajectory)
-    cols = [:time => trace.discrete_times]
+    cols = Any[:time => trace.discrete_times]
     for (species, traj) in zip(trace.species, eachrow(trace.traj))
         push!(cols, species => traj)
     end
@@ -102,7 +102,7 @@ end
 
 function PWS.generate_configuration(system::MarkovJumpSystem; rng=Random.default_rng())
     dtimes = PWS.discrete_times(system)
-    traj = zeros(Float64, (length(system.u0), length(dtimes)))
+    traj = zeros(eltype(system.u0), (length(system.u0), length(dtimes)))
     agg, trace = generate_trace(system; traj=traj, rng=rng)
     TraceAndTrajectory(trace, Vector(dtimes), traj, PWS.SSA.speciesnames(system.reactions))
 end
@@ -472,7 +472,7 @@ PWS.discrete_times(setup::SMC.Setup{<:Trace,<:HybridJumpSystem}) = PWS.discrete_
 
 function PWS.generate_configuration(system::HybridJumpSystem; rng=Random.default_rng())
     dtimes = PWS.discrete_times(system)
-    traj = zeros(Float64, (length(system.u0), length(dtimes)))
+    traj = zeros(eltype(system.u0), (length(system.u0), length(dtimes)))
     agg, trace = generate_trace(system; traj=traj, rng=rng)
     TraceAndTrajectory(trace, Vector(dtimes), traj, PWS.SSA.speciesnames(system.reactions))
 end
