@@ -101,6 +101,11 @@ function sample(
         # UPDATE ESTIMATE
         log_marginal_estimate[i+1] += logmeanexp(weights)
 
+        if isnan(log_marginal_estimate[i+1])
+            print(weights)
+            error("unexpected NaN")
+        end
+
         if (i + 1) >= lastindex(dtimes)
             break
         end
@@ -108,7 +113,7 @@ function sample(
         # RESAMPLE IF NEEDED
         prob_weights = StatsBase.weights(exp.(weights .- maximum(weights)))
 
-        # We only resample if the effective sample size becomes smaller than 1/2 the number of particles
+        # We only resample if the effective sample size becomes smaller than the threshold
         effective_sample_size = 1 / sum(p -> (p / sum(prob_weights))^2, prob_weights)
         if effective_sample_size < resample_threshold
             @debug "Resample" i tspan effective_sample_size

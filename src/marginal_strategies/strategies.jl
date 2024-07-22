@@ -20,7 +20,7 @@ function information_density(s::AbstractSystem, algorithm, configuration; kwargs
     marg = marginal_density(s, algorithm, configuration; kwargs...)
 
     # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
-    cond - marg
+    replace(cond - marg, -Inf => missing, NaN => missing)
 end
 
 abstract type SimulationResult end
@@ -34,6 +34,9 @@ name(x::AbstractSimulationAlgorithm) = string(typeof(x))
 
 function _logmeanexp(x::AbstractArray)
     x_max = maximum(x)
+    if x_max == -Inf
+        return -Inf
+    end
     log(mean(xi -> exp(xi - x_max), x)) + x_max
 end
 
@@ -111,6 +114,7 @@ function _compute(system, algorithm, i, rng; progress=nothing)
     sample = generate_configuration(system; rng=rng)
     # compute ln [P(x,s)/(P(x)P(s))]
     info = @timed information_density(system, algorithm, sample; rng=rng)
+    mi = info.value
     if progress !== nothing
         next!(progress)
     end
@@ -120,7 +124,7 @@ function _compute(system, algorithm, i, rng; progress=nothing)
         DataFrame(
             N=i,
             CPUTime=info.time,
-            MutualInformation=[info.value],
+            MutualInformation=[mi],
             Algorithm=name(algorithm)
         ),
         traj

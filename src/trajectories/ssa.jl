@@ -669,7 +669,14 @@ function step_ssa(
 
         # update tstop, taking into account the change of total propensity
         t1 = agg.tstop
-        agg = @set agg.tstop = t1 == Inf ? Inf : lerp(tnow, t1, srate1/srate2)
+        if srate2 == 0.0
+            agg = @set agg.tstop = Inf
+        elseif t1 == Inf
+            new_tstop = tnow + randexp(agg.rng) / srate2
+            agg = @set agg.tstop = new_tstop
+        else
+            agg = @set agg.tstop = lerp(tnow, t1, srate1/srate2)
+        end
 
         # advance trace
         agg = @set agg.trace_index = tindex + 1
@@ -693,6 +700,9 @@ function step_ssa(
         new_tstop = tnow + randexp(agg.rng) / agg.sumrate
         agg = @set agg.tstop = new_tstop
     end
+
+    @assert !isnan(agg.tstop) "internal error: agg.tstop = NaN"
+    @assert !isnan(agg.weight) "internal error: agg.weight = NaN"
 
     # store reaction event in trace
     if (!isnothing(out_trace)) && rx ∈ agg.traced_reactions

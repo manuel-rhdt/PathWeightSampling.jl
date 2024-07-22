@@ -59,15 +59,15 @@ nstoich = (
 species = [:S, :V, :X]
 
 struct ThreeSpeciesRates
-    κ::Float64
-    λ::Float64
-    ρ::Float64
-    μ::Float64
-    ρ2::Float64
-    μ2::Float64
+    κ::Float32
+    λ::Float32
+    ρ::Float32
+    μ::Float32
+    ρ2::Float32
+    μ2::Float32
 end
 
-function (rates::ThreeSpeciesRates)(rxidx, u::AbstractVector{Float64})
+function (rates::ThreeSpeciesRates)(rxidx, u::AbstractVector)
     if rxidx == 1
         rates.κ
     elseif rxidx == 2
@@ -88,7 +88,7 @@ end
 rates = ThreeSpeciesRates(κ, λ, ρ, μ, ρ2, μ2)
 
 jumps = PWS.SSA.ConstantRateJumps(rates, rstoich, nstoich, species)
-u0 = SA[
+u0 = SA{Int16}[
     κ / λ,
     κ / λ * ρ / μ,
     κ / λ * ρ / μ * ρ2 / μ2
@@ -111,12 +111,14 @@ system = PWS.MarkovJumpSystem(
 
 conf = PWS.generate_configuration(system)
 @test issorted(conf.trace.t)
+@test conf.discrete_times == PWS.discrete_times(system)
+@test eltype(conf.traj) == eltype(u0)
 
 cond_d = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
 marg_d = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 
 result = PWS.mutual_information(system, PWS.SMCEstimate(128); num_samples=500)
 
+@test eltype(result.trajectories.S) == eltype(system.u0)
 @test length(unique(result.mutual_information.MutualInformation)) == 500
-@test mean(result.mutual_information.MutualInformation)[end] > 0
 @test isapprox(mean(result.mutual_information.MutualInformation)[end], 1.5, atol=0.3)
