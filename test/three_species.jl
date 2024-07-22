@@ -27,7 +27,7 @@ jumps = PWS.SSA.ConstantRateJumps(rates, rstoich, nstoich, species)
 reaction_groups = PWS.SSA.make_reaction_groups(jumps, :S)
 @test reaction_groups == [1, 2]
 
-agg = PWS.build_aggregator(PWS.GillespieDirect(), jumps, reaction_groups)
+agg = PWS.build_aggregator(PWS.GillespieDirect(), jumps, [0], reaction_groups)
 agg = PWS.initialize_aggregator(agg, jumps)
 @test agg.u == [0]
 @test agg.rates == [κ, 0.0]

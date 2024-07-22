@@ -7,7 +7,7 @@ import ..PathWeightSampling as PWS
 import ..DirectMC: DirectMCEstimate
 import ..SMC
 using ..SSA
-using Setfield
+using Accessors
 using StochasticDiffEq
 
 import DataFrames: DataFrame
@@ -74,7 +74,7 @@ function MarkovJumpSystem(
     if !isempty(intersect(input_reactions, output_reactions))
         error("Reactions that directly affect both input and output species are not supported.")
     end
-    agg = build_aggregator(alg, reactions, ridtogroup)
+    agg = build_aggregator(alg, reactions, u0, ridtogroup)
     MarkovJumpSystem(agg, reactions, u0, input_reactions, output_reactions, tspan, dt)
 end
 
@@ -180,7 +180,7 @@ function HybridJumpSystem(
     input_reactions = reactions_that_mutate_species(reactions, input_species)
     @assert input_reactions == Set() "we do not support reactions that mutate the input"
     output_reactions = reactions_that_mutate_species(reactions, output_species)
-    agg = build_aggregator(alg, reactions, ridtogroup)
+    agg = build_aggregator(alg, reactions, u0, ridtogroup)
     HybridJumpSystem(agg, reactions, u0, tspan, dt, sde_prob, sde_dt, output_reactions)
 end
 

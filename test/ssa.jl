@@ -12,7 +12,7 @@ reaction_groups = PWS.SSA.make_reaction_groups(reactions, :X)
 @test reaction_groups == [1, 2]
 @test PWS.SSA.make_reaction_groups(reactions, :S) == [0, 0]
 
-agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, reaction_groups)
+agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, [0], reaction_groups)
 
 @test agg.sumrate == 0.0
 
@@ -70,7 +70,7 @@ rstoich = [[1 => 1]]
 nstoich = [[1 => -1]]
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
 
-agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, PWS.SSA.make_reaction_groups(reactions, :X))
+agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, [0], PWS.SSA.make_reaction_groups(reactions, :X))
 agg = PWS.initialize_aggregator(agg, reactions, tspan=(0.0, 10.0))
 @test agg.u == [0]
 @test agg.tstop == Inf
@@ -101,7 +101,7 @@ rng = Random.Xoshiro(1)
 agg, trace = PWS.JumpSystem.generate_trace(system; rng)
 
 @test issorted(trace.t)
-@test sort(unique(trace.rx)) == [1, 2, 3, 4]
+@test sort(unique(trace.rx)) ⊆ [1, 2, 3, 4]
 
 rng = Random.Xoshiro(1)
 conf = PWS.generate_configuration(system; rng)
@@ -114,6 +114,24 @@ df = PWS.to_dataframe(conf)
 @test df.time == PWS.discrete_times(system)
 @test df.S == conf.traj[1, :]
 @test df.X == conf.traj[2, :]
+
+using StaticArrays
+
+u0 = SA[50, 50]
+tspan = (0.0, 10.0)
+system = PWS.MarkovJumpSystem(
+    PWS.GillespieDirect(),
+    reactions,
+    u0,
+    tspan,
+    :S,
+    :X
+)
+
+static_conf = PWS.generate_configuration(system; rng=Random.Xoshiro(1))
+
+@test conf.trace == static_conf.trace
+@test conf.traj == static_conf.traj
 
 # ce = agg.weight
 

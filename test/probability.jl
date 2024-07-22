@@ -1,6 +1,7 @@
 import PathWeightSampling as PWS
 using Test
-using Setfield
+using Accessors
+using StaticArrays
 
 import Random: Xoshiro
 
@@ -14,7 +15,7 @@ nstoich = [[1 => 1], [1 => -1]]
 
 bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, species)
 
-u0 = [50.0]
+u0 = SA[50.0, 0.0]
 tspan = (0.0, 3.0)
 
 bd_system = PWS.MarkovJumpSystem(

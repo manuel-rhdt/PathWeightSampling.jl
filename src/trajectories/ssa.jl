@@ -9,7 +9,7 @@ export make_reaction_groups, reactions_that_mutate_species, filter_trace
 
 using StaticArrays
 import Base.show
-using Setfield
+using Accessors
 using Random
 import DataFrames: DataFrame
 
@@ -397,12 +397,11 @@ struct DirectAggregator{U,Map,Cache,Rng} <: AbstractJumpRateAggregator
     rng::Rng
 end
 
-function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64); rng=Random.default_rng())
+function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, u0, ridtogroup, tspan=(0.0, Inf64); rng=Random.default_rng())
     ngroups = maximum(ridtogroup)
     nreactions = num_reactions(reactions)
-    nspecies = num_species(reactions)
     DirectAggregator(
-        zeros(Int64, nspecies),
+        u0,
         0.0, zeros(nreactions),
         0.0, zeros(ngroups),
         BitSet(1:nreactions),
@@ -488,13 +487,13 @@ struct DepGraphAggregator{U,Map,DepGraph,Cache,Rng} <: AbstractJumpRateAggregato
     rng::Rng
 end
 
-function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, ridtogroup, tspan=(0.0, Inf64); rng=Random.default_rng())
+function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, u0, ridtogroup, tspan=(0.0, Inf64); rng=Random.default_rng())
     ngroups = maximum(ridtogroup)
     nreactions = num_reactions(reactions)
     nspecies = num_species(reactions)
     depgraph = make_depgraph(reactions)
     DepGraphAggregator(
-        zeros(Int64, nspecies),
+        u0,
         0.0, zeros(nreactions),
         0.0, zeros(ngroups),
         BitSet(1:nreactions),
@@ -674,7 +673,7 @@ function step_ssa(
 
         # execute reaction
         agg = update_weight(agg, tnow, rx)
-        executerx!(agg.u, rx, reactions)
+        agg = perform_jump(agg, rx, reactions)
         agg = update_rates(agg, reactions, rx)
         srate2 = agg.sumrate # sumrate after jump
 
@@ -697,7 +696,7 @@ function step_ssa(
         # perform reaction and update rates
         rx = select_reaction(agg)
         agg = update_weight(agg, tnow, rx)
-        executerx!(agg.u, rx, reactions)
+        agg = perform_jump(agg, rx, reactions)
         agg = update_rates(agg, reactions, rx)
 
         # draw next tstop
@@ -766,19 +765,37 @@ end
 
 # Code adapted from JumpProcesses.jl
 @inline function executerx!(speciesvec::AbstractVector, rxidx::Integer, reactions::AbstractJumpSet)
-    @inbounds net_stoch = reactions.nstoich[rxidx]
-    for (species, diff) in net_stoch
+    @inbounds net_stoich = reactions.nstoich[rxidx]
+    for (species, diff) in net_stoich
         @inbounds speciesvec[species] += diff
     end
     nothing
 end
 
-@inline function executerx!(speciesvec::AbstractVector, rxidx::Integer, js::JumpSet)
+@inline function executerx(speciesvec::SVector, rxidx::Integer, reactions::AbstractJumpSet)
+    @inbounds net_stoich = reactions.nstoich[rxidx]
+    @inbounds for (species, diff) in net_stoich
+        speciesvec = @set speciesvec[species] += diff
+    end
+    speciesvec
+end
+
+
+@inline function perform_jump(agg::AbstractJumpRateAggregator, rxidx::Integer, reactions::AbstractJumpSet)
+    if agg.u isa SVector
+        @set agg.u = executerx(agg.u, rxidx, reactions)
+    else
+        executerx!(agg.u, rxidx, reactions)
+        agg
+    end
+end
+
+@inline function perform_jump(agg::AbstractJumpRateAggregator, rxidx::Integer, js::JumpSet)
     nreactions = num_reactions(js.reactions)
     if rxidx <= nreactions
-        executerx!(speciesvec, rxidx, js.reactions)
+        perform_jump(agg, rxidx, js.reactions)
     else
-        executerx!(speciesvec, rxidx - nreactions, js.jumps)
+        perform_jump(agg, rxidx - nreactions, js.jumps)
     end
 end
 
