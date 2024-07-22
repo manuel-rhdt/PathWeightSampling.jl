@@ -9,9 +9,9 @@ import Random: Xoshiro
 λ = 1.0
 
 species = [:X, :Y]
-rates = [κ, λ]
-rstoich = [[], [1 => 1]]
-nstoich = [[1 => 1], [1 => -1]]
+rates = SA[κ, λ]
+rstoich = (SA{Pair{Int, Int}}[], SA[1 => 1])
+nstoich = (SA[1 => 1], SA[1 => -1])
 
 bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, species)
 

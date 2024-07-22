@@ -47,17 +47,17 @@ A struct that stores reactions for use with Gillespie simulation code.
 
 This struct represents a set of reactions to be used in Gillespie simulations. The reactions are defined by their rates, reactant stoichiometry, product stoichiometry, and the number of species in the system.
 """
-struct ReactionSet <: AbstractJumpSet
-    rates::Vector{Float64}
-    rstoich::Vector{Vector{Pair{Int64,Int64}}}
-    nstoich::Vector{Vector{Pair{Int64,Int64}}}
+struct ReactionSet{Rates, RStoich, NStoich} <: AbstractJumpSet
+    rates::Rates
+    rstoich::RStoich
+    nstoich::NStoich
     species::Vector{Symbol}
 end
 
-struct ConstantRateJumps{Rates} <: AbstractJumpSet
+struct ConstantRateJumps{Rates, RStoich, NStoich} <: AbstractJumpSet
     rates::Rates
-    rstoich::Vector{Vector{Pair{Int64,Int64}}}
-    nstoich::Vector{Vector{Pair{Int64,Int64}}}
+    rstoich::RStoich
+    nstoich::NStoich
     species::Vector{Symbol}
 end
 
@@ -111,7 +111,7 @@ function make_reaction_groups(rs::Union{ReactionSet, ConstantRateJumps}, species
     nstoich = rs.nstoich
     comp = species_index(rs, species)
     group_assignments = Dict{Pair{Int, Int}, Int}()
-    map(nstoich) do reaction_stoich
+    map(collect(nstoich)) do reaction_stoich
         group = 0
         for (species, stoich) in reaction_stoich
             if species == comp
@@ -634,16 +634,6 @@ function make_depgraph(reactions::AbstractJumpSet)
 
     foreach(deps -> unique!(sort!(deps)), dep_graph)
     dep_graph
-end
-
-struct TrajectoryDistribution{A}
-    reactions::ReactionSet
-    aggregator::A
-end
-
-function TrajectoryDistribution(reactions::ReactionSet, alg::AbstractJumpRateAggregatorAlgorithm, ridtogroup=1:length(reactions.rates))
-    agg = build_aggregator(alg, reactions, ridtogroup)
-    TrajectoryDistribution(reactions, agg)
 end
 
 function lerp(v0, v1, t::Real)

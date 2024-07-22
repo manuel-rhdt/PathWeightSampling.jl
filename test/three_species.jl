@@ -2,6 +2,8 @@
 import PathWeightSampling as PWS
 
 using Test
+using Statistics
+using StaticArrays
 
 κ = 10.0
 λ = 1.0
@@ -38,22 +40,22 @@ agg = PWS.step_ssa(agg, jumps, nothing, nothing)
 
 # Full system
 
-rstoich = [
-    Pair{Int64,Int64}[],
-    [1 => 1],
-    [1 => 1],
-    [2 => 1],
-    [2 => 1],
-    [3 => 1]
-]
-nstoich = [
-    [1 => 1],
-    [1 => -1],
-    [2 => 1],
-    [2 => -1],
-    [3 => 1],
-    [3 => -1]
-]
+rstoich = (
+    SA{Pair{Int8,Int8}}[],
+    SA{Pair{Int8,Int8}}[1 => 1],
+    SA{Pair{Int8,Int8}}[1 => 1],
+    SA{Pair{Int8,Int8}}[2 => 1],
+    SA{Pair{Int8,Int8}}[2 => 1],
+    SA{Pair{Int8,Int8}}[3 => 1]
+)
+nstoich = (
+    SA{Pair{Int8,Int8}}[1 => 1],
+    SA{Pair{Int8,Int8}}[1 => -1],
+    SA{Pair{Int8,Int8}}[2 => 1],
+    SA{Pair{Int8,Int8}}[2 => -1],
+    SA{Pair{Int8,Int8}}[3 => 1],
+    SA{Pair{Int8,Int8}}[3 => -1]
+)
 species = [:S, :V, :X]
 
 struct ThreeSpeciesRates
@@ -86,7 +88,7 @@ end
 rates = ThreeSpeciesRates(κ, λ, ρ, μ, ρ2, μ2)
 
 jumps = PWS.SSA.ConstantRateJumps(rates, rstoich, nstoich, species)
-u0 = [
+u0 = SA[
     κ / λ,
     κ / λ * ρ / μ,
     κ / λ * ρ / μ * ρ2 / μ2
@@ -100,7 +102,7 @@ system = PWS.MarkovJumpSystem(
     tspan,
     :S,
     :X,
-    1e-2
+    1e-1
 )
 
 @test system.agg.ridtogroup == [0, 0, 0, 0, 1, 2]
@@ -112,8 +114,9 @@ conf = PWS.generate_configuration(system)
 
 cond_d = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
 marg_d = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
-@test cond_d[end] >= marg_d[end]
 
-result = PWS.mutual_information(system, PWS.SMCEstimate(128); num_samples=32)
+result = PWS.mutual_information(system, PWS.SMCEstimate(128); num_samples=500)
 
-@test length(unique(result.mutual_information.MutualInformation)) == 32
+@test length(unique(result.mutual_information.MutualInformation)) == 500
+@test mean(result.mutual_information.MutualInformation)[end] > 0
+@test isapprox(mean(result.mutual_information.MutualInformation)[end], 1.5, atol=0.3)

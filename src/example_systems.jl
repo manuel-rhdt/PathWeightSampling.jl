@@ -3,6 +3,7 @@ import .SMC: systematic_sample
 using .SSA
 using LinearAlgebra
 using StochasticDiffEq
+using StaticArrays
 
 import Random
 
@@ -96,9 +97,9 @@ function gene_expression_system(;
     dtimes=0:0.1:2.0
 )
     species = [:S, :X]
-    rates = [kappa, lambda, rho, mu]
-    rstoich = [[], [1 => 1], [1 => 1], [2 => 1]]
-    nstoich = [[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
+    rates = SA[kappa, lambda, rho, mu]
+    rstoich = (SA{Pair{Int, Int}}[], SA[1 => 1], SA[1 => 1], SA[2 => 1])
+    nstoich = (SA[1 => 1], SA[1 => -1], SA[2 => 1], SA[2 => -1])
 
     reactions = ReactionSet(rates, rstoich, nstoich, species)
 

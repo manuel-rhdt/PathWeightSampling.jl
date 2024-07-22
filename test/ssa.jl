@@ -1,18 +1,19 @@
 using Test
 import PathWeightSampling as PWS
 import Random
+using StaticArrays
 
 # create a simple birth-death system
-rates = [1.0, 1.0]
-rstoich = [[], [1 => 1]]
-nstoich = [[1 => 1], [1 => -1]]
+rates = SA[1.0, 1.0]
+rstoich = (SA{Pair{Int, Int}}[], SA[1 => 1])
+nstoich = (SA[1 => 1], SA[1 => -1])
 
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
 reaction_groups = PWS.SSA.make_reaction_groups(reactions, :X)
 @test reaction_groups == [1, 2]
 @test PWS.SSA.make_reaction_groups(reactions, :S) == [0, 0]
 
-agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, [0], reaction_groups)
+agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, SA[0], reaction_groups)
 
 @test agg.sumrate == 0.0
 
@@ -34,14 +35,14 @@ agg2 = PWS.step_ssa(agg, reactions, nothing, trace)
 @test trace.rx == [1]
 @test trace.t == [agg.tstop]
 
-agg3 = agg
+agg3 = agg2
 for i = 1:100
     global agg3 = PWS.step_ssa(agg3, reactions, nothing, trace)
 end
 
 @test agg3.u[1] == -sum(2 .* trace.rx .- 3)
 
-agg = PWS.initialize_aggregator(agg, reactions, u0=[0], active_reactions=BitSet())
+agg = PWS.initialize_aggregator(agg, reactions, u0=SA[0], active_reactions=BitSet())
 
 @test agg.tstop == Inf
 @test agg.trace_index == 1
@@ -117,6 +118,10 @@ df = PWS.to_dataframe(conf)
 
 using StaticArrays
 
+rates = SA[50.0, 1.0, 1.0, 1.0]
+rstoich = (SA{Pair{Int, Int}}[], SA[1 => 1], SA[1 => 1], SA[2 => 1])
+nstoich = (SA[1 => 1], SA[1 => -1], SA[2 => 1], SA[2 => -1])
+reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:S, :X])
 u0 = SA[50, 50]
 tspan = (0.0, 10.0)
 system = PWS.MarkovJumpSystem(

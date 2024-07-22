@@ -113,7 +113,7 @@ function sample(
         if effective_sample_size < resample_threshold
             @debug "Resample" i tspan effective_sample_size
             if effective_sample_size <= 5
-                @warn "Small effective sample size" i tspan effective_sample_size
+                @debug "Small effective sample size" i tspan effective_sample_size
             end
             # sample parent indices
             parent_indices = systematic_sample(rng, prob_weights)
