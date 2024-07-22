@@ -118,26 +118,26 @@ function _compute(system, algorithm, i, rng; progress=nothing)
     if progress !== nothing
         next!(progress)
     end
-    traj = to_dataframe(sample)
-    traj[!, :N] .= i
+    res = to_dataframe(sample)
+    res[!, :MutualInformation] = mi
+    res[!, :N] .= i
     (
         DataFrame(
-            N=i,
-            CPUTime=info.time,
-            MutualInformation=[mi],
-            Algorithm=name(algorithm)
+            N=[i],
+            CPUTime=[info.time],
+            Algorithm=[name(algorithm)]
         ),
-        traj
+        res
     )
 end
 
 function _reduce_results(results)
-    result, traj = reduce(results) do l, r
-        result = vcat(l[1], r[1])
-        traj = vcat(l[2], r[2])
-        result, traj
+    meta, res = reduce(results) do l, r
+        meta = vcat(l[1], r[1])
+        res = vcat(l[2], r[2])
+        meta, res
     end
-    (mutual_information = result, trajectories = traj)
+    (metadata = meta, result = res)
 end
 
 function _mi_inner(system, algorithm, num_samples, show_progress)

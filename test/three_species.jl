@@ -117,8 +117,9 @@ conf = PWS.generate_configuration(system)
 cond_d = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
 marg_d = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 
-result = PWS.mutual_information(system, PWS.SMCEstimate(128); num_samples=500)
+mutual_information = PWS.mutual_information(system, PWS.SMCEstimate(128); num_samples=500)
 
-@test eltype(result.trajectories.S) == eltype(system.u0)
-@test length(unique(result.mutual_information.MutualInformation)) == 500
-@test isapprox(mean(result.mutual_information.MutualInformation)[end], 1.5, atol=0.3)
+using DataFrames
+mi = combine(groupby(mutual_information.result, :time), :MutualInformation => mean; renamecols=false)
+@test eltype(mutual_information.result.S) == eltype(system.u0)
+@test isapprox(mi.MutualInformation[end], 1.5, atol=0.3)

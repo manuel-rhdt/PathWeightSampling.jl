@@ -31,7 +31,7 @@ struct DirectMCEstimate <: AbstractSimulationAlgorithm
     num_samples::Int
 end
 
-name(x::DirectMCEstimate) = "Direct MC"
+name(x::DirectMCEstimate) = "DirectMC-$(x.num_samples)"
 
 function simulate(algorithm::DirectMCEstimate, initial, system; kwargs...)
     estimate = SMCEstimate(algorithm.num_samples)

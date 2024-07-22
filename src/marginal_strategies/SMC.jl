@@ -179,7 +179,7 @@ struct SMCEstimate <: AbstractSimulationAlgorithm
     num_particles::Int
 end
 
-name(x::SMCEstimate) = "SMC"
+name(x::SMCEstimate) = "SMC-$(x.num_particles)"
 
 struct SMCResult <: SimulationResult
     log_marginal_estimate::Vector{Float64}

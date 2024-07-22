@@ -7,6 +7,7 @@ include("JumpSystem.jl")
 include("EmpiricalDistribution.jl")
 include("write_hdf5.jl")
 include("write_json.jl")
+include("write_parquet.jl")
 include("example_systems.jl")
 include("ParallelRun.jl")
 
