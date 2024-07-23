@@ -701,9 +701,6 @@ function step_ssa(
         agg = @set agg.tstop = new_tstop
     end
 
-    @assert !isnan(agg.tstop) "internal error: agg.tstop = NaN"
-    @assert !isnan(agg.weight) "internal error: agg.weight = NaN"
-
     # store reaction event in trace
     if (!isnothing(out_trace)) && rx ∈ agg.traced_reactions
         push!(out_trace.rx, rx)
@@ -756,7 +753,14 @@ end
     log_jump_prob = 0.0
     if !isnothing(rx)
         @inbounds gid = agg.ridtogroup[rx]
-        gid != 0 && @inbounds log_jump_prob += log(agg.grates[gid])
+        if gid != 0
+            @inbounds grate = agg.grates[gid]
+            if grate > 0.0
+                log_jump_prob += log(grate)
+            else
+                log_jump_prob = -Inf
+            end
+        end
     end
     log_waiting_prob = -Δt * agg.gsumrate
     agg = @set agg.weight = agg.weight + log_jump_prob + log_waiting_prob
