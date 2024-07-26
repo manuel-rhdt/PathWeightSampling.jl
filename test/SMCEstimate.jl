@@ -22,7 +22,7 @@ result = Dict(map(algs) do alg
             mi[i] = cresult - mresult
         end
     end
-    PWS.name(alg) => hcat(mi...)
+    PWS.name(alg) => reduce(hcat, mi)
 end)
 
 # Test that all results lie within one standard deviations of each other.
