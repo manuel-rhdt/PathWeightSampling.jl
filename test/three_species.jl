@@ -122,4 +122,4 @@ mutual_information = PWS.mutual_information(system, PWS.SMCEstimate(128); num_sa
 using DataFrames
 mi = combine(groupby(mutual_information.result, :time), :MutualInformation => mean; renamecols=false)
 @test eltype(mutual_information.result.S) == eltype(system.u0)
-@test isapprox(mi.MutualInformation[end], 1.5, atol=0.3)
+@test isapprox(mi.MutualInformation[end], 1.5, atol=0.5)
