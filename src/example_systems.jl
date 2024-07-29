@@ -4,6 +4,7 @@ using .SSA
 using LinearAlgebra
 using StochasticDiffEq
 using StaticArrays
+using Accessors
 
 import Random
 
@@ -148,31 +149,33 @@ end
 end
 
 struct ChemotaxisCache
-    c_prev::Ref{Float64}
+    c_prev::Float64
     z_m::Vector{Float64}
     p_a::Vector{Float64}
 end
 
 function Base.copy(cache::ChemotaxisCache)
-    ChemotaxisCache(Ref(cache.c_prev[]), copy(cache.z_m), copy(cache.p_a))
+    ChemotaxisCache(cache.c_prev, copy(cache.z_m), copy(cache.p_a))
 end
 
 function SSA.initialize_cache(jumps::ChemotaxisJumps)
     E_m = [jumps.δf * (m - jumps.m_0) for m in 0:length(jumps.receptors)-1]
     ChemotaxisCache(
-        Ref(0.0),
+        0.0,
         exp.(-E_m),
         fill(1 / 2, length(jumps.receptors))
     )
 end
 
-function SSA.update_cache!(agg, jumps::ChemotaxisJumps)
+function SSA.update_cache(agg, jumps::ChemotaxisJumps)
     ligand_c = agg.u[jumps.ligand]
-    if agg.cache.c_prev[] != ligand_c
+    if agg.cache.c_prev != ligand_c
         z_a = (1 + (ligand_c / jumps.KD_a))^jumps.N
         z_i = (1 + (ligand_c / jumps.KD_i))^jumps.N
         @. agg.cache.p_a = z_a * agg.cache.z_m / (z_a * agg.cache.z_m + z_i)
-        agg.cache.c_prev[] = ligand_c
+        @set agg.cache.c_prev = ligand_c
+    else
+        agg
     end
 end
 
@@ -412,6 +415,7 @@ function chemotaxis_system(;
 
     tspan = (0.0, duration)
     s_prob = SDEProblem(det_evolution!, noise!, [0.0, u0[1]], tspan, ps)
+    sde_species_mapping = [2 => 1]
 
     HybridJumpSystem(
         DepGraphDirect(),
@@ -422,7 +426,8 @@ function chemotaxis_system(;
         s_prob,
         sde_dt,
         :L,
-        :Yp
+        :Yp,
+        sde_species_mapping
     )
 end
 

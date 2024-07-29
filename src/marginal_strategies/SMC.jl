@@ -1,6 +1,6 @@
 module SMC
 
-export SMCEstimate, weight, propagate
+export SMCEstimate, weight, propagate, AbstractParticle, clone
 
 import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, discrete_times,
     log_marginal, logmeanexp, name, simulate
@@ -9,36 +9,11 @@ import Random
 import StatsBase
 
 
+abstract type AbstractParticle end
 
-
-# Each particle represents an independently evolving trajectory.
-struct JumpParticle{uType}
-    u::uType
-    weight::Float64
-end
-
-function JumpParticle(setup)
-    u = sample_initial_condition(setup.ensemble)
-    w = initial_log_likelihood(setup.ensemble, u, setup.configuration.x_traj)
-    JumpParticle(u, w)
-end
-
-function JumpParticle(parent::JumpParticle, setup)
-    JumpParticle(copy(parent.u), 0.0)
-end
-
-function propagate(p::JumpParticle, tspan::Tuple{T,T}, setup) where {T}
-    u_end, weight = propagate(setup.configuration, setup.ensemble, p.u, tspan)
-    JumpParticle(u_end, weight)
-end
-
-# While this implementation of a particle is slower than the one above
-# it keeps track of the genealogy of a particle (i.e. its parent, grandparent, etc.).
-# This is useful for debugging and for collecting statistics.
-mutable struct ParentTrackingParticle{Inner}
-    p::Inner
-    parent::Union{ParentTrackingParticle{Inner},Nothing}
-end
+weight(p::AbstractParticle) = 0.0
+propagate(p::AbstractParticle, tspan::Tuple{T,T}, setup::Any) where {T} = error("needs to be implemented")
+clone(p::AbstractParticle, setup::Any) = copy(p)
 
 struct Setup{Configuration,Ensemble,RNG}
     configuration::Configuration
@@ -46,41 +21,23 @@ struct Setup{Configuration,Ensemble,RNG}
     rng::RNG
 end
 
-function ParentTrackingParticle{Inner}(setup) where {Inner}
-    ParentTrackingParticle(Inner(setup), nothing)
-end
-
-function ParentTrackingParticle(parent::ParentTrackingParticle{Inner}, setup) where {Inner}
-    ParentTrackingParticle(Inner(parent.p, setup), parent)
-end
-
-function propagate(p::ParentTrackingParticle, tspan::Tuple{T,T}, setup) where {T}
-    new_p = propagate(p.p, tspan, setup)
-    p.p = new_p
-    p
-end
-
-weight(p::JumpParticle) = p.weight
-weight(p::ParentTrackingParticle) = weight(p.p)
-
 # This is the main routine to compute the marginal probability in RR-PWS.
 function sample(
-    setup,
-    nparticles;
+    setup::Any,
+    particles::Vector{<:AbstractParticle};
     inspect=Base.identity,
-    new_particle=JumpParticle,
-    resample_threshold=nparticles / 2,
+    resample_threshold=length(particles) / 2,
     rng=Random.default_rng()
 )
-    particle_bag = [new_particle(setup) for i = 1:nparticles]
+    nparticles = length(particles)
     weights = zeros(nparticles)
     dtimes = discrete_times(setup)
 
     log_marginal_estimate = zeros(length(dtimes))
 
     # First, handle initial condition
-    for j in eachindex(particle_bag)
-        weights[j] += weight(particle_bag[j])
+    for j in eachindex(particles)
+        weights[j] += weight(particles[j])
     end
     log_marginal_estimate[1] = logmeanexp(weights)
 
@@ -91,12 +48,12 @@ function sample(
     for (i, tspan) in enumerate(zip(dtimes[begin:end-1], dtimes[begin+1:end]))
 
         # PROPAGATE
-        for j in eachindex(particle_bag)
-            particle_bag[j] = propagate(particle_bag[j], tspan, setup)
-            weights[j] += weight(particle_bag[j])
+        for j in eachindex(particles)
+            particles[j] = propagate(particles[j], tspan, setup)
+            weights[j] += weight(particles[j])
         end
 
-        inspect(particle_bag) #< useful for collecting statistics
+        inspect(particles) #< useful for collecting statistics
 
         # UPDATE ESTIMATE
         log_marginal_estimate[i+1] += logmeanexp(weights)
@@ -123,9 +80,12 @@ function sample(
             # sample parent indices
             parent_indices = systematic_sample(rng, prob_weights)
 
-            particle_bag = map(parent_indices) do k
-                new_particle(particle_bag[k], setup)
+            new_particles = similar(particles)
+            for (i, k) in enumerate(parent_indices)
+                new_particles[i] = clone(particles[k], setup)
             end
+            particles = new_particles
+
             weights .= 0.0
             log_marginal_estimate[i+1:end] .= log_marginal_estimate[i+1]
         end
@@ -189,9 +149,10 @@ end
 log_marginal(result::SMCResult) = result.log_marginal_estimate
 
 
-function simulate(algorithm::SMCEstimate, initial, system; rng=Random.default_rng(), kwargs...)
+function simulate(algorithm::SMCEstimate, initial, system; rng=Random.default_rng(), new_particle, kwargs...)
     setup = Setup(initial, system, rng)
-    log_marginal_estimate = sample(setup, algorithm.num_particles; rng=rng, kwargs...)
+    particles = [new_particle(setup) for i = 1:algorithm.num_particles]
+    log_marginal_estimate = sample(setup, particles; rng=rng, kwargs...)
     SMCResult(log_marginal_estimate)
 end
 

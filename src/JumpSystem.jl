@@ -84,7 +84,13 @@ end
 
 function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing, rng=Random.default_rng())
     agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=rng)
-    trace = ReactionTrace([], [], agg.traced_reactions)
+
+    reaction_times = Float64[]
+    reaction_indices = Int16[]
+    sizehint!(reaction_times, 100_000)
+    sizehint!(reaction_indices, 100_000)
+
+    trace = ReactionTrace(reaction_times, reaction_indices, agg.traced_reactions)
 
     if traj !== nothing
         traj[:, 1] = u0
@@ -163,6 +169,7 @@ struct HybridJumpSystem{A,JS,U,Prob} <: AbstractSystem
     sde_prob::Prob
     sde_dt::Float64
     output_reactions::BitSet
+    sde_species_mapping::Vector{Pair{Int, Int}}
 end
 
 function HybridJumpSystem(
@@ -175,13 +182,14 @@ function HybridJumpSystem(
     sde_dt::Real,
     input_species::Symbol,
     output_species::Symbol,
+    sde_species_mapping::Vector{Pair{Int, Int}}
 )
     ridtogroup = make_reaction_groups(reactions, output_species)
     input_reactions = reactions_that_mutate_species(reactions, input_species)
     @assert input_reactions == Set() "we do not support reactions that mutate the input"
     output_reactions = reactions_that_mutate_species(reactions, output_species)
     agg = build_aggregator(alg, reactions, u0, ridtogroup)
-    HybridJumpSystem(agg, reactions, u0, tspan, dt, sde_prob, sde_dt, output_reactions)
+    HybridJumpSystem(agg, reactions, u0, tspan, dt, sde_prob, sde_dt, output_reactions, sde_species_mapping)
 end
 
 function Base.copy(js::HybridJumpSystem)
@@ -193,7 +201,8 @@ function Base.copy(js::HybridJumpSystem)
         js.dt,
         remake(js.sde_prob),
         js.sde_dt,
-        js.output_reactions
+        js.output_reactions,
+        js.sde_species_mapping
     )
 end
 
@@ -226,7 +235,9 @@ function advance_ssa(
     for i in i1:i2
         tstop = dtimes[i]
         agg = advance_ssa(agg, reactions, tstop, ReactionTrace(trace), out_trace)
-        agg.u[1] = trace.u[i]
+        for (sde_index, species_index) in trace.sde_species_mapping
+            agg = @set agg.u[species_index] = trace.u[i][sde_index]
+        end
         agg = SSA.update_rates(agg, reactions)
     end
     if dtimes[i2] != t_end
@@ -238,7 +249,8 @@ end
 function advance_ssa_sde(
     agg::AbstractJumpRateAggregator,
     reactions::AbstractJumpSet,
-    integrator,
+    integrator::StochasticDiffEq.SDEIntegrator,
+    sde_species_mapping::Vector{Pair{Int, Int}},
     t_end::Float64,
     trace::Union{Nothing,<:ReactionTrace},
     out_trace::Union{Nothing,<:HybridTrace}
@@ -247,10 +259,12 @@ function advance_ssa_sde(
     step!(integrator)
     while integrator.t <= t_end
         agg = advance_ssa(agg, reactions, integrator.t, trace, out_trace)
-        agg.u[1] = integrator.u[end]
+        for (sde_index, species_index) in sde_species_mapping
+            agg = @set agg.u[species_index] = integrator.u[sde_index]
+        end
         if out_trace !== nothing
             push!(out_trace.dtimes, integrator.t)
-            push!(out_trace.u, integrator.u[end])
+            push!(out_trace.u, copy(integrator.u))
         end
         agg = SSA.update_rates(agg, reactions)
         if integrator.t == t_end
@@ -264,7 +278,7 @@ end
 
 function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing, rng=Random.default_rng())
     agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=rng)
-    s_prob = remake(system.sde_prob, tspan=tspan, u0=[0.0, u0[1]])
+    s_prob = remake(system.sde_prob, tspan=tspan)
 
     if traj !== nothing
         traj[:, 1] .= u0
@@ -275,10 +289,21 @@ function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tsp
     seed = rand(rng, UInt)
     integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false, seed=seed)
 
-    trace = HybridTrace(Float64[], Int16[], agg.traced_reactions, Float64[], Float64[])
+    
+    reaction_times = Float64[]
+    reaction_indices = Int16[]
+    sde_u = typeof(s_prob.u0)[]
+    sde_t = Float64[]
+    sizehint!(reaction_times, 100_000)
+    sizehint!(reaction_indices, 100_000)
+    sizehint!(sde_u, Int((tspan[2] - tspan[1]) ÷ sde_dt))
+    sizehint!(sde_t, Int((tspan[2] - tspan[1]) ÷ sde_dt))
+
+    trace = HybridTrace(reaction_times, reaction_indices, agg.traced_reactions, sde_u, sde_t, system.sde_species_mapping)
+    
     tstops = range(tspan[1], tspan[2], step=dt)
     for (i, tstop) in enumerate(tstops[2:end])
-        agg = advance_ssa_sde(agg, system.reactions, integrator, tstop, nothing, trace)
+        agg = advance_ssa_sde(agg, system.reactions, integrator, system.sde_species_mapping, tstop, nothing, trace)
         if traj !== nothing
             traj[:, i+1] .= agg.u
         end
@@ -303,13 +328,13 @@ function sample(trace::ReactionTrace, system::HybridJumpSystem; u0=system.u0, ts
     )
 
     dt = system.sde_dt
-    s_prob = remake(system.sde_prob, tspan=tspan, u0=[0.0, u0[1]])
+    s_prob = remake(system.sde_prob, tspan=tspan)
     seed = rand(rng, UInt)
     integrator = init(s_prob, EM(), dt=dt / 5, save_start=false, save_everystep=false, save_end=false, seed=seed)
 
     tstops = range(tspan[1], tspan[2], step=dt)
     for tstop in tstops[2:end]
-        agg = advance_ssa_sde(agg, system.reactions, integrator, tstop, trace, nothing)
+        agg = advance_ssa_sde(agg, system.reactions, integrator, system.sde_species_mapping, tstop, trace, nothing)
     end
 
     agg.weight
@@ -366,11 +391,11 @@ function generate_trajectory(system::Union{MarkovJumpSystem,HybridJumpSystem}, d
     agg, traj
 end
 
-struct MarkovParticle{Agg}
+struct MarkovParticle{Agg} <: SMC.AbstractParticle
     agg::Agg
 end
 
-struct HybridParticle{Agg,Integrator}
+struct HybridParticle{Agg,Integrator} <: SMC.AbstractParticle
     agg::Agg
     integrator::Integrator
 end
@@ -394,7 +419,7 @@ function MarkovParticle(setup::SMC.Setup)
         u0=copy(u0),
         tspan=tspan,
         active_reactions=active_reactions,
-        rng=setup.rng
+        rng=copy(setup.rng)
     )
 
     MarkovParticle(agg)
@@ -414,10 +439,10 @@ function HybridParticle(setup::SMC.Setup{<:ReactionTrace})
         u0=copy(u0),
         tspan=tspan,
         active_reactions=active_reactions,
-        rng=setup.rng
+        rng=copy(setup.rng)
     )
 
-    s_prob = remake(system.sde_prob, u0=[0.0, u0[1]])
+    s_prob = remake(system.sde_prob)
     sde_dt = system.sde_dt
     seed = rand(agg.rng, UInt64)
     integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false, seed=seed)
@@ -425,13 +450,13 @@ function HybridParticle(setup::SMC.Setup{<:ReactionTrace})
     HybridParticle(agg, integrator)
 end
 
-function MarkovParticle(parent::MarkovParticle, setup::SMC.Setup)
+function SMC.clone(parent::MarkovParticle, setup::SMC.Setup)
     agg = copy(parent.agg)
     agg = @set agg.weight = 0.0
     MarkovParticle(agg)
 end
 
-function HybridParticle(parent::HybridParticle, setup::SMC.Setup)
+function SMC.clone(parent::HybridParticle, setup::SMC.Setup)
     system = setup.ensemble
     agg = copy(parent.agg)
     agg = @set agg.weight = 0.0
@@ -444,7 +469,7 @@ function HybridParticle(parent::HybridParticle, setup::SMC.Setup)
     HybridParticle(agg, integrator)
 end
 
-function SMC.propagate(particle::MarkovParticle, tspan, setup::SMC.Setup)
+function SMC.propagate(particle::MarkovParticle, tspan::Tuple{T, T}, setup::SMC.Setup) where T<:Real
     system = setup.ensemble
     trace = setup.configuration
     agg = particle.agg
@@ -453,14 +478,14 @@ function SMC.propagate(particle::MarkovParticle, tspan, setup::SMC.Setup)
     MarkovParticle(agg)
 end
 
-function SMC.propagate(particle::HybridParticle, tspan, setup::SMC.Setup)
+function SMC.propagate(particle::HybridParticle, tspan::Tuple{T, T}, setup::SMC.Setup) where T<:Real
     system = setup.ensemble
     trace = setup.configuration
     agg = particle.agg
     agg = @set agg.weight = 0.0
     integrator = particle.integrator
     reinit!(particle.integrator, particle.integrator.u, t0=tspan[1], tf=tspan[2], reinit_cache=false)
-    agg = advance_ssa_sde(agg, system.reactions, integrator, tspan[2], trace, nothing)
+    agg = advance_ssa_sde(agg, system.reactions, integrator, system.sde_species_mapping, tspan[2], trace, nothing)
     HybridParticle(agg, integrator)
 end
 

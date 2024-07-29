@@ -31,7 +31,7 @@ speciesnames(rs::AbstractJumpSet) = error("Need to implement speciesnames")
 species_index(rs::AbstractJumpSet, spec::Symbol) = findfirst(==(spec), speciesnames(rs))
 
 initialize_cache(js::AbstractJumpSet) = nothing
-update_cache!(agg, js::AbstractJumpSet) = nothing
+update_cache(agg, js::AbstractJumpSet) = agg
 
 
 """
@@ -244,6 +244,9 @@ struct HybridTrace{U,T} <: Trace
 
     "sampling times of external trajectory"
     dtimes::T
+
+    "mapping from SDE integrator indices to reaction species indices"
+    sde_species_mapping::Vector{Pair{Int, Int}}
 end
 
 ReactionTrace(ht::HybridTrace) = ReactionTrace(ht.t, ht.rx, ht.traced_reactions)
@@ -300,7 +303,7 @@ filter_trace(trace::ReactionTrace, keep_reactions::Integer) = filter_trace(trace
 function filter_trace(trace::HybridTrace, keep_reactions)
     subtrace = ReactionTrace(trace)
     filtered = filter_trace(subtrace, keep_reactions)
-    HybridTrace(filtered.t, filtered.rx, filtered.traced_reactions, trace.u, trace.dtimes)
+    HybridTrace(filtered.t, filtered.rx, filtered.traced_reactions, trace.u, trace.dtimes, trace.sde_species_mapping)
 end
 
 abstract type AbstractJumpRateAggregatorAlgorithm end
@@ -846,7 +849,7 @@ end
 end
 
 function update_rates(aggregator::DirectAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
-    update_cache!(aggregator, reactions)
+    aggregator = update_cache(aggregator, reactions)
     for rx in 1:num_reactions(reactions)
         update_reaction_rate!(aggregator, reactions, rx)
     end
@@ -861,7 +864,7 @@ function update_rates(aggregator::DirectAggregator, reactions::AbstractJumpSet, 
 end
 
 function update_rates(aggregator::DepGraphAggregator, reactions::AbstractJumpSet, prev_reaction::Integer=0)
-    update_cache!(aggregator, reactions)
+    aggregator = update_cache(aggregator, reactions)
     if prev_reaction == 0
         # recompute all rates
         for rx in 1:num_reactions(reactions)

@@ -20,7 +20,7 @@ function information_density(s::AbstractSystem, algorithm, configuration; kwargs
     marg = marginal_density(s, algorithm, configuration; kwargs...)
 
     # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
-    replace(cond - marg, -Inf => missing, NaN => missing)
+    replace!(cond - marg, -Inf => missing, NaN => missing)
 end
 
 abstract type SimulationResult end
