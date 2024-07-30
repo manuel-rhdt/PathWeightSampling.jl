@@ -140,8 +140,9 @@ We can compute the mutual information using each of these strategies and compare
 
 ```@example 1
 strategies = [
-    PWS.DirectMCEstimate(128), 
-    PWS.SMCEstimate(128), 
+    PWS.DirectMCEstimate(128),
+    PWS.SMCEstimate(128),
+    PWS.PERM(16)
 ]
 results = [PWS.mutual_information(system, strat, num_samples=100, progress=false) for strat in strategies]
 
