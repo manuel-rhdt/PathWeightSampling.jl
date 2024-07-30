@@ -4,6 +4,8 @@ using StaticArrays
 using Statistics
 using StochasticDiffEq
 
+import Random
+
 function det_evolution(u::SVector, p, t)
     κ, λ = p
     SA[κ-λ*u[1]]
@@ -11,15 +13,15 @@ end
 
 function noise(u::SVector, p, t)
     κ, λ = p
-    SA[sqrt(2κ / λ)]
+    SA[sqrt(2κ)]
 end
 
 ps = [50.0, 1.0]
-tspan = (0.0, 100.0)
+tspan = (0.0, 400.0)
 s_prob = SDEProblem(det_evolution, noise, SA[50.0], tspan, ps)
 sde_species_mapping = [1 => 1]
 
-rates = [1.0, 1.0]
+rates = [10.0, 10.0]
 rstoich = [SA[1=>1], SA[2=>1]]
 nstoich = [SA[2=>1], SA[2=>-1]]
 
@@ -31,9 +33,9 @@ system = PWS.HybridJumpSystem(
     reactions,
     u0,
     tspan,
-    1.0, # dt
+    0.1, # dt
     s_prob,
-    0.1, # sde_dt
+    0.01, # sde_dt
     :S,
     :X,
     sde_species_mapping
@@ -43,7 +45,10 @@ system = PWS.HybridJumpSystem(
 
 conf = PWS.generate_configuration(system)
 
+@test mean(conf.traj[1, :]) ≈ 50.0 rtol=0.3
 @test var(conf.traj[1, :]) ≈ 50.0 rtol=0.3
+@test mean(conf.traj[2, :]) ≈ 50.0 rtol=0.3
+@test var(conf.traj[2, :]) ≈ 75.0 rtol=0.3
 
 for (i, t) in enumerate(conf.discrete_times)
     if i == 1
@@ -53,3 +58,21 @@ for (i, t) in enumerate(conf.discrete_times)
     j = searchsortedfirst(conf.trace.dtimes, t)
     @test conf.traj[1, i] == conf.trace.u[j][1]
 end
+
+trace = PWS.SSA.ReactionTrace(conf.trace)
+@test trace.traced_reactions == Set([1, 2])
+
+setup = PWS.SMC.Setup(trace, system, Random.Xoshiro(1))
+particle = PWS.JumpSystem.HybridParticle(setup)
+@test particle.agg.active_reactions == Set()
+
+cd1 = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
+cd2 = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
+@test cd1 == cd2 # deterministic evaluation of likelihood
+
+md1 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
+md2 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
+@test md1 != md2 # MC evaluation of marginal likelihood
+@test md1 ≈ md2 rtol=0.01
+
+@test cd1[end] > md1[end]

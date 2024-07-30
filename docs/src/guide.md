@@ -61,7 +61,7 @@ savefig("plot2.svg"); nothing # hide
 
 For our system we can compute the trajectory mutual information straightforwardly. 
 ```@example 1
-result = PWS.mutual_information(system, PWS.DirectMCEstimate(256), num_samples=100)
+data = PWS.mutual_information(system, PWS.DirectMCEstimate(256), num_samples=100)
 nothing # hide
 ```
 
@@ -73,12 +73,11 @@ mutual information. This is the number of samples taken in the *outer* Monte Car
 
 `result` is a `DataFrame` containing the simulation results. We can display the individual Monte Carlo samples:
 ```@example 1
-mi = result.mutual_information.MutualInformation
-plot(
-    PWS.discrete_times(system), 
-    mi, 
+df = data.result
+scatter(
+    df.time, 
+    df.MutualInformation, 
     color=:black, 
-    linewidth=0.2, 
     legend=false, 
     xlabel="trajectory duration", 
     ylabel="mutual information (nats)"
@@ -91,9 +90,11 @@ savefig("plot3.svg"); nothing # hide
 The final Monte Carlo estimate is simply the `mean` of the individual samples:
 ```@example 1
 using Statistics
+using DataFrames
+df = combine(groupby(data.result, :time), :MutualInformation => mean => :MI)
 plot(
-    PWS.discrete_times(system), 
-    mean(mi), 
+    df.time, 
+    df.MI, 
     color=:black, 
     linewidth=2, 
     legend=false,
@@ -109,10 +110,11 @@ Note that since we only used 100 MC samples the fluctuation of the result is rel
 
 ```@example 1
 sem(x) = std(x) / sqrt(length(x))
+df = combine(groupby(data.result, :time), :MutualInformation => mean => :MI, :MutualInformation => sem => :Err)
 plot(
-    PWS.discrete_times(system), 
-    mean(mi),
-    yerr=sem(mi), 
+    df.time, 
+    df.MI,
+    yerr=df.Err, 
     color=:black, 
     linewidth=2, 
     legend=false,
@@ -145,9 +147,10 @@ results = [PWS.mutual_information(system, strat, num_samples=100, progress=false
 
 plot()
 for (strat, r) in zip(strategies, results)
+    df = combine(groupby(r.result, :time), :MutualInformation => mean => :MI)
     plot!(
-        PWS.discrete_times(system), 
-        mean(r.mutual_information.MutualInformation),
+        df.time, 
+        df.MI,
         label=PWS.name(strat),
         xlabel="trajectory duration",
         ylabel="mutual information (nats)"

@@ -3,7 +3,7 @@ module FlatPerm
 export PERM
 
 import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal, name
-import ..SMC: Setup, propagate, weight
+import ..SMC: Setup, propagate, weight, clone, AbstractParticle
 
 using Statistics
 using Random
@@ -44,7 +44,7 @@ name(x::PERM) = "PERM"
 const MAX_COPIES = 25
 
 function grow(
-    p,
+    p::AbstractParticle,
     n::Int,
     n_ind::Int,
     n_chain::Int,
@@ -53,7 +53,6 @@ function grow(
     num_samples::Matrix{Int},
     num_samples_eff::Matrix{Float64},
     setup;
-    new_particle=JumpParticle,
     inspect=identity
 )
     dtimes = discrete_times(setup)
@@ -88,7 +87,7 @@ function grow(
         num_copies = min(trunc(Int, exp(log_ratio)), MAX_COPIES)
         adjusted_weight = log_w - log(num_copies)
         for i in 2:num_copies
-            child = new_particle(p, setup)
+            child = clone(p, setup)
             grow(
                 child,
                 n,
@@ -99,7 +98,6 @@ function grow(
                 num_samples,
                 num_samples_eff,
                 setup;
-                new_particle,
                 inspect
             )
         end
@@ -113,7 +111,6 @@ function grow(
             num_samples,
             num_samples_eff,
             setup;
-            new_particle,
             inspect
         )
     else
@@ -132,7 +129,6 @@ function grow(
                 num_samples,
                 num_samples_eff,
                 setup;
-                new_particle,
                 inspect
             )
         else
@@ -152,7 +148,7 @@ end
 log_marginal(result::PERMResult) = vcat(0.0, logsumexp(result.log_marginal_estimate, dims=2)[2:end, 1])
 
 # This is the main routine to compute the marginal probability in flatPERM.
-function flatperm(convergence_criterion, setup; new_particle=JumpParticle, inspect=identity)
+function flatperm(convergence_criterion, setup; new_particle, inspect=identity)
 
     # this determines the time-interfaces at which we enrich or prune
     dtimes = discrete_times(setup)
@@ -170,7 +166,7 @@ function flatperm(convergence_criterion, setup; new_particle=JumpParticle, inspe
         log_marginal_estimate .+= log((N - 1) / N)
         n = 1
         p = new_particle(setup)
-        grow(p, n, 0, N, 0.0, log_marginal_estimate, num_samples, num_samples_eff, setup; new_particle, inspect)
+        grow(p, n, 0, N, 0.0, log_marginal_estimate, num_samples, num_samples_eff, setup; inspect)
         N += 1
     end
 
