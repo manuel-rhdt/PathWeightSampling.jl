@@ -16,12 +16,16 @@ function noise(u::SVector, p, t)
     SA[sqrt(2κ)]
 end
 
-ps = [50.0, 1.0]
-tspan = (0.0, 400.0)
+κ = 50.0
+λ = 1.0
+ρ = 10.0
+μ = 10.0
+ps = [κ, λ]
+tspan = (0.0, 100.0)
 s_prob = SDEProblem(det_evolution, noise, SA[50.0], tspan, ps)
 sde_species_mapping = [1 => 1]
 
-rates = [10.0, 10.0]
+rates = [ρ, μ]
 rstoich = [SA[1=>1], SA[2=>1]]
 nstoich = [SA[2=>1], SA[2=>-1]]
 
@@ -45,10 +49,10 @@ system = PWS.HybridJumpSystem(
 
 conf = PWS.generate_configuration(system)
 
-@test mean(conf.traj[1, :]) ≈ 50.0 rtol=0.3
-@test var(conf.traj[1, :]) ≈ 50.0 rtol=0.3
-@test mean(conf.traj[2, :]) ≈ 50.0 rtol=0.3
-@test var(conf.traj[2, :]) ≈ 75.0 rtol=0.3
+@test mean(conf.traj[1, :]) ≈ κ / λ rtol=0.3
+@test var(conf.traj[1, :]) ≈ κ / λ rtol=0.3
+@test mean(conf.traj[2, :]) ≈ ρ * κ / λ / μ rtol=0.3
+@test var(conf.traj[2, :]) ≈ (1 / (1 + λ/μ) + ρ / μ) * κ / λ rtol=0.3
 
 for (i, t) in enumerate(conf.discrete_times)
     if i == 1
@@ -71,8 +75,11 @@ cd2 = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
 @test cd1 == cd2 # deterministic evaluation of likelihood
 
 md1 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
-md2 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
-@test md1 != md2 # MC evaluation of marginal likelihood
-@test md1 ≈ md2 rtol=0.01
+@time md2 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
+@test md1 != md2 # MC evaluation of marginal likelihood is non-deterministic
+@test md1 ≈ md2 rtol=1e-4 # but the results should be very close
+
+@time md3 = PWS.marginal_density(system, PWS.PERM(2), conf)
+@test md1 ≈ md3 rtol=1e-2
 
 @test cd1[end] > md1[end]
