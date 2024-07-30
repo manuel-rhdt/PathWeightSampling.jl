@@ -146,7 +146,7 @@ function PWS.conditional_density(system::MarkovJumpSystem, algorithm, conf::Trac
     trace = filter_trace(trace, traced_reactions)
     if 1:num_reactions(system.reactions) ⊆ traced_reactions
         # we don't need to marginalize
-        sample(system, trace; kwargs...)
+        log_probability(system, trace; kwargs...)
     else
         marginalization_result = PWS.simulate(algorithm, trace, system; new_particle=MarkovParticle, kwargs...)
         PWS.log_marginal(marginalization_result)
