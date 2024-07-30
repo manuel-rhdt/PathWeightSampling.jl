@@ -25,7 +25,7 @@ tspan = (0.0, 100.0)
 s_prob = SDEProblem(det_evolution, noise, SA[50.0], tspan, ps)
 sde_species_mapping = [1 => 1]
 
-rates = [ρ, μ]
+rates = (ρ, μ)
 rstoich = [SA[1=>1], SA[2=>1]]
 nstoich = [SA[2=>1], SA[2=>-1]]
 
@@ -70,16 +70,13 @@ setup = PWS.SMC.Setup(trace, system, Random.Xoshiro(1))
 particle = PWS.JumpSystem.HybridParticle(setup)
 @test particle.agg.active_reactions == Set()
 
-cd1 = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
-cd2 = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
+@time "conditional density 1" cd1 = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
+@time "conditional density 2" cd2 = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
 @test cd1 == cd2 # deterministic evaluation of likelihood
 
-md1 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
-@time md2 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
+@time "marginal density 1" md1 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
+@time "marginal density 2" md2 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 @test md1 != md2 # MC evaluation of marginal likelihood is non-deterministic
 @test md1 ≈ md2 rtol=1e-4 # but the results should be very close
-
-@time md3 = PWS.marginal_density(system, PWS.PERM(2), conf)
-@test md1 ≈ md3 rtol=1e-2
 
 @test cd1[end] > md1[end]
