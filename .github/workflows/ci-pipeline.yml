@@ -25,6 +25,7 @@ jobs:
         run: julia --project=docs/ docs/make.jl
         
       - uses: julia-actions/julia-processcoverage@latest
-      - uses: codecov/codecov-action@v1
-        with:
-          file: lcov.info
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v4.2.0
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
