@@ -78,10 +78,6 @@ function MarkovJumpSystem(
     MarkovJumpSystem(agg, reactions, u0, input_reactions, output_reactions, tspan, dt)
 end
 
-# to compute the marginal entropy
-# 1. simulate input & output and record only output trace
-# 2. simulate inputs with output deactivated, average likelihoods
-
 function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing, rng=Random.default_rng())
     agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=rng)
 
@@ -140,7 +136,7 @@ function log_probability(system::MarkovJumpSystem, trace::ReactionTrace; u0=syst
     cond_prob
 end
 
-function PWS.conditional_density(system::MarkovJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...)
+function PWS.conditional_density(system::MarkovJumpSystem, algorithm, conf::TraceAndTrajectory; full_result=false, kwargs...)
     trace = conf.trace
     traced_reactions = union(system.input_reactions, system.output_reactions)
     trace = filter_trace(trace, traced_reactions)
@@ -149,16 +145,24 @@ function PWS.conditional_density(system::MarkovJumpSystem, algorithm, conf::Trac
         log_probability(system, trace; kwargs...)
     else
         marginalization_result = PWS.simulate(algorithm, trace, system; new_particle=MarkovParticle, kwargs...)
-        PWS.log_marginal(marginalization_result)
+        if full_result
+            marginalization_result
+        else
+            PWS.log_marginal(marginalization_result)
+        end
     end
 end
 
-function PWS.marginal_density(system::MarkovJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...)
+function PWS.marginal_density(system::MarkovJumpSystem, algorithm, conf::TraceAndTrajectory; full_result=false, kwargs...)
     trace = conf.trace
     traced_reactions = system.output_reactions
     trace = filter_trace(trace, traced_reactions)
     marginalization_result = PWS.simulate(algorithm, trace, system; new_particle=MarkovParticle, kwargs...)
-    PWS.log_marginal(marginalization_result)
+    if full_result
+        marginalization_result
+    else
+        PWS.log_marginal(marginalization_result)
+    end
 end
 
 struct HybridJumpSystem{A,JS,U,Prob} <: AbstractSystem
@@ -507,20 +511,31 @@ function PWS.generate_configuration(system::HybridJumpSystem; rng=Random.default
     TraceAndTrajectory(trace, Vector(dtimes), traj, PWS.SSA.speciesnames(system.reactions))
 end
 
-function PWS.marginal_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...)
+function PWS.marginal_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; full_result=false, kwargs...)
     traced_reactions = system.output_reactions
     trace = filter_trace(ReactionTrace(conf.trace), traced_reactions)
-    PWS.log_marginal(PWS.simulate(algorithm, trace, system; new_particle=HybridParticle, kwargs...))
+    marginalization_result = PWS.simulate(algorithm, trace, system; new_particle=HybridParticle, kwargs...)
+
+    if full_result
+        marginalization_result
+    else
+        PWS.log_marginal(marginalization_result)
+    end
 end
 
-function PWS.conditional_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; kwargs...)
+function PWS.conditional_density(system::HybridJumpSystem, algorithm, conf::TraceAndTrajectory; full_result=false, kwargs...)
     traced_reactions = system.output_reactions
     trace = filter_trace(conf.trace, traced_reactions)
     if 1:num_reactions(system.reactions) ⊆ traced_reactions
         # we don't need to marginalize
         log_probability(system, trace; kwargs...)
     else
-        PWS.log_marginal(PWS.simulate(algorithm, trace, system; new_particle=MarkovParticle, kwargs...))
+        marginalization_result = PWS.simulate(algorithm, trace, system; new_particle=MarkovParticle, kwargs...)
+        if full_result
+            marginalization_result
+        else
+            PWS.log_marginal(marginalization_result)
+        end
     end
 end
 

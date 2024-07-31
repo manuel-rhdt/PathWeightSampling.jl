@@ -119,10 +119,10 @@ df = PWS.to_dataframe(conf)
 using StaticArrays
 
 rates = SA[50.0, 1.0, 1.0, 1.0]
-rstoich = (SA{Pair{Int, Int}}[], SA[1 => 1], SA[1 => 1], SA[2 => 1])
-nstoich = (SA[1 => 1], SA[1 => -1], SA[2 => 1], SA[2 => -1])
+rstoich = [Pair{Int, Int}[], [1 => 1], [1 => 1], [2 => 1]]
+nstoich = [[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:S, :X])
-u0 = SA[50, 50]
+u0 = SA[50.0, 50.0]
 tspan = (0.0, 10.0)
 system = PWS.MarkovJumpSystem(
     PWS.GillespieDirect(),
@@ -138,26 +138,23 @@ static_conf = PWS.generate_configuration(system; rng=Random.Xoshiro(1))
 @test conf.trace == static_conf.trace
 @test conf.traj == static_conf.traj
 
-# ce = agg.weight
+κ, λ, ρ, μ = rates
 
-# @time samples = [PWS.sample(system, trace)[end] for i = 1:10000]
+result_object = PWS.mutual_information(system, PWS.SMCEstimate(2048), num_samples=500)
 
-# using Statistics
-# result_direct = mean(ce .- samples)
+using DataFrames, Statistics
+sem(x) = sqrt(var(x) / length(x))
+pws_result = combine(
+    groupby(result_object.result, :time), 
+    :MutualInformation => mean => :MI,
+    :MutualInformation => sem => :Err
+)
 
-# system_dep = PWS.MarkovJumpSystem(
-#     PWS.DepGraphDirect(),
-#     reactions,
-#     u0,
-#     tspan,
-#     [0, 0, 1, 2],
-#     BitSet([3, 4])
-# )
+relative_error = pws_result.Err[end] / pws_result.MI[end]
+@test relative_error < 5e-2
 
-# agg2, trace2 = PWS.generate_trace(system_dep)
+rate_estimate = (pws_result.MI[end] - pws_result.MI[3]) / (pws_result.time[end] - pws_result.time[3])
+rate_analytical = λ / 2 * (sqrt(1 + 2ρ / λ) - 1) # From Moor et al. PRR 2023
 
-# @time samples_dep = [PWS.sample(system_dep, trace)[end] for i = 1:10000]
+@test rate_estimate ≈ rate_analytical rtol=5*relative_error
 
-# result_dep = mean(ce .- samples_dep)
-
-# @test result_direct ≈ result_dep rtol = 0.01

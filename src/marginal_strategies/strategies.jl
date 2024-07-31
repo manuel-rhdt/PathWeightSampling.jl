@@ -8,6 +8,8 @@ import Distributed: pmap
 
 abstract type AbstractSystem end
 
+abstract type SimulationResult end
+
 discrete_times(::AbstractSystem) = error("Custom system does not implement required function `discrete_times`.")
 generate_configuration(::AbstractSystem) = error("Custom system does not implement required function `generate_configuration`.")
 conditional_density(::AbstractSystem, algorithm, configuration) = error("Custom system does not implement required function `conditional_density`.")
@@ -16,14 +18,26 @@ compile(sys::AbstractSystem) = sys
 to_dataframe(::Any) = DataFrame()
 
 function information_density(s::AbstractSystem, algorithm, configuration; kwargs...)
-    cond = conditional_density(s, algorithm, configuration; kwargs...)
-    marg = marginal_density(s, algorithm, configuration; kwargs...)
+    cond = conditional_density(s, algorithm, configuration; full_result=true, kwargs...)
+    marg = marginal_density(s, algorithm, configuration; full_result=true, kwargs...)
+
+    metrics = DataFrame()
+    if cond isa SimulationResult
+        df = to_dataframe(cond)
+        df[!, :Conditional] .= true
+        metrics = vcat(metrics, df, cols=:union)
+        cond = log_marginal(cond)
+    end
+    if marg isa SimulationResult
+        df = to_dataframe(marg)
+        df[!, :Conditional] .= false
+        metrics = vcat(metrics, df, cols=:union)
+        marg = log_marginal(marg)
+    end
 
     # ln [P(x,s)/(P(x)P(s))] = ln [P(x|s)/P(x)] = ln P(x|s) - ln P(x)
-    replace!(cond - marg, -Inf => missing, NaN => missing)
+    replace(cond - marg, -Inf => missing, NaN => missing), metrics
 end
-
-abstract type SimulationResult end
 
 log_marginal(::SimulationResult) = error("Custom subtype of SimulationResult does not implement required function `log_marginal`.")
 
@@ -114,30 +128,33 @@ function _compute(system, algorithm, i, rng; progress=nothing)
     sample = generate_configuration(system; rng=rng)
     # compute ln [P(x,s)/(P(x)P(s))]
     info = @timed information_density(system, algorithm, sample; rng=rng)
-    mi = info.value
+    mi, metrics = info.value
     if progress !== nothing
         next!(progress)
     end
     res = to_dataframe(sample)
     res[!, :MutualInformation] = mi
     res[!, :N] .= i
+    metrics[!, :N] .= i
     (
         DataFrame(
             N=[i],
             CPUTime=[info.time],
             Algorithm=[name(algorithm)]
         ),
-        res
+        res,
+        metrics
     )
 end
 
 function _reduce_results(results)
-    meta, res = reduce(results) do l, r
+    meta, res, metrics = reduce(results) do l, r
         meta = vcat(l[1], r[1])
         res = vcat(l[2], r[2])
-        meta, res
+        metrics = vcat(l[3], r[3])
+        meta, res, metrics
     end
-    (metadata = meta, result = res)
+    (metadata = meta, result = res, metrics = metrics)
 end
 
 function _mi_inner(system, algorithm, num_samples, show_progress)

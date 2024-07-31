@@ -3,11 +3,11 @@ module SMC
 export SMCEstimate, weight, propagate, AbstractParticle, clone
 
 import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, discrete_times,
-    log_marginal, logmeanexp, name, simulate
+    log_marginal, to_dataframe, logmeanexp, name, simulate
 
 import Random
 import StatsBase
-
+using DataFrames
 
 abstract type AbstractParticle end
 
@@ -34,6 +34,7 @@ function sample(
     dtimes = discrete_times(setup)
 
     log_marginal_estimate = zeros(length(dtimes))
+    effective_sample_sizes = zeros(length(dtimes))
 
     # First, handle initial condition
     for j in eachindex(particles)
@@ -58,20 +59,16 @@ function sample(
         # UPDATE ESTIMATE
         log_marginal_estimate[i+1] += logmeanexp(weights)
 
-        if isnan(log_marginal_estimate[i+1])
-            print(weights)
-            error("unexpected NaN")
-        end
+        prob_weights = StatsBase.weights(exp.(weights .- maximum(weights)))
+        # We only resample if the effective sample size becomes smaller than the threshold
+        effective_sample_size = 1 / sum(p -> (p / sum(prob_weights))^2, prob_weights)
+        effective_sample_sizes[i+1] = effective_sample_size
 
         if (i + 1) >= lastindex(dtimes)
             break
         end
 
         # RESAMPLE IF NEEDED
-        prob_weights = StatsBase.weights(exp.(weights .- maximum(weights)))
-
-        # We only resample if the effective sample size becomes smaller than the threshold
-        effective_sample_size = 1 / sum(p -> (p / sum(prob_weights))^2, prob_weights)
         if effective_sample_size < resample_threshold
             @debug "Resample" i tspan effective_sample_size
             if effective_sample_size <= 5
@@ -91,7 +88,7 @@ function sample(
         end
     end
 
-    log_marginal_estimate
+    log_marginal_estimate, effective_sample_sizes
 end
 
 """
@@ -142,18 +139,22 @@ end
 name(x::SMCEstimate) = "SMC-$(x.num_particles)"
 
 struct SMCResult <: SimulationResult
+    time::Vector{Float64}
     log_marginal_estimate::Vector{Float64}
+    effective_sample_sizes::Vector{Float64}
 end
-
 
 log_marginal(result::SMCResult) = result.log_marginal_estimate
 
+function to_dataframe(result::SMCResult)
+    DataFrame(:time => result.time, :log_marginal => result.log_marginal_estimate, :ESS => result.effective_sample_sizes)
+end
 
 function simulate(algorithm::SMCEstimate, initial, system; rng=Random.default_rng(), new_particle, kwargs...)
     setup = Setup(initial, system, rng)
     particles = [new_particle(setup) for i = 1:algorithm.num_particles]
-    log_marginal_estimate = sample(setup, particles; rng=rng, kwargs...)
-    SMCResult(log_marginal_estimate)
+    log_marginal_estimate, effective_sample_sizes = sample(setup, particles; rng=rng, kwargs...)
+    SMCResult(Vector(discrete_times(system)), log_marginal_estimate, effective_sample_sizes)
 end
 
 end # module
