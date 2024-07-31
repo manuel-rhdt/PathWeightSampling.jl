@@ -423,7 +423,7 @@ function MarkovParticle(setup::SMC.Setup)
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
-        rng=copy(setup.rng)
+        rng=Random.Xoshiro(rand(setup.rng, UInt))
     )
 
     MarkovParticle(agg)
@@ -444,12 +444,12 @@ function HybridParticle(setup::SMC.Setup{<:ReactionTrace})
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
-        rng=copy(setup.rng)
+        rng=Random.Xoshiro(rand(setup.rng, UInt))
     )
 
     s_prob = remake(system.sde_prob)
     sde_dt = system.sde_dt
-    seed = rand(agg.rng, UInt64)
+    seed = rand(setup.rng, UInt)
     integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false, seed=seed)
 
     HybridParticle(agg, integrator)
@@ -468,7 +468,7 @@ function SMC.clone(parent::HybridParticle, setup::SMC.Setup)
 
     s_prob = remake(system.sde_prob, u0=copy(parent.integrator.u))
     sde_dt = system.sde_dt
-    seed = rand(agg.rng, UInt64)
+    seed = rand(setup.rng, UInt64)
     integrator = init(s_prob, EM(), dt=sde_dt, save_everystep=false, save_start=false, save_end=false, seed=seed)
 
     HybridParticle(agg, integrator)

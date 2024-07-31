@@ -78,31 +78,31 @@ trace = conf.trace
 @test cd1[end] > md1[end]
 
 
-# system = PWS.HybridJumpSystem(
-#     PWS.GillespieDirect(),
-#     reactions,
-#     u0,
-#     (0.0, 10.0),
-#     0.01, # dt
-#     s_prob,
-#     0.001, # sde_dt
-#     :S,
-#     :X,
-#     sde_species_mapping
-# )
+system = PWS.HybridJumpSystem(
+    PWS.GillespieDirect(),
+    reactions,
+    u0,
+    (0.0, 10.0),
+    0.1, # dt
+    s_prob,
+    0.01, # sde_dt
+    :S,
+    :X,
+    sde_species_mapping
+)
 
-# mi = PWS.mutual_information(system, PWS.SMCEstimate(5_000), num_samples=10)
+mi = PWS.mutual_information(system, PWS.SMCEstimate(128), num_samples=1000)
 
-# mi.metrics.ESS
+mi.metrics.ESS
 
-# using DataFrames, Statistics
-# sem(x) = sqrt(var(x) / length(x))
-# pws_result = combine(
-#     groupby(mi.result, :time), 
-#     :MutualInformation => mean => :MI,
-#     :MutualInformation => sem => :Err
-# )
+using DataFrames, Statistics
+sem(x) = sqrt(var(x) / length(x))
+pws_result = combine(
+    groupby(mi.result, :time), 
+    :MutualInformation => mean => :MI,
+    :MutualInformation => sem => :Err
+)
 
-# rate = (pws_result.MI[end] - pws_result.MI[100]) / (pws_result.time[end] - pws_result.time[100])
-# λ / 2 * (sqrt(1 + ρ / λ) - 1)
-# λ / 2 * (sqrt(1 + 2ρ / λ) - 1) 
+rate = (pws_result.MI[end] - pws_result.MI[10]) / (pws_result.time[end] - pws_result.time[10])
+
+@test rate ≈ (λ / 2 * (sqrt(1 + 2ρ / λ) - 1)) rtol=0.1
