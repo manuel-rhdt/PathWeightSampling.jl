@@ -25,22 +25,28 @@ system = PWS.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 
 
 # output
 
-SimpleSystem with 4 reactions
-Input variables: S(t)
-Output variables: X(t)
+MarkovJumpSystem with 2 species and 4 reactions
+k = 10.00: ∅ ---&gt; S
+k = 0.10: S ---&gt; ∅
+k = 1.00: S ---&gt; S + X
+k = 1.00: X ---&gt; ∅
+
 Initial condition:
-    S(t) = 50
-    X(t) = 50
-Parameters:
-    κ = 10.0
-    λ = 0.1
-    ρ = 1.0
-    μ = 1.0</code></pre><p>Alternatively, the reaction rates can be specified indirectly through the following arguments:</p><ul><li><code>mean_s</code>: The average copy number of S when the system has relaxed to steady state.</li><li><code>mean_x</code>: The average copy number of X when the system has relaxed to steady state.</li><li><code>corr_time_s</code>: The input signal correlation time. The shorter this time is, the faster the fluctuations in the input signal.</li><li><code>corr_time_x</code>: The output signal correlation time. This sets the timescale of output fluctuations.</li></ul><pre><code class="nohighlight hljs">using PathWeightSampling
-system = PathWeightSampling.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_time_x=0.75)
+    S = 50
+    X = 50</code></pre><p>Alternatively, the reaction rates can be specified indirectly through the following arguments:</p><ul><li><code>mean_s</code>: The average copy number of S when the system has relaxed to steady state.</li><li><code>mean_x</code>: The average copy number of X when the system has relaxed to steady state.</li><li><code>corr_time_s</code>: The input signal correlation time. The shorter this time is, the faster the fluctuations in the input signal.</li><li><code>corr_time_x</code>: The output signal correlation time. This sets the timescale of output fluctuations.</li></ul><pre><code class="language-julia hljs">import PathWeightSampling as PWS
+system = PWS.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_time_x=0.75)
 
 # output
 
-</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/9016bc8dcaa9565b5d7560264fce128b1f07effe/src/example_systems.jl#L11-L87">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="PathWeightSampling.chemotaxis_system" href="#PathWeightSampling.chemotaxis_system"><code>PathWeightSampling.chemotaxis_system</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">chemotaxis_system(;
+MarkovJumpSystem with 2 species and 4 reactions
+k = 25.00: ∅ ---&gt; S
+k = 1.00: S ---&gt; ∅
+k = 2.67: S ---&gt; S + X
+k = 1.33: X ---&gt; ∅
+
+Initial condition:
+    S = 25
+    X = 50</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/2ac263d540445a242304be02005308ef0811ee09/src/example_systems.jl#L11-L93">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="PathWeightSampling.chemotaxis_system" href="#PathWeightSampling.chemotaxis_system"><code>PathWeightSampling.chemotaxis_system</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">chemotaxis_system(;
     n_clusters=25,
     n_chey=10000,
     methylation_sites=4,
@@ -65,4 +71,76 @@ system = PathWeightSampling.gene_expression_system(mean_s=25, mean_x=50, corr_ti
 )</code></pre><p>Create a system for a stochastic chemotaxis model.</p><p><strong>Model description</strong></p><p>This model describes the bacterial chemotaxis signaling network.</p><pre><code class="nohighlight hljs">Rml -&gt; Rm(l+1), with rate kon L(t) (lmax - l): ligand binding to active state
 Rm(l+1) -&gt; Rml, with rate koff_A l: ligand unbinding
 Rml -&gt; R(m+1)l with rate k_R: methylation rate
-R(m+1)l -&gt; Rml with rate k_B: demethylation rate</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/9016bc8dcaa9565b5d7560264fce128b1f07effe/src/example_systems.jl#L303-L339">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../guide/">« Guide</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 31 July 2024 08:56">Wednesday 31 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+R(m+1)l -&gt; Rml with rate k_B: demethylation rate</code></pre><p><strong>Example</strong></p><pre><code class="language-julia hljs">import PathWeightSampling as PWS
+system = PWS.chemotaxis_system()
+
+# output
+
+HybridJumpSystem with 64 species and 184 reactions
+PathWeightSampling.ChemotaxisJumps(2900.0, 18.0, 15, 0.2, 0.1, 0.23999999999999996, 10.0, -2.0, 7.5, 1, 2:62, 63, 64)
+
+Initial condition:
+    L = 100.0
+    R0 = 0.0
+    R1 = 0.0
+    R2 = 0.0
+    R3 = 0.0
+    R4 = 0.0
+    R5 = 0.0
+    R6 = 0.0
+    R7 = 0.0
+    R8 = 0.0
+    R9 = 0.0
+    R10 = 0.0
+    R11 = 0.0
+    R12 = 0.0
+    R13 = 0.0
+    R14 = 0.0
+    R15 = 0.0
+    R16 = 0.0
+    R17 = 0.0
+    R18 = 0.0
+    R19 = 1.0
+    R20 = 8.0
+    R21 = 11.0
+    R22 = 5.0
+    R23 = 0.0
+    R24 = 0.0
+    R25 = 0.0
+    R26 = 0.0
+    R27 = 0.0
+    R28 = 0.0
+    R29 = 0.0
+    R30 = 0.0
+    R31 = 0.0
+    R32 = 0.0
+    R33 = 0.0
+    R34 = 0.0
+    R35 = 0.0
+    R36 = 0.0
+    R37 = 0.0
+    R38 = 0.0
+    R39 = 0.0
+    R40 = 0.0
+    R41 = 0.0
+    R42 = 0.0
+    R43 = 0.0
+    R44 = 0.0
+    R45 = 0.0
+    R46 = 0.0
+    R47 = 0.0
+    R48 = 0.0
+    R49 = 0.0
+    R50 = 0.0
+    R51 = 0.0
+    R52 = 0.0
+    R53 = 0.0
+    R54 = 0.0
+    R55 = 0.0
+    R56 = 0.0
+    R57 = 0.0
+    R58 = 0.0
+    R59 = 0.0
+    R60 = 0.0
+    Yp = 0.0
+    Y = 10000.0</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/2ac263d540445a242304be02005308ef0811ee09/src/example_systems.jl#L309-L423">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../guide/">« Guide</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 31 July 2024 09:35">Wednesday 31 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
