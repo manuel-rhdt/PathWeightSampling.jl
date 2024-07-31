@@ -73,7 +73,7 @@ trace = conf.trace
 @time "marginal density 1" md1 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 @time "marginal density 2" md2 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 @test md1 != md2 # MC evaluation of marginal likelihood is non-deterministic
-@test md1 ≈ md2 rtol=1e-4 # but the results should be very close
+@test all(isapprox.(md1, md2, rtol=1e-4)) # but the results should be very close
 
 @test cd1[end] > md1[end]
 
@@ -93,8 +93,6 @@ system = PWS.HybridJumpSystem(
 
 mi = PWS.mutual_information(system, PWS.SMCEstimate(128), num_samples=1000)
 
-mi.metrics.ESS
-
 using DataFrames, Statistics
 sem(x) = sqrt(var(x) / length(x))
 pws_result = combine(
@@ -104,5 +102,6 @@ pws_result = combine(
 )
 
 rate = (pws_result.MI[end] - pws_result.MI[10]) / (pws_result.time[end] - pws_result.time[10])
+rate_analytical = λ / 2 * (sqrt(1 + 2ρ / λ) - 1) # From Moor et al. PRR 2023
 
-@test rate ≈ (λ / 2 * (sqrt(1 + 2ρ / λ) - 1)) rtol=0.1
+@test rate ≈ rate_analytical rtol=0.1

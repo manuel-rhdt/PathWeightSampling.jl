@@ -49,7 +49,7 @@ A struct that stores reactions for use with Gillespie simulation code.
 
 This struct represents a set of reactions to be used in Gillespie simulations. The reactions are defined by their rates, reactant stoichiometry, product stoichiometry, and the number of species in the system.
 """
-struct ReactionSet{Rates, RStoich, NStoich} <: AbstractJumpSet
+struct ReactionSet{Rates,RStoich,NStoich} <: AbstractJumpSet
     rates::Rates
     rstoich::RStoich
     nstoich::NStoich
@@ -76,11 +76,11 @@ function print_reaction(io, rs::ReactionSet, i::Integer)
     rate = rs.rates[i]
     reactants = rs.rstoich[i]
     net_stoich = rs.nstoich[i]
-    
+
     reactant_str = complex_string(reactants, rs)
 
     # Calculate products from reactants and net stoichiometry
-    products = Dict{Int64, Int64}()
+    products = Dict{Int64,Int64}()
     for (idx, coeff) in reactants
         products[idx] = coeff
     end
@@ -102,19 +102,19 @@ function Base.show(io::IO, ::MIME"text/plain", rs::ReactionSet)
     end
 end
 
-struct ConstantRateJumps{Rates, RStoich, NStoich} <: AbstractJumpSet
+struct ConstantRateJumps{Rates,RStoich,NStoich} <: AbstractJumpSet
     rates::Rates
     rstoich::RStoich
     nstoich::NStoich
     species::Vector{Symbol}
 end
 
-num_reactions(rs::Union{ReactionSet, ConstantRateJumps}) = length(rs.rstoich)
-num_species(rs::Union{ReactionSet, ConstantRateJumps}) = length(rs.species)
-speciesnames(rs::Union{ReactionSet, ConstantRateJumps}) = rs.species
+num_reactions(rs::Union{ReactionSet,ConstantRateJumps}) = length(rs.rstoich)
+num_species(rs::Union{ReactionSet,ConstantRateJumps}) = length(rs.species)
+speciesnames(rs::Union{ReactionSet,ConstantRateJumps}) = rs.species
 
-dependend_species(rs::Union{ReactionSet, ConstantRateJumps}, index::Int) = (spec for (spec, _) in rs.rstoich[index])
-mutated_species(rs::Union{ReactionSet, ConstantRateJumps}, index::Int) = (spec for (spec, _) in rs.nstoich[index])
+dependend_species(rs::Union{ReactionSet,ConstantRateJumps}, index::Int) = (spec for (spec, _) in rs.rstoich[index])
+mutated_species(rs::Union{ReactionSet,ConstantRateJumps}, index::Int) = (spec for (spec, _) in rs.nstoich[index])
 
 """
     reactions_that_mutate_species(jumpset::AbstractJumpSet, species::Symbol)
@@ -155,10 +155,10 @@ function make_reaction_groups(js::AbstractJumpSet, species::Symbol)
     end
 end
 
-function make_reaction_groups(rs::Union{ReactionSet, ConstantRateJumps}, species::Symbol)
+function make_reaction_groups(rs::Union{ReactionSet,ConstantRateJumps}, species::Symbol)
     nstoich = rs.nstoich
     comp = species_index(rs, species)
-    group_assignments = Dict{Pair{Int, Int}, Int}()
+    group_assignments = Dict{Pair{Int,Int},Int}()
     map(collect(nstoich)) do reaction_stoich
         group = 0
         for (species, stoich) in reaction_stoich
@@ -294,7 +294,7 @@ struct HybridTrace{U,T} <: Trace
     dtimes::T
 
     "mapping from SDE integrator indices to reaction species indices"
-    sde_species_mapping::Vector{Pair{Int, Int}}
+    sde_species_mapping::Vector{Pair{Int,Int}}
 end
 
 ReactionTrace(ht::HybridTrace) = ReactionTrace(ht.t, ht.rx, ht.traced_reactions)
@@ -402,7 +402,7 @@ reaction from the group fires, the log-likelihood is updated by the log of the g
 every time a reaction fires that is not part of any group, the log-likelihood is updated by the sum of all
 groups' propensities (to account for the waiting time probability).
 """
-struct DirectAggregator{U,Map,Cache,Rng} <: AbstractJumpRateAggregator
+struct DirectAggregator{U,Map,Cache} <: AbstractJumpRateAggregator
     "The current state vector"
     u::U
 
@@ -445,10 +445,10 @@ struct DirectAggregator{U,Map,Cache,Rng} <: AbstractJumpRateAggregator
 
     cache::Cache
 
-    rng::Rng
+    rng::Xoshiro
 end
 
-function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, u0, ridtogroup, tspan=(0.0, Inf64); rng=Random.default_rng())
+function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, u0, ridtogroup, tspan=(0.0, Inf64); seed=rand(UInt))
     ngroups = maximum(ridtogroup)
     nreactions = num_reactions(reactions)
     DirectAggregator(
@@ -464,7 +464,7 @@ function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, u0, 
         1,
         0.0,
         initialize_cache(reactions),
-        rng
+        Xoshiro(seed)
     )
 end
 
@@ -486,7 +486,7 @@ function Base.copy(agg::DirectAggregator)
     )
 end
 
-struct DepGraphAggregator{U,Map,DepGraph,Cache,Rng} <: AbstractJumpRateAggregator
+struct DepGraphAggregator{U,Map,DepGraph,Cache} <: AbstractJumpRateAggregator
     "The current state vector"
     u::U
 
@@ -535,10 +535,10 @@ struct DepGraphAggregator{U,Map,DepGraph,Cache,Rng} <: AbstractJumpRateAggregato
 
     cache::Cache
 
-    rng::Rng
+    rng::Xoshiro
 end
 
-function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, u0, ridtogroup, tspan=(0.0, Inf64); rng=Random.default_rng())
+function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, u0, ridtogroup, tspan=(0.0, Inf64); seed=rand(UInt))
     ngroups = maximum(ridtogroup)
     nreactions = num_reactions(reactions)
     nspecies = num_species(reactions)
@@ -558,7 +558,7 @@ function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, u0, r
         depgraph,
         collect(1:nreactions),
         initialize_cache(reactions),
-        rng
+        Xoshiro(seed)
     )
 end
 
@@ -589,7 +589,7 @@ function initialize_aggregator(
     tspan=(0.0, Inf64),
     active_reactions=agg.active_reactions,
     traced_reactions=agg.traced_reactions,
-    rng=Random.default_rng())
+    seed=nothing)
     agg = @set agg.u = u0
     agg = @set agg.active_reactions = active_reactions
     agg = @set agg.traced_reactions = traced_reactions
@@ -600,7 +600,9 @@ function initialize_aggregator(
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
     agg = update_rates(agg, reactions)
-    agg = @set agg.rng = rng
+    if !isnothing(seed)
+        Random.seed!(agg.rng, seed)
+    end
     agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
     agg
 end
@@ -612,7 +614,7 @@ function initialize_aggregator(
     tspan=(0.0, Inf64),
     active_reactions=agg.active_reactions,
     traced_reactions=agg.traced_reactions,
-    rng=Random.default_rng())
+    seed=nothing)
     agg = @set agg.u = u0
     agg = @set agg.active_reactions = active_reactions
     agg = @set agg.traced_reactions = traced_reactions
@@ -623,7 +625,9 @@ function initialize_aggregator(
     agg = @set agg.gsumrate = 0.0
     agg = @set agg.trace_index = 1
     agg = update_rates(agg, reactions)
-    agg = @set agg.rng = rng
+    if !isnothing(seed)
+        Random.seed!(agg.rng, seed)
+    end
     agg = @set agg.tstop = tspan[1] + randexp(agg.rng) / agg.sumrate
     agg = @set agg.jump_search_order = collect(active_reactions)
     agg
@@ -688,7 +692,7 @@ function make_depgraph(reactions::AbstractJumpSet)
 end
 
 function lerp(v0, v1, t::Real)
-    (1-t) * v0 + t * v1
+    (1 - t) * v0 + t * v1
 end
 
 function step_ssa(
@@ -726,7 +730,7 @@ function step_ssa(
             new_tstop = tnow + randexp(agg.rng) / srate2
             agg = @set agg.tstop = new_tstop
         else
-            agg = @set agg.tstop = lerp(tnow, t1, srate1/srate2)
+            agg = @set agg.tstop = lerp(tnow, t1, srate1 / srate2)
         end
 
         # advance trace
@@ -873,7 +877,7 @@ end
     js.rates(rxidx, speciesvec)
 end
 
-@inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::Union{ReactionSet, ConstantRateJumps})
+@inline function evalrxrate(agg::AbstractJumpRateAggregator, rxidx::Int64, rs::Union{ReactionSet,ConstantRateJumps})
     evalrxrate(agg.u, rxidx, rs)
 end
 

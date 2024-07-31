@@ -13,14 +13,15 @@ reaction_groups = PWS.SSA.make_reaction_groups(reactions, :X)
 @test reaction_groups == [1, 2]
 @test PWS.SSA.make_reaction_groups(reactions, :S) == [0, 0]
 
-agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, SA[0], reaction_groups)
+agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, SA[0], reaction_groups, seed=1)
 
+@test agg.rng == Random.Xoshiro(1)
 @test agg.sumrate == 0.0
 
 agg = PWS.initialize_aggregator(agg, reactions)
 
 @test agg.u == [0]
-@test agg.tstop > 0
+@test agg.tstop == Random.randexp(Random.Xoshiro(1))
 @test agg.sumrate == 1.0
 
 trace = PWS.ReactionTrace([], [], BitSet(1:2))
@@ -98,14 +99,17 @@ system = PWS.MarkovJumpSystem(
     :X
 )
 
-rng = Random.Xoshiro(1)
-agg, trace = PWS.JumpSystem.generate_trace(system; rng)
+agg, trace = PWS.JumpSystem.generate_trace(system; rng=Random.Xoshiro(1))
+_, trace2 = PWS.JumpSystem.generate_trace(system; rng=Random.Xoshiro(1))
+_, trace3 = PWS.JumpSystem.generate_trace(system; rng=Random.Xoshiro(2))
+
+@test trace == trace2
+@test trace != trace3
 
 @test issorted(trace.t)
 @test sort(unique(trace.rx)) ⊆ [1, 2, 3, 4]
 
-rng = Random.Xoshiro(1)
-conf = PWS.generate_configuration(system; rng)
+conf = PWS.generate_configuration(system; rng=Random.Xoshiro(1))
 
 @test conf.trace == trace
 @test size(conf.traj, 1) == length(conf.species) == length(u0)
@@ -140,7 +144,7 @@ static_conf = PWS.generate_configuration(system; rng=Random.Xoshiro(1))
 
 κ, λ, ρ, μ = rates
 
-result_object = PWS.mutual_information(system, PWS.SMCEstimate(2048), num_samples=500)
+result_object = PWS.mutual_information(system, PWS.SMCEstimate(256), num_samples=1000)
 
 using DataFrames, Statistics
 sem(x) = sqrt(var(x) / length(x))
@@ -157,4 +161,3 @@ rate_estimate = (pws_result.MI[end] - pws_result.MI[3]) / (pws_result.time[end] 
 rate_analytical = λ / 2 * (sqrt(1 + 2ρ / λ) - 1) # From Moor et al. PRR 2023
 
 @test rate_estimate ≈ rate_analytical rtol=5*relative_error
-

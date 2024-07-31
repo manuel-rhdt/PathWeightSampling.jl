@@ -79,7 +79,7 @@ function MarkovJumpSystem(
 end
 
 function generate_trace(system::MarkovJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing, rng=Random.default_rng())
-    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=rng)
+    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=rand(rng, UInt))
 
     reaction_times = Float64[]
     reaction_indices = Int16[]
@@ -123,7 +123,7 @@ function log_probability(system::MarkovJumpSystem, trace::ReactionTrace; u0=syst
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
-        rng=rng
+        seed=rand(rng, UInt)
     )
     agg = @set agg.trace_index = searchsortedfirst(trace.t, tspan[1])
 
@@ -300,7 +300,7 @@ function advance_ssa_sde(
 end
 
 function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tspan, traj=nothing, rng=Random.default_rng())
-    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, rng=rng)
+    agg = initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=rand(rng, UInt))
     s_prob = remake(system.sde_prob, tspan=tspan)
 
     if traj !== nothing
@@ -311,7 +311,6 @@ function generate_trace(system::HybridJumpSystem; u0=system.u0, tspan=system.tsp
     sde_dt = system.sde_dt
     seed = rand(rng, UInt)
     integrator = init(s_prob, EM(), dt=sde_dt, save_start=false, save_everystep=false, save_end=false, seed=seed)
-
 
     reaction_times = Float64[]
     reaction_indices = Int16[]
@@ -349,7 +348,7 @@ function log_probability(system::HybridJumpSystem, trace::ReactionTrace; u0=syst
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
-        rng=rng
+        seed=rand(rng, UInt)
     )
     agg = @set agg.trace_index = searchsortedfirst(trace.t, tspan[1])
 
@@ -381,7 +380,7 @@ function log_probability(system::Union{MarkovJumpSystem, HybridJumpSystem}, trac
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
-        rng=rng
+        seed=rand(rng, UInt)
     )
     agg = @set agg.trace_index = searchsortedfirst(trace.t, tspan[1])
 
@@ -423,7 +422,7 @@ function MarkovParticle(setup::SMC.Setup)
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
-        rng=Random.Xoshiro(rand(setup.rng, UInt))
+        seed=rand(setup.rng, UInt)
     )
 
     MarkovParticle(agg)
@@ -444,7 +443,7 @@ function HybridParticle(setup::SMC.Setup{<:ReactionTrace})
         tspan=tspan,
         active_reactions=active_reactions,
         traced_reactions=BitSet(),
-        rng=Random.Xoshiro(rand(setup.rng, UInt))
+        seed=rand(setup.rng, UInt)
     )
 
     s_prob = remake(system.sde_prob)
