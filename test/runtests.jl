@@ -1,7 +1,9 @@
 using Test
 import PathWeightSampling as PWS
 
-# doctest(PathWeightSampling)
+using Documenter
+
+doctest(PWS)
 
 @testset "PathWeightSampling.jl" begin
     @testset "TrajectoryTests" begin

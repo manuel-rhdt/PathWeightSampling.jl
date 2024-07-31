@@ -13,6 +13,8 @@ using Accessors
 using Random
 import DataFrames: DataFrame
 
+using Printf
+
 abstract type AbstractJumpSet end
 
 """
@@ -52,6 +54,52 @@ struct ReactionSet{Rates, RStoich, NStoich} <: AbstractJumpSet
     rstoich::RStoich
     nstoich::NStoich
     species::Vector{Symbol}
+end
+
+function complex_string(stoich, rs::ReactionSet)
+    complexes = String[]
+    for (idx, coeff) in sort(stoich, by=s -> s[1])
+        species = string(speciesnames(rs)[idx])
+        if coeff == 1
+            push!(complexes, species)
+        elseif coeff > 1
+            push!(complexes, "$coeff$species")
+        end
+    end
+    if isempty(complexes)
+        push!(complexes, "∅")
+    end
+    join(complexes, " + ")
+end
+
+function print_reaction(io, rs::ReactionSet, i::Integer)
+    rate = rs.rates[i]
+    reactants = rs.rstoich[i]
+    net_stoich = rs.nstoich[i]
+    
+    reactant_str = complex_string(reactants, rs)
+
+    # Calculate products from reactants and net stoichiometry
+    products = Dict{Int64, Int64}()
+    for (idx, coeff) in reactants
+        products[idx] = coeff
+    end
+    for (idx, coeff) in net_stoich
+        products[idx] = get(products, idx, 0) + coeff
+    end
+    product_str = complex_string(collect(pairs(products)), rs)
+
+    # Print the reaction
+    @printf(io, "k = %.2f: %s ---> %s", rate, reactant_str, product_str)
+end
+
+function Base.show(io::IO, ::MIME"text/plain", rs::ReactionSet)
+    for i in 1:num_reactions(rs)
+        print_reaction(io, rs, i)
+        if i < num_reactions(rs)
+            println(io)
+        end
+    end
 end
 
 struct ConstantRateJumps{Rates, RStoich, NStoich} <: AbstractJumpSet

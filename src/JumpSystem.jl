@@ -207,6 +207,23 @@ function Base.copy(js::HybridJumpSystem)
     )
 end
 
+function Base.show(io::IO, ::MIME"text/plain", system::Union{MarkovJumpSystem, HybridJumpSystem})
+    if system isa MarkovJumpSystem
+        name = "MarkovJumpSystem"
+    else
+        name = "HybridJumpSystem"
+    end
+    println(io, "$name with ", num_species(system.reactions), " species and ", num_reactions(system.reactions), " reactions")
+    
+    show(io, "text/plain", system.reactions)
+
+    print(io, "\n\nInitial condition:")
+    jvars = SSA.speciesnames(system.reactions)
+    for i in eachindex(system.u0)
+        print(io, "\n    ", jvars[i], " = ", system.u0[i])
+    end
+end
+
 # Advance the aggregator until `t_end`.
 function advance_ssa(
     agg::AbstractJumpRateAggregator,

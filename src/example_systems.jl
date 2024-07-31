@@ -57,17 +57,14 @@ system = PWS.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 
 
 # output
 
-SimpleSystem with 4 reactions
-Input variables: S(t)
-Output variables: X(t)
+MarkovJumpSystem with 2 species and 4 reactions
+k = 10.00: ∅ ---> S
+k = 0.10: S ---> ∅
+k = 1.00: S ---> S + X
+k = 1.00: X ---> ∅
 Initial condition:
-    S(t) = 50
-    X(t) = 50
-Parameters:
-    κ = 10.0
-    λ = 0.1
-    ρ = 1.0
-    μ = 1.0
+    S = 50
+    X = 50
 ```
 
 Alternatively, the reaction rates can be specified indirectly through the following arguments:
@@ -76,13 +73,21 @@ Alternatively, the reaction rates can be specified indirectly through the follow
 - `corr_time_s`: The input signal correlation time. The shorter this time is, the faster the fluctuations in the input signal.
 - `corr_time_x`: The output signal correlation time. This sets the timescale of output fluctuations.
 
-```
-using PathWeightSampling
-system = PathWeightSampling.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_time_x=0.75)
+```jldoctest
+import PathWeightSampling as PWS
+system = PWS.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_time_x=0.75)
 
 # output
 
+MarkovJumpSystem with 2 species and 4 reactions
+k = 25.00: ∅ ---> S
+k = 1.00: S ---> ∅
+k = 2.67: S ---> S + X
+k = 1.33: X ---> ∅
 
+Initial condition:
+    S = 25
+    X = 50
 ```
 """
 function gene_expression_system(;
@@ -336,6 +341,84 @@ This model describes the bacterial chemotaxis signaling network.
     Rm(l+1) -> Rml, with rate koff_A l: ligand unbinding
     Rml -> R(m+1)l with rate k_R: methylation rate
     R(m+1)l -> Rml with rate k_B: demethylation rate
+
+# Example
+
+```jldoctest
+import PathWeightSampling as PWS
+system = PWS.chemotaxis_system()
+
+# output
+
+HybridJumpSystem with 64 species and 184 reactions
+PathWeightSampling.ChemotaxisJumps(2900.0, 18.0, 15, 0.2, 0.1, 0.23999999999999996, 10.0, -2.0, 7.5, 1, 2:62, 63, 64)
+
+Initial condition:
+    L = 100.0
+    R0 = 0.0
+    R1 = 0.0
+    R2 = 0.0
+    R3 = 0.0
+    R4 = 0.0
+    R5 = 0.0
+    R6 = 0.0
+    R7 = 0.0
+    R8 = 0.0
+    R9 = 0.0
+    R10 = 0.0
+    R11 = 0.0
+    R12 = 0.0
+    R13 = 0.0
+    R14 = 0.0
+    R15 = 0.0
+    R16 = 0.0
+    R17 = 0.0
+    R18 = 0.0
+    R19 = 1.0
+    R20 = 8.0
+    R21 = 11.0
+    R22 = 5.0
+    R23 = 0.0
+    R24 = 0.0
+    R25 = 0.0
+    R26 = 0.0
+    R27 = 0.0
+    R28 = 0.0
+    R29 = 0.0
+    R30 = 0.0
+    R31 = 0.0
+    R32 = 0.0
+    R33 = 0.0
+    R34 = 0.0
+    R35 = 0.0
+    R36 = 0.0
+    R37 = 0.0
+    R38 = 0.0
+    R39 = 0.0
+    R40 = 0.0
+    R41 = 0.0
+    R42 = 0.0
+    R43 = 0.0
+    R44 = 0.0
+    R45 = 0.0
+    R46 = 0.0
+    R47 = 0.0
+    R48 = 0.0
+    R49 = 0.0
+    R50 = 0.0
+    R51 = 0.0
+    R52 = 0.0
+    R53 = 0.0
+    R54 = 0.0
+    R55 = 0.0
+    R56 = 0.0
+    R57 = 0.0
+    R58 = 0.0
+    R59 = 0.0
+    R60 = 0.0
+    Yp = 0.0
+    Y = 10000.0
+```
 """
 function chemotaxis_system(;
     n_clusters=25,
