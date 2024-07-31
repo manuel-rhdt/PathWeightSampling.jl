@@ -35,6 +35,7 @@ function sample(
 
     log_marginal_estimate = zeros(length(dtimes))
     effective_sample_sizes = zeros(length(dtimes))
+    effective_sample_sizes[1] = nparticles
 
     # First, handle initial condition
     for j in eachindex(particles)

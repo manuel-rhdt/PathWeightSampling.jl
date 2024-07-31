@@ -63,16 +63,12 @@ for (i, t) in enumerate(conf.discrete_times)
     @test conf.traj[1, i] == conf.trace.u[j][1]
 end
 
-trace = PWS.SSA.ReactionTrace(conf.trace)
+trace = conf.trace
 @test trace.traced_reactions == Set([1, 2])
-
-setup = PWS.SMC.Setup(trace, system, Random.Xoshiro(1))
-particle = PWS.JumpSystem.HybridParticle(setup)
-@test particle.agg.active_reactions == Set()
 
 @time "conditional density 1" cd1 = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
 @time "conditional density 2" cd2 = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
-@test cd1 == cd2 # deterministic evaluation of likelihood
+@test cd1 == cd2 == PWS.JumpSystem.log_probability(system, trace) # deterministic evaluation of likelihood
 
 @time "marginal density 1" md1 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 @time "marginal density 2" md2 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
@@ -80,3 +76,33 @@ particle = PWS.JumpSystem.HybridParticle(setup)
 @test md1 ≈ md2 rtol=1e-4 # but the results should be very close
 
 @test cd1[end] > md1[end]
+
+
+# system = PWS.HybridJumpSystem(
+#     PWS.GillespieDirect(),
+#     reactions,
+#     u0,
+#     (0.0, 10.0),
+#     0.01, # dt
+#     s_prob,
+#     0.001, # sde_dt
+#     :S,
+#     :X,
+#     sde_species_mapping
+# )
+
+# mi = PWS.mutual_information(system, PWS.SMCEstimate(5_000), num_samples=10)
+
+# mi.metrics.ESS
+
+# using DataFrames, Statistics
+# sem(x) = sqrt(var(x) / length(x))
+# pws_result = combine(
+#     groupby(mi.result, :time), 
+#     :MutualInformation => mean => :MI,
+#     :MutualInformation => sem => :Err
+# )
+
+# rate = (pws_result.MI[end] - pws_result.MI[100]) / (pws_result.time[end] - pws_result.time[100])
+# λ / 2 * (sqrt(1 + ρ / λ) - 1)
+# λ / 2 * (sqrt(1 + 2ρ / λ) - 1) 
