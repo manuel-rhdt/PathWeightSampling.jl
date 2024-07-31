@@ -468,7 +468,7 @@ function chemotaxis_system(;
     # we generate initial conditions close to the steady state
     u0 = zeros(Float64, num_species(jumps))
     u0[jumps.ligand] = c_0
-    for s in systematic_sample(Random.default_rng(), p_m, N=n_clusters)
+    for s in systematic_sample(Random.Xoshiro(1), p_m, N=n_clusters)
         u0[jumps.receptors[s]] += 1
     end
     u0[jumps.Y] = n_chey
