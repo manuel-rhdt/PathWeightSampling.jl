@@ -94,6 +94,7 @@ function print_reaction(io, rs::ReactionSet, i::Integer)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", rs::ReactionSet)
+    println(io, "ReactionSet with species ", join(string.(speciesnames(rs)), ", "))
     for i in 1:num_reactions(rs)
         print_reaction(io, rs, i)
         if i < num_reactions(rs)
@@ -137,6 +138,10 @@ function reactions_that_mutate_species(jumpset::AbstractJumpSet, species::Symbol
     result
 end
 
+struct ZeroArray end
+Base.getindex(::ZeroArray, ::Integer...) = 0
+Base.iterate(::ZeroArray, state=nothing) = nothing
+
 """
 Returns a vector of group assignments for each reaction.
 
@@ -144,6 +149,9 @@ We need to group reactions such that all reactions that have the same observable
 are in the same group. Reactions that don't modify `species` are always assigned to group 0.
 """
 function make_reaction_groups(js::AbstractJumpSet, species::Symbol)
+    if species ∉ speciesnames(js)
+        return ZeroArray()
+    end
     relevant_reactions = reactions_that_mutate_species(js, species)
     group_assignments = Dict(rx => group for (group, rx) in enumerate(relevant_reactions))
     map(1:num_reactions(js)) do rx
@@ -154,6 +162,8 @@ function make_reaction_groups(js::AbstractJumpSet, species::Symbol)
         end
     end
 end
+
+make_reaction_groups(js::AbstractJumpSet) = ZeroArray()
 
 function make_reaction_groups(rs::Union{ReactionSet,ConstantRateJumps}, species::Symbol)
     nstoich = rs.nstoich
@@ -449,7 +459,7 @@ struct DirectAggregator{U,Map,Cache} <: AbstractJumpRateAggregator
 end
 
 function build_aggregator(alg::GillespieDirect, reactions::AbstractJumpSet, u0, ridtogroup, tspan=(0.0, Inf64); seed=rand(UInt))
-    ngroups = maximum(ridtogroup)
+    ngroups = maximum(ridtogroup, init=0)
     nreactions = num_reactions(reactions)
     DirectAggregator(
         u0,
@@ -539,7 +549,7 @@ struct DepGraphAggregator{U,Map,DepGraph,Cache} <: AbstractJumpRateAggregator
 end
 
 function build_aggregator(alg::DepGraphDirect, reactions::AbstractJumpSet, u0, ridtogroup, tspan=(0.0, Inf64); seed=rand(UInt))
-    ngroups = maximum(ridtogroup)
+    ngroups = maximum(ridtogroup, init=0)
     nreactions = num_reactions(reactions)
     nspecies = num_species(reactions)
     depgraph = make_depgraph(reactions)
@@ -734,7 +744,7 @@ function step_ssa(
         end
 
         # advance trace
-        agg = @set agg.trace_index = tindex + 1
+        @reset agg.trace_index = tindex + 1
 
     else
         # perform stochastic reaction
@@ -753,7 +763,7 @@ function step_ssa(
 
         # draw next tstop
         new_tstop = tnow + randexp(agg.rng) / agg.sumrate
-        agg = @set agg.tstop = new_tstop
+        @reset agg.tstop = new_tstop
     end
 
     # store reaction event in trace
@@ -818,8 +828,8 @@ end
         end
     end
     log_waiting_prob = -Δt * agg.gsumrate
-    agg = @set agg.weight = agg.weight + log_jump_prob + log_waiting_prob
-    agg = @set agg.tprev = tnow
+    @reset agg.weight = agg.weight + log_jump_prob + log_waiting_prob
+    @set agg.tprev = tnow
 end
 
 # Code adapted from JumpProcesses.jl
@@ -834,7 +844,7 @@ end
 @inline function executerx(speciesvec::SVector, rxidx::Integer, reactions::AbstractJumpSet)
     @inbounds net_stoich = reactions.nstoich[rxidx]
     @inbounds for (species, diff) in net_stoich
-        speciesvec = @set speciesvec[species] += diff
+        @reset speciesvec[species] += diff
     end
     speciesvec
 end
