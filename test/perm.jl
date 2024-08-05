@@ -20,10 +20,10 @@ system = PWS.MarkovJumpSystem(
 conf = PWS.generate_configuration(system, seed=1)
 
 alg = PWS.PERM(512)
-@time perm_result = PWS.simulate(alg, conf, system; new_particle=PWS.MarkovParticle)
+@time perm_result = PWS.simulate(alg, conf, system; Particle=PWS.MarkovParticle)
 
 alg_smc = PWS.SMCEstimate(512)
-@time smc_result = PWS.simulate(alg_smc, conf, system; new_particle=PWS.MarkovParticle)
+@time smc_result = PWS.simulate(alg_smc, conf, system; Particle=PWS.MarkovParticle)
 
 @test all(
     map(

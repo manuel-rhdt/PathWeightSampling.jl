@@ -4,29 +4,31 @@ import Random
 using StaticArrays
 
 # create a simple birth-death system
-rates = SA[1.0, 1.0]
-rstoich = (SA{Pair{Int, Int}}[], SA[1 => 1])
-nstoich = (SA[1 => 1], SA[1 => -1])
+function make_aggregator(a, b)
+    rates = [a, b]
+    rstoich = [Pair{Int, Int}[], [1 => 1]]
+    nstoich = [[1 => 1], [1 => -1]]
+    reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
 
-reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
-reaction_groups = PWS.SSA.make_reaction_groups(reactions, :X)
-@test reaction_groups == [1, 2]
-@test PWS.SSA.make_reaction_groups(reactions, :S) == [0, 0]
+    reaction_groups = PWS.SSA.make_reaction_groups(reactions, :X)
+    @test reaction_groups == [1, 2]
+    @test PWS.SSA.make_reaction_groups(reactions, :S) == [0, 0]
 
-agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, SA[0], reaction_groups, seed=1)
+    reactions, PWS.build_aggregator(PWS.GillespieDirect(), reactions, [0], reaction_groups, seed=1)
+end
 
+reactions, agg = make_aggregator(1.0, 1.0)
 @test agg.rng == Random.Xoshiro(1)
 @test agg.sumrate == 0.0
 
-agg = PWS.initialize_aggregator(agg, reactions)
-
+PWS.initialize_aggregator!(agg, reactions)
 @test agg.u == [0]
 @test agg.tstop == Random.randexp(Random.Xoshiro(1))
 @test agg.sumrate == 1.0
 
 trace = PWS.ReactionTrace([], [], BitSet(1:2))
 
-agg2 = PWS.step_ssa(agg, reactions, nothing, trace)
+agg2 = PWS.SSA.step_ssa!(copy(agg), reactions, nothing, trace)
 
 @test agg2.tstop > agg.tstop
 @test agg2.u == [1]
@@ -38,26 +40,26 @@ agg2 = PWS.step_ssa(agg, reactions, nothing, trace)
 
 agg3 = agg2
 for i = 1:100
-    global agg3 = PWS.step_ssa(agg3, reactions, nothing, trace)
+    PWS.SSA.step_ssa!(agg3, reactions, nothing, trace)
 end
 
 @test agg3.u[1] == -sum(2 .* trace.rx .- 3)
 
-agg = PWS.initialize_aggregator(agg, reactions, u0=SA[0], active_reactions=BitSet())
+PWS.SSA.initialize_aggregator!(agg, reactions, u0=SA[0], active_reactions=BitSet())
 
 @test agg.tstop == Inf
 @test agg.trace_index == 1
 
 trace_new = PWS.ReactionTrace([], [], BitSet([1,2]))
 
-agg = PWS.step_ssa(agg, reactions, trace, trace_new)
+PWS.SSA.step_ssa!(agg, reactions, trace, trace_new)
 
 @test agg.tstop == Inf
 @test agg.u == [1]
 @test agg.trace_index == 2
 
 for i = 1:100
-    global agg = PWS.step_ssa(agg, reactions, trace, trace_new)
+    PWS.SSA.step_ssa!(agg, reactions, trace, trace_new)
     @test agg.tprev == trace.t[i+1]
     @test agg.tstop == Inf
     @test agg.trace_index == i + 2
@@ -73,17 +75,17 @@ nstoich = [[1 => -1]]
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X])
 
 agg = PWS.build_aggregator(PWS.GillespieDirect(), reactions, [0], PWS.SSA.make_reaction_groups(reactions, :X))
-agg = PWS.initialize_aggregator(agg, reactions, tspan=(0.0, 10.0))
+PWS.SSA.initialize_aggregator!(agg, reactions, tspan=(0.0, 10.0))
 @test agg.u == [0]
 @test agg.tstop == Inf
-agg = PWS.step_ssa(agg, reactions, nothing, nothing)
+PWS.SSA.step_ssa!(agg, reactions, nothing, nothing)
 @test agg.tprev == 10.0
 @test agg.weight == 0.0
 
 # test MarkovJumpSystem with coupled birth death processes
 
 rates = [50.0, 1.0, 1.0, 1.0]
-rstoich = [[], [1 => 1], [1 => 1], [2 => 1]]
+rstoich = [Pair{Int, Int}[], [1 => 1], [1 => 1], [2 => 1]]
 nstoich = [[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
 
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:S, :X])
@@ -123,8 +125,8 @@ df = PWS.to_dataframe(conf)
 using StaticArrays
 
 rates = SA[50.0, 1.0, 1.0, 1.0]
-rstoich = [Pair{Int, Int}[], [1 => 1], [1 => 1], [2 => 1]]
-nstoich = [[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
+rstoich = SA[Pair{Int, Int}[], [1 => 1], [1 => 1], [2 => 1]]
+nstoich = SA[[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:S, :X])
 u0 = SA[50.0, 50.0]
 tspan = (0.0, 10.0)
@@ -144,9 +146,12 @@ static_conf = PWS.generate_configuration(system; rng=Random.Xoshiro(1))
 
 κ, λ, ρ, μ = rates
 
+
 result_object = PWS.mutual_information(system, PWS.SMCEstimate(256), num_samples=1000)
 
 using DataFrames, Statistics
+@show median(result_object.metadata.CPUTime)
+
 sem(x) = sqrt(var(x) / length(x))
 pws_result = combine(
     groupby(result_object.result, :time), 

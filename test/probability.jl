@@ -11,8 +11,8 @@ import Random: Xoshiro
 
 species = [:X, :Y]
 rates = SA[κ, λ]
-rstoich = (SA{Pair{Int, Int}}[], SA[1 => 1])
-nstoich = (SA[1 => 1], SA[1 => -1])
+rstoich = [Pair{Int, Int}[], [1 => 1]]
+nstoich = [[1 => 1], [1 => -1]]
 
 bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, species)
 
@@ -40,16 +40,16 @@ reac1 = log(κ)
 reac2 = log(51 * λ)
 
 function compute_logpdf(system, trace, tspan, u0=u0)
-    agg = PWS.initialize_aggregator(system.agg, system.reactions, u0=copy(u0), tspan=tspan, seed=1, active_reactions=BitSet())
-    agg = @set agg.trace_index = searchsortedfirst(trace.t, tspan[1])
-    agg = PWS.JumpSystem.advance_ssa(agg, system.reactions, tspan[2], trace, nothing)
+    agg = PWS.initialize_aggregator!(copy(system.agg), system.reactions, u0=copy(u0), tspan=tspan, seed=1, active_reactions=BitSet())
+    agg.trace_index = searchsortedfirst(trace.t, tspan[1])
+    PWS.JumpSystem.advance_ssa!(agg, system.reactions, tspan[2], trace, nothing)
     agg.weight
 end
 
 function compute_logpdf2(system, trace, tspan)
     setup = PWS.SMC.Setup(trace, system, Random.Xoshiro(1))
-    particle = PWS.JumpSystem.MarkovParticle(setup)
-    particle = PWS.SMC.propagate(particle, tspan, setup)
+    particle = PWS.SMC.spawn(PWS.JumpSystem.MarkovParticle, setup)
+    PWS.SMC.propagate!(particle, tspan, setup)
     PWS.SMC.weight(particle)
 end
 

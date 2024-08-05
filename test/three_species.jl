@@ -30,32 +30,32 @@ reaction_groups = PWS.SSA.make_reaction_groups(jumps, :S)
 @test reaction_groups == [1, 2]
 
 agg = PWS.build_aggregator(PWS.GillespieDirect(), jumps, [0], reaction_groups)
-agg = PWS.initialize_aggregator(agg, jumps)
+PWS.initialize_aggregator!(agg, jumps)
 @test agg.u == [0]
 @test agg.rates == [κ, 0.0]
 
-agg = PWS.step_ssa(agg, jumps, nothing, nothing)
+PWS.step_ssa!(agg, jumps, nothing, nothing)
 @test agg.u == [1]
 @test agg.rates == [κ, λ]
 
 # Full system
 
-rstoich = (
-    SA{Pair{Int8,Int8}}[],
-    SA{Pair{Int8,Int8}}[1 => 1],
-    SA{Pair{Int8,Int8}}[1 => 1],
-    SA{Pair{Int8,Int8}}[2 => 1],
-    SA{Pair{Int8,Int8}}[2 => 1],
-    SA{Pair{Int8,Int8}}[3 => 1]
-)
-nstoich = (
-    SA{Pair{Int8,Int8}}[1 => 1],
-    SA{Pair{Int8,Int8}}[1 => -1],
-    SA{Pair{Int8,Int8}}[2 => 1],
-    SA{Pair{Int8,Int8}}[2 => -1],
-    SA{Pair{Int8,Int8}}[3 => 1],
-    SA{Pair{Int8,Int8}}[3 => -1]
-)
+rstoich = [
+    Pair{Int, Int}[],
+    [1 => 1],
+    [1 => 1],
+    [2 => 1],
+    [2 => 1],
+    [3 => 1]
+]
+nstoich = [
+    [1 => 1],
+    [1 => -1],
+    [2 => 1],
+    [2 => -1],
+    [3 => 1],
+    [3 => -1]
+]
 species = [:S, :V, :X]
 
 struct ThreeSpeciesRates
