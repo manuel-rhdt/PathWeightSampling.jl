@@ -12,8 +12,10 @@ using DataFrames
 abstract type AbstractParticle end
 
 weight(p::AbstractParticle) = 0.0
-propagate(p::AbstractParticle, tspan::Tuple{T,T}, setup::Any) where {T} = error("needs to be implemented")
-clone(p::AbstractParticle, setup::Any) = copy(p)
+spawn(::Type{P}, setup::Any) where P = error!("needs to be implemented")
+propagate!(p::AbstractParticle, tspan::Tuple{T,T}, setup::Any) where {T} = error("needs to be implemented")
+clone(parent::P, setup::Any) where P <: AbstractParticle = clone_from!(spawn(P, setup), parent, setup)
+clone_from!(child::AbstractParticle, parent::AbstractParticle, setup::Any) = error("needs to be implemented")
 
 struct Setup{Configuration,Ensemble,RNG}
     configuration::Configuration
@@ -51,7 +53,7 @@ function sample(
 
         # PROPAGATE
         for j in eachindex(particles)
-            particles[j] = propagate(particles[j], tspan, setup)
+            propagate!(particles[j], tspan, setup)
             weights[j] += weight(particles[j])
         end
 
@@ -76,13 +78,24 @@ function sample(
                 @debug "Small effective sample size" i tspan effective_sample_size
             end
             # sample parent indices
-            parent_indices = systematic_sample(rng, prob_weights)
+            parent_indices = sort!(systematic_sample(rng, prob_weights))
 
-            new_particles = similar(particles)
-            for (i, k) in enumerate(parent_indices)
-                new_particles[i] = clone(particles[k], setup)
+            overwritten = BitSet()
+            for (child_index, parent_index) in zip(eachindex(particles), parent_indices)
+                if child_index < parent_index
+                    @assert !in(parent_index, overwritten)
+                    clone_from!(particles[child_index], particles[parent_index], setup)
+                    push!(overwritten, child_index)
+                end
             end
-            particles = new_particles
+            for (child_index, parent_index) in zip(reverse(eachindex(particles)), reverse!(parent_indices))
+                if child_index > parent_index
+                    @assert !in(parent_index, overwritten)
+                    clone_from!(particles[child_index], particles[parent_index], setup)
+                    push!(overwritten, child_index)
+                end
+            end
+            @assert union(overwritten, parent_indices) == BitSet(eachindex(particles))
 
             weights .= 0.0
             log_marginal_estimate[i+1:end] .= log_marginal_estimate[i+1]
@@ -151,9 +164,9 @@ function to_dataframe(result::SMCResult)
     DataFrame(:time => result.time, :log_marginal => result.log_marginal_estimate, :ESS => result.effective_sample_sizes)
 end
 
-function simulate(algorithm::SMCEstimate, initial, system; rng=Random.default_rng(), new_particle, kwargs...)
+function simulate(algorithm::SMCEstimate, initial, system; rng=Random.default_rng(), Particle, kwargs...)
     setup = Setup(initial, system, rng)
-    particles = [new_particle(setup) for i = 1:algorithm.num_particles]
+    particles = [spawn(Particle, setup) for i = 1:algorithm.num_particles]
     log_marginal_estimate, effective_sample_sizes = sample(setup, particles; rng=rng, kwargs...)
     SMCResult(Vector(discrete_times(system)), log_marginal_estimate, effective_sample_sizes)
 end

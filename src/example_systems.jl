@@ -58,10 +58,11 @@ system = PWS.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 
 # output
 
 MarkovJumpSystem with 2 species and 4 reactions
-k = 10.00: ∅ ---> S
-k = 0.10: S ---> ∅
-k = 1.00: S ---> S + X
-k = 1.00: X ---> ∅
+ReactionSet with species S, X
+k1 =  10.00: ∅ ---> S
+k2 =   0.10: S ---> ∅
+k3 =   1.00: S ---> S + X
+k4 =   1.00: X ---> ∅
 
 Initial condition:
     S = 50
@@ -81,10 +82,11 @@ system = PWS.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_
 # output
 
 MarkovJumpSystem with 2 species and 4 reactions
-k = 25.00: ∅ ---> S
-k = 1.00: S ---> ∅
-k = 2.67: S ---> S + X
-k = 1.33: X ---> ∅
+ReactionSet with species S, X
+k1 =  25.00: ∅ ---> S
+k2 =   1.00: S ---> ∅
+k3 =   2.67: S ---> S + X
+k4 =   1.33: X ---> ∅
 
 Initial condition:
     S = 25
@@ -104,9 +106,9 @@ function gene_expression_system(;
     dtimes=0:0.1:2.0
 )
     species = [:S, :X]
-    rates = SA[kappa, lambda, rho, mu]
-    rstoich = (SA{Pair{Int, Int}}[], SA[1 => 1], SA[1 => 1], SA[2 => 1])
-    nstoich = (SA[1 => 1], SA[1 => -1], SA[2 => 1], SA[2 => -1])
+    rates = [kappa, lambda, rho, mu]
+    rstoich = [Pair{Int, Int}[], [1 => 1], [1 => 1], [2 => 1]]
+    nstoich = [[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
 
     reactions = ReactionSet(rates, rstoich, nstoich, species)
 
@@ -173,16 +175,16 @@ function SSA.initialize_cache(jumps::ChemotaxisJumps)
     )
 end
 
-function SSA.update_cache(agg, jumps::ChemotaxisJumps)
+function SSA.update_cache!(agg, jumps::ChemotaxisJumps)
     ligand_c = agg.u[jumps.ligand]
-    if agg.cache.c_prev != ligand_c
+    cache = agg.cache
+    if cache.c_prev != ligand_c
         z_a = (1 + (ligand_c / jumps.KD_a))^jumps.N
         z_i = (1 + (ligand_c / jumps.KD_i))^jumps.N
-        @. agg.cache.p_a = z_a * agg.cache.z_m / (z_a * agg.cache.z_m + z_i)
-        @set agg.cache.c_prev = ligand_c
-    else
-        agg
+        @. cache.p_a = z_a * cache.z_m / (z_a * cache.z_m + z_i)
+        agg.cache = @set cache.c_prev = ligand_c
     end
+    agg
 end
 
 function SSA.make_reaction_groups(jumps::ChemotaxisJumps, species::Symbol)
@@ -218,8 +220,9 @@ end
     end
 end
 
-function SSA.executerx!(speciesvec::AbstractVector, rxidx::Integer, jumps::ChemotaxisJumps)
+@inline function SSA.perform_jump!(jumps::ChemotaxisJumps, agg::AbstractJumpRateAggregator, rxidx::Integer)
     type, m = reaction_type(jumps, rxidx)
+    speciesvec = agg.u
 
     if type == 0 # methylate
         @inbounds speciesvec[jumps.receptors[m+1]] -= 1
@@ -234,6 +237,7 @@ function SSA.executerx!(speciesvec::AbstractVector, rxidx::Integer, jumps::Chemo
         @inbounds speciesvec[jumps.Y] += 1
         @inbounds speciesvec[jumps.Yp] -= 1
     end
+    agg
 end
 
 function SSA.dependend_species(jumps::ChemotaxisJumps, rxidx::Integer)

@@ -4,7 +4,7 @@ import PathWeightSampling as PWS
 import Random: Xoshiro
 
 rates = [50.0, 1.0]
-rstoich = [[], [1 => 1]]
+rstoich = [Pair{Int, Int}[], [1 => 1]]
 nstoich = [[1 => 1], [1 => -1]]
 
 bd_reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:X, :Y])

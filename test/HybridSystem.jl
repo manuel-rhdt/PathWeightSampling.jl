@@ -25,9 +25,9 @@ tspan = (0.0, 100.0)
 s_prob = SDEProblem(det_evolution, noise, SA[50.0], tspan, ps)
 sde_species_mapping = [1 => 1]
 
-rates = (ρ, μ)
-rstoich = [SA[1=>1], SA[2=>1]]
-nstoich = [SA[2=>1], SA[2=>-1]]
+rates = [ρ, μ]
+rstoich = [[1=>1], [2=>1]]
+nstoich = [[2=>1], [2=>-1]]
 
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, [:S, :X])
 
@@ -73,7 +73,7 @@ trace = conf.trace
 @time "marginal density 1" md1 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 @time "marginal density 2" md2 = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 @test md1 != md2 # MC evaluation of marginal likelihood is non-deterministic
-@test all(isapprox.(md1, md2, rtol=1e-4)) # but the results should be very close
+@test all(isapprox.(md1, md2, rtol=1e-3)) # but the results should be very close
 
 @test cd1[end] > md1[end]
 

@@ -3,7 +3,7 @@ module FlatPerm
 export PERM
 
 import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, simulate, discrete_times, logmeanexp, log_marginal, name
-import ..SMC: Setup, propagate, weight, clone, AbstractParticle
+import ..SMC: Setup, propagate!, weight, clone, AbstractParticle, spawn
 
 using Statistics
 using Random
@@ -61,7 +61,7 @@ function grow(
     end
     tspan = (dtimes[n], dtimes[n+1])
 
-    p = propagate(p, tspan, setup)
+    propagate!(p, tspan, setup)
     inspect(p)
     n += 1 # we increased the size through propagation
     n_ind += 1 # we made an "independent" step
@@ -148,7 +148,7 @@ end
 log_marginal(result::PERMResult) = vcat(0.0, logsumexp(result.log_marginal_estimate, dims=2)[2:end, 1])
 
 # This is the main routine to compute the marginal probability in flatPERM.
-function flatperm(convergence_criterion, setup; new_particle, inspect=identity)
+function flatperm(convergence_criterion, setup; Particle, inspect=identity)
 
     # this determines the time-interfaces at which we enrich or prune
     dtimes = discrete_times(setup)
@@ -165,7 +165,7 @@ function flatperm(convergence_criterion, setup; new_particle, inspect=identity)
     while mean(num_samples_eff[2:end, :]) < convergence_criterion
         log_marginal_estimate .+= log((N - 1) / N)
         n = 1
-        p = new_particle(setup)
+        p = spawn(Particle, setup)
         grow(p, n, 0, N, 0.0, log_marginal_estimate, num_samples, num_samples_eff, setup; inspect)
         N += 1
     end

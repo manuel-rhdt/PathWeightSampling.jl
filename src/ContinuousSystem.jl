@@ -120,7 +120,7 @@ function SDEParticle(setup::SMC.Setup)
     HybridParticle(agg, integrator)
 end
 
-function SMC.propagate(particle::SDEParticle, tspan::Tuple{T,T}, setup::SMC.Setup) where {T<:Real}
+function SMC.propagate!(particle::SDEParticle, tspan::Tuple{T,T}, setup::SMC.Setup) where {T<:Real}
     system = setup.ensemble
     trace = setup.configuration
     agg = particle.agg
