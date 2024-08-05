@@ -148,10 +148,10 @@ results = [PWS.mutual_information(system, strat, num_samples=100, progress=false
 
 plot()
 for (strat, r) in zip(strategies, results)
-    df = combine(groupby(r.result, :time), :MutualInformation => mean => :MI)
+    res = combine(groupby(r.result, :time), :MutualInformation => mean => :MI)
     plot!(
-        df.time, 
-        df.MI,
+        res.time, 
+        res.MI,
         label=PWS.name(strat),
         xlabel="trajectory duration",
         ylabel="mutual information (nats)"
