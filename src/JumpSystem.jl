@@ -14,6 +14,7 @@ import DataFrames: DataFrame
 import SciMLBase
 using RecipesBase
 import StaticArrays
+import StaticArrays: StaticArray, setindex
 
 import Random
 
@@ -257,6 +258,20 @@ function advance_ssa!(
     agg
 end
 
+@inline function update_ssa_from_sde!(agg::AbstractJumpRateAggregator, sde_u::AbstractVector, sde_species_mapping)
+    agg_u = agg.u
+    if agg_u isa StaticArray
+        for (sde_index, ssa_index) in sde_species_mapping
+            agg_u = setindex(agg_u, sde_u[sde_index], ssa_index)
+        end
+        agg.u = agg_u
+    else
+        for (sde_index, ssa_index) in sde_species_mapping
+            agg_u[ssa_index] = sde_u[sde_index]
+        end
+    end
+end
+
 function advance_ssa!(
     agg::AbstractJumpRateAggregator,
     reactions::AbstractJumpSet,
@@ -270,11 +285,7 @@ function advance_ssa!(
     for i in i1:i2
         tstop = dtimes[i]
         advance_ssa!(agg, reactions, tstop, ReactionTrace(trace), out_trace)
-        agg_u = agg.u
-        for (sde_index, species_index) in trace.sde_species_mapping
-            @reset agg_u[species_index] = trace.u[i][sde_index]
-        end
-        agg.u = agg_u
+        update_ssa_from_sde!(agg, trace.u[i], trace.sde_species_mapping)
         SSA.update_rates!(agg, reactions)
     end
     if agg.tprev < t_end
@@ -296,11 +307,7 @@ function advance_ssa_sde!(
     step!(integrator)
     while integrator.t <= t_end
         advance_ssa!(agg, reactions, integrator.t, trace, out_trace)
-        agg_u = agg.u
-        for (sde_index, species_index) in sde_species_mapping
-            @reset agg_u[species_index] = integrator.u[sde_index]
-        end
-        agg.u = agg_u
+        update_ssa_from_sde!(agg, integrator.u, sde_species_mapping)
         SSA.update_rates!(agg, reactions)
         if out_trace !== nothing
             push!(out_trace.dtimes, integrator.t)
@@ -427,8 +434,7 @@ struct HybridParticle{Agg,Integrator} <: SMC.AbstractParticle
     integrator::Integrator
 end
 
-SMC.weight(particle::MarkovParticle) = particle.agg.weight
-SMC.weight(particle::HybridParticle) = particle.agg.weight
+SMC.weight(particle::Union{MarkovParticle, HybridParticle}) = particle.agg.weight
 
 function SMC.spawn(::Type{<:MarkovParticle}, setup::SMC.Setup)
     system = setup.ensemble

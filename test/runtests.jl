@@ -21,6 +21,9 @@ doctest(PWS)
     @testset "HybridSystem" begin
         include("HybridSystem.jl")
     end
+    @testset "ContinuousSystem" begin
+        include("ContinuousSystem.jl")
+    end
     @testset "Three Species" begin
         include("three_species.jl")
     end

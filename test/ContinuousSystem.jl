@@ -1,17 +1,21 @@
 import PathWeightSampling as PWS
+import PathWeightSampling.SSA: AbstractJumpRateAggregator
+import PathWeightSampling.ContinuousSystem
 using Test
 using StaticArrays
 using Statistics
 using StochasticDiffEq
+using Accessors
+using DataFrames
 
 import Random
 
-function det_evolution(u::SVector, p, t)
+function det_evolution_x(u, p, t)
     κ, λ, ρ, μ = p
     SA[0.0, ρ*u[1] - μ*u[2]]
 end
 
-function noise(u::SVector, p, t)
+function noise_x(u, p, t)
     κ, λ, ρ, μ = p
     SA[0.0, sqrt(2ρ * 50.0)]
 end
@@ -23,9 +27,9 @@ end
 ps = (κ, λ, ρ, μ)
 u0 = round.(SA[κ / λ, κ * ρ / λ / μ])
 tspan = (0.0, 1000.0)
-s_prob = SDEProblem(det_evolution, noise, u0, tspan, ps)
+s_prob = SDEProblem(det_evolution_x, noise_x, u0, tspan, ps)
 
-rates = (κ, λ)
+rates = [κ, λ]
 rstoich = [Pair{Int, Int}[], [1=>1]]
 nstoich = [[1=>1], [1=>-1]]
 
@@ -36,7 +40,7 @@ system = PWS.HybridContinuousSystem(
     reactions,
     u0,
     tspan,
-    0.1, # dt
+    0.01, # dt
     s_prob,
     0.01, # sde_dt
     :S,
@@ -46,42 +50,64 @@ system = PWS.HybridContinuousSystem(
 
 conf = PWS.generate_configuration(system)
 
-@test PWS.discrete_times(system) ⊆ conf.t
+@test PWS.discrete_times(system) == conf.t
+@test round.(conf[1, :]) ≈ conf[1, :] atol=1e-10
 
 @test mean(conf[1, :]) ≈ κ / λ rtol=0.05
 @test var(conf[1, :]) ≈ κ / λ rtol=0.1
 @test mean(conf[2, :]) ≈ ρ * κ / λ / μ rtol=0.05
 @test var(conf[2, :]) ≈ (1 / (1 + λ/μ) + ρ / μ) * κ / λ rtol=0.1
 
-function log_probability(system, conf; dtimes=PWS.discrete_times(system))
-    sde_prob = system.sde_prob
-    f = sde_prob.f
-    g = sde_prob.g
-    p = sde_prob.p
-    logp = Vector{Float64}(undef, length(dtimes))
+om_int = ContinuousSystem.OMIntegrator(system.sde_prob.f, system.sde_prob.g, system.sde_prob.p, copy(system.u0), 0.0, 1)
+agg = PWS.SSA.initialize_aggregator!(
+    copy(system.agg),
+    system.reactions,
+    u0 = copy(system.u0),
+    tspan = extrema(PWS.discrete_times(system))
+)
+@test agg.u == system.u0
+@test om_int.u == system.u0
+@test agg.tprev == 0.0
+ContinuousSystem.step_ssa!(om_int, agg, conf, system)
+@test om_int.sol_index == 2
+@test om_int.u == conf.u[2]
 
-    k = firstindex(dtimes)
-    acc = 0.0
-    logp[k] = acc
-    k += 1
-    for i in eachindex(conf.t)[2:end]
-        b = f(conf.u[i-1], p, conf.t[i-1])
-        σ = g(conf.u[i-1], p, conf.t[i-1])
-        Δt = conf.t[i] - conf.t[i-1]
-        for j in eachindex(σ)
-            σ[j] <= 0 && continue
-            v = (conf[j, i] - conf[j, i-1]) / Δt
-            action = 0.5 * ((v - b[j]) / σ[j])^2
-            acc -= action * Δt - log(σ[j])
-        end 
+ContinuousSystem.step_ssa!(om_int, agg, conf, system)
+@test om_int.sol_index == 3
+@test om_int.u == conf.u[3]
 
-        if k <= lastindex(dtimes) && dtimes[k] == conf.t[i]
-            logp[k] = acc
-            k += 1
-        end
-    end
-    logp
-end
+cond_p = PWS.conditional_density(system, PWS.SMCEstimate(128), conf)
+marg_p = PWS.marginal_density(system, PWS.SMCEstimate(128), conf)
+@test length(marg_p) == length(cond_p) == length(PWS.discrete_times(system))
+@test cond_p[end] > marg_p[end]
 
-@time log_probability(system, conf)
 
+system = PWS.HybridContinuousSystem(
+    PWS.GillespieDirect(),
+    reactions,
+    u0,
+    (0.0, 10.0),
+    0.02, # dt
+    s_prob,
+    0.01, # sde_dt
+    :S,
+    :X,
+    [1 => 1]
+)
+
+result_object = PWS.mutual_information(system, PWS.SMCEstimate(128), num_samples=1000)
+
+sem(x) = sqrt(var(x) / length(x))
+pws_result = combine(
+    groupby(result_object.result, :time), 
+    :MutualInformation => mean => :MI,
+    :MutualInformation => sem => :Err
+)
+
+relative_error = pws_result.Err[end] / pws_result.MI[end]
+@test relative_error < 5e-2
+
+rate_estimate = (pws_result.MI[end] - pws_result.MI[10]) / (pws_result.time[end] - pws_result.time[10])
+rate_analytical = λ / 2 * (sqrt(1 + ρ / λ) - 1) # From Tostevin
+
+@test rate_estimate ≈ rate_analytical rtol=5*relative_error
