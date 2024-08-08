@@ -33,7 +33,7 @@ function sample(
 )
     nparticles = length(particles)
     weights = zeros(nparticles)
-    dtimes = discrete_times(setup)
+    dtimes = discrete_times(setup.ensemble)
 
     log_marginal_estimate = zeros(length(dtimes))
     effective_sample_sizes = zeros(length(dtimes))
@@ -53,7 +53,7 @@ function sample(
 
         # PROPAGATE
         for j in eachindex(particles)
-            propagate!(particles[j], tspan, setup)
+            particles[j] = propagate!(particles[j], tspan, setup)
             weights[j] += weight(particles[j])
         end
 

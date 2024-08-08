@@ -55,7 +55,7 @@ function grow(
     setup;
     inspect=identity
 )
-    dtimes = discrete_times(setup)
+    dtimes = discrete_times(setup.ensemble)
     if (n + 1) > length(dtimes)
         return
     end
@@ -151,7 +151,7 @@ log_marginal(result::PERMResult) = vcat(0.0, logsumexp(result.log_marginal_estim
 function flatperm(convergence_criterion, setup; Particle, inspect=identity)
 
     # this determines the time-interfaces at which we enrich or prune
-    dtimes = discrete_times(setup)
+    dtimes = discrete_times(setup.ensemble)
 
     # M = max_methylation_level(setup.ensemble.reactions, setup.ensemble.u0) + 1
     M = 1
