@@ -26,10 +26,11 @@ system = PWS.gene_expression_system(kappa = 10.0, lambda = 0.1, rho = 1.0, mu = 
 # output
 
 MarkovJumpSystem with 2 species and 4 reactions
-k = 10.00: ∅ ---&gt; S
-k = 0.10: S ---&gt; ∅
-k = 1.00: S ---&gt; S + X
-k = 1.00: X ---&gt; ∅
+ReactionSet with species S, X
+k1 =  10.00: ∅ ---&gt; S
+k2 =   0.10: S ---&gt; ∅
+k3 =   1.00: S ---&gt; S + X
+k4 =   1.00: X ---&gt; ∅
 
 Initial condition:
     S = 50
@@ -39,14 +40,15 @@ system = PWS.gene_expression_system(mean_s=25, mean_x=50, corr_time_s=1.0, corr_
 # output
 
 MarkovJumpSystem with 2 species and 4 reactions
-k = 25.00: ∅ ---&gt; S
-k = 1.00: S ---&gt; ∅
-k = 2.67: S ---&gt; S + X
-k = 1.33: X ---&gt; ∅
+ReactionSet with species S, X
+k1 =  25.00: ∅ ---&gt; S
+k2 =   1.00: S ---&gt; ∅
+k3 =   2.67: S ---&gt; S + X
+k4 =   1.33: X ---&gt; ∅
 
 Initial condition:
     S = 25
-    X = 50</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/50433691c7d647c69e7bd44e35e0760a4194fc5b/src/example_systems.jl#L11-L93">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="PathWeightSampling.chemotaxis_system" href="#PathWeightSampling.chemotaxis_system"><code>PathWeightSampling.chemotaxis_system</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">chemotaxis_system(;
+    X = 50</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/e610c252c98219b50ba49d2a7a4dea99c89ff9fd/src/example_systems.jl#L11-L95">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="PathWeightSampling.chemotaxis_system" href="#PathWeightSampling.chemotaxis_system"><code>PathWeightSampling.chemotaxis_system</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">chemotaxis_system(;
     n_clusters=25,
     n_chey=10000,
     methylation_sites=4,
@@ -143,4 +145,4 @@ Initial condition:
     R59 = 0.0
     R60 = 0.0
     Yp = 0.0
-    Y = 10000.0</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/50433691c7d647c69e7bd44e35e0760a4194fc5b/src/example_systems.jl#L309-L423">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../guide/">« Guide</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Wednesday 31 July 2024 12:24">Wednesday 31 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+    Y = 10000.0</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/e610c252c98219b50ba49d2a7a4dea99c89ff9fd/src/example_systems.jl#L313-L427">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../guide/">« Guide</a><a class="docs-footer-nextpage" href="../examples/">Examples »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 8 August 2024 15:48">Thursday 8 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
