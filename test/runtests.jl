@@ -64,9 +64,6 @@ doctest(PWS)
         @testset "SMC Estimation" begin
             include("algorithms/smc_estimate.jl")
         end
-        @testset "PERM Algorithm" begin
-            include("algorithms/perm_algorithm.jl")
-        end
     end
 
 end

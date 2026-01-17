@@ -100,7 +100,7 @@ system = PWS.HybridJumpSystem(
     sde_species_mapping
 )
 
-mi = PWS.mutual_information(system, PWS.SMCEstimate(128), num_samples=1000)
+mi = PWS.mutual_information(system, PWS.SMCEstimate(128), num_samples=1000, threads=true, progress=false)
 
 using DataFrames, Statistics
 pws_result = combine(

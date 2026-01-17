@@ -63,19 +63,19 @@ import Random
 
     @testset "Probability Consistency Across Methods" begin
         for t1 in 0:0.5:3, t2 in t1:0.5:3
-            @test compute_logpdf(bd_system, trace, (t1, t2)) == compute_logpdf2(bd_system, trace, (t1, t2)) "Direct and SMC methods should produce identical probabilities for deterministic evaluation"
+            @test compute_logpdf(bd_system, trace, (t1, t2)) == compute_logpdf2(bd_system, trace, (t1, t2))
         end
     end
 
     @testset "Analytical Probability Validation" begin
-        @test compute_logpdf(bd_system, trace, (0.0, 3.0)) ≈ sum((wait1, wait2, wait3, reac1, reac2)) "Full trajectory probability should match analytical computation"
-        @test compute_logpdf(bd_system, trace, (1.0, 2.0)) ≈ sum((reac1, wait2)) "Partial trajectory probability should match analytical computation"
+        @test compute_logpdf(bd_system, trace, (0.0, 3.0)) ≈ sum((wait1, wait2, wait3, reac1, reac2))
+        @test compute_logpdf(bd_system, trace, (1.0, 2.0)) ≈ sum((reac1, wait2))
     end
 
     @testset "Discrete Time Probability" begin
         @test PWS.JumpSystem.log_probability(bd_system, trace) ≈ [
             compute_logpdf(bd_system, trace, (0.0, τ)) for τ in PWS.discrete_times(bd_system)
-        ] "Log probability at discrete times should match cumulative computation"
+        ]
     end
 
     @testset "Cumulative Probability" begin
@@ -88,9 +88,9 @@ import Random
             wait1 + reac1 + wait2,
             wait1 + reac1 + wait2 + reac2 + 0.5wait3,
             wait1 + reac1 + wait2 + reac2 + wait3,
-        ] "Cumulative probabilities at finer time resolution should match"
+        ]
 
-        @test cumulative ≈ PWS.JumpSystem.log_probability(bd_system, trace, dtimes = 0:0.5:3) "Fine-resolution discrete times should match cumulative computation"
+        @test cumulative ≈ PWS.JumpSystem.log_probability(bd_system, trace, dtimes = 0:0.5:3)
     end
 
     @testset "Probability with Different Initial States" begin
@@ -100,9 +100,9 @@ import Random
             reac2 + 0.33wait3,
             reac2 + 0.66wait3,
             reac2 + 0.99wait3
-        ] "Probability from modified initial state should be consistent"
+        ]
 
-        @test cumulative ≈ PWS.JumpSystem.log_probability(bd_system, trace, u0=SA[51.0, 0.0], dtimes = 2:0.33:3) "Modified initial state should propagate correctly through discrete times"
+        @test cumulative ≈ PWS.JumpSystem.log_probability(bd_system, trace, u0=SA[51.0, 0.0], dtimes = 2:0.33:3)
     end
 
     @testset "Hybrid Trace Probability" begin
@@ -118,12 +118,12 @@ import Random
             wait1 + wait2,
             wait1 + wait2 + 0.5wait3,
             wait1 + wait2 + wait3,
-        ] "Hybrid trace probability should ignore reaction times and only use state changes"
+        ]
 
         @test PWS.JumpSystem.log_probability(bd_system, hybrid_trace, dtimes=2:0.5:3) == [
             0.0,
             0.5wait3,
             wait3
-        ] "Hybrid trace partial time interval should compute correctly"
+        ]
     end
 end

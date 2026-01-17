@@ -36,7 +36,7 @@ import Random: Xoshiro
     traj = conf.traj
 
     @testset "Configuration Generation" begin
-        @test conf.discrete_times == dtimes "Discrete times should match system specification"
+        @test conf.discrete_times == dtimes
     end
 
     @testset "Trajectory Consistency" begin
@@ -52,8 +52,8 @@ import Random: Xoshiro
         end
         u_at_time(t) = u_arr[searchsortedfirst(trace.t, t)]
         for (i, t) in enumerate(dtimes)
-            @test u_at_time(t) == traj[:, i] "Trajectory state should match computed state at time $t"
+            @test u_at_time(t) == traj[:, i]
         end
-        @test u_arr[end] == traj[:, end] "Final trajectory state should match simulation"
+        @test u_arr[end] == traj[:, end]
     end
 end
