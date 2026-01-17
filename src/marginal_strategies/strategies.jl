@@ -43,7 +43,7 @@ log_marginal(::SimulationResult) = error("Custom subtype of SimulationResult doe
 
 abstract type AbstractSimulationAlgorithm end
 
-simulate(s::AbstractSimulationAlgorithm, args...) = error("Unknown simulation algorihm", s)
+simulate(s::AbstractSimulationAlgorithm, args...; kwargs...) = error("Unknown simulation algorihm", s)
 name(x::AbstractSimulationAlgorithm) = string(typeof(x))
 
 function _logmeanexp(x::AbstractArray)
@@ -167,15 +167,26 @@ end
 
 function _mi_inner_multithreaded(compiled_system, algorithm, num_samples, show_progress)
     # We perform the outer Monte Carlo algorithm using all available threads.
-    p = Progress(num_samples; showspeed=false, enabled=show_progress)
+    
+    tasks_per_thread = 1
+
+    # Divide work into equal-sized chunks to perform on the different tasks
+    chunk_size = max(1, num_samples ÷ (tasks_per_thread * Threads.nthreads()))
+    data_chunks = Iterators.partition(1:num_samples, chunk_size) 
+
+    p = Progress(num_samples; showspeed=true, enabled=show_progress)
+
     result = Vector{Tuple{DataFrame,DataFrame,DataFrame}}(undef, num_samples)
-    @sync for i in 1:num_samples
-        new_system = copy(compiled_system)
+    @sync for chunk in data_chunks
         Threads.@spawn begin
             rng = Random.TaskLocalRNG()
-            result[i] = _compute(new_system, algorithm, i, rng; progress=p)
+            local_system = copy(compiled_system)
+            for i in chunk
+                result[i] = _compute(local_system, algorithm, i, rng; progress=p)
+            end
         end
     end
+
     _reduce_results(result)
 end
 
