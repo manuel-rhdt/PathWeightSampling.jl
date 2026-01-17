@@ -103,7 +103,7 @@ system = PWS.HybridContinuousSystem(
     [1 => 1]
 )
 
-result_object = PWS.mutual_information(system, PWS.SMCEstimate(128), num_samples=1000, threads=true, progress=false)
+result_object = PWS.mutual_information(system, PWS.SMCEstimate(128), num_samples=1000, progress=false)
 
 pws_result = combine(
     groupby(result_object.result, :time), 

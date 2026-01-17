@@ -2,7 +2,7 @@
 
 julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "bc69c0aaf391459e8a6445dc79640a10f3ab63c2"
+project_hash = "7ba457cdd9cff221327415081534b44746649cd4"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "f7304359109c768cf32dc5fa2d371565bb63b68a"
@@ -1668,7 +1668,7 @@ version = "2.8.3"
 deps = ["Accessors", "DataFrames", "Dates", "DiffEqBase", "Distributed", "Distributions", "FastGaussQuadrature", "GZip", "HDF5", "JSON", "LinearAlgebra", "LogExpFunctions", "Logging", "Parquet2", "Printf", "ProgressMeter", "Random", "RecipesBase", "SciMLBase", "StaticArrays", "Statistics", "StatsBase", "StatsFuns", "StochasticDiffEq"]
 path = ".."
 uuid = "e595aebf-dd45-48e4-a6c3-f40ecff26dc3"
-version = "0.3.0"
+version = "0.2.0"
 
 [[deps.Pixman_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LLVMOpenMP_jll", "Libdl"]

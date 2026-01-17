@@ -6,7 +6,8 @@ makedocs(
         "Home" => "index.md",
         "Getting Started" => "guide.md",
         "Tutorials" => [
-            "Three-Species Cascade" => "three_species_tutorial.md"
+            "Three-Species Cascade" => "three_species_tutorial.md",
+            "Hybrid Continuous-Discrete System" => "hybrid_system_tutorial.md"
         ],
         "Theory" => [
             "Marginalization Strategies" => "marginalization.md"
