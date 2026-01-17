@@ -168,7 +168,7 @@ end
 function _mi_inner_multithreaded(compiled_system, algorithm, num_samples, show_progress)
     # We perform the outer Monte Carlo algorithm using all available threads.
     p = Progress(num_samples; showspeed=false, enabled=show_progress)
-    result = Vector{Tuple{DataFrame,DataFrame}}(undef, num_samples)
+    result = Vector{Tuple{DataFrame,DataFrame,DataFrame}}(undef, num_samples)
     @sync for i in 1:num_samples
         new_system = copy(compiled_system)
         Threads.@spawn begin
