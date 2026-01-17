@@ -1,3 +1,11 @@
+"""
+    SimpleSystem.jl
+
+Tests for simple stochastic systems and mutual information computation.
+Validates the chemotaxis system fixture and mutual information estimation
+across different sampling algorithms (SMC, Direct MC, PERM).
+"""
+
 import PathWeightSampling as PWS
 using Test
 using Statistics

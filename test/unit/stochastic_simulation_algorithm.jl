@@ -1,3 +1,12 @@
+"""
+    stochastic_simulation_algorithm.jl
+
+Tests for Stochastic Simulation Algorithm (SSA) implementation.
+Validates event generation, state updates, aggregator behavior, and trajectory
+tracing for both reactive and absorbing states. Tests both constant-rate and
+state-dependent jump rates.
+"""
+
 using Test
 import PathWeightSampling as PWS
 import Random
@@ -152,7 +161,6 @@ result_object = PWS.mutual_information(system, PWS.SMCEstimate(256), num_samples
 using DataFrames, Statistics
 @show median(result_object.metadata.CPUTime)
 
-sem(x) = sqrt(var(x) / length(x))
 pws_result = combine(
     groupby(result_object.result, :time), 
     :MutualInformation => mean => :MI,

@@ -1,9 +1,16 @@
+"""
+    perm.jl
+
+Tests for the Pruned-Enriched Rosenbluth Method (PERM) algorithm.
+Compares PERM with SMC algorithm for trajectory importance sampling.
+"""
+
 import PathWeightSampling as PWS
 using Test
 
 # create a coupled birth-death system
 rates = [50.0, 1.0, 1.0, 1.0]
-rstoich = [[], [1 => 1], [1 => 1], [2 => 1]]
+rstoich = [Pair{Int, Int}[], [1 => 1], [1 => 1], [2 => 1]]
 nstoich = [[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
 reactions = PWS.ReactionSet(rates, rstoich, nstoich, 2)
 

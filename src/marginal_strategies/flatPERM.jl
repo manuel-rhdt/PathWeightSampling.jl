@@ -10,26 +10,6 @@ using Random
 
 import LogExpFunctions: logaddexp, logsumexp
 
-# ---------------------------------------------------------------------------- #
-#                                CURSOR CONTROL                                #
-# ---------------------------------------------------------------------------- #
-"""
-Save the current cursor position
-"""
-savecursor(io::IO=stdout) = write(io, "\e[s")
-
-"""
-Restore a previously saved cursor position
-"""
-restorecursor(io::IO=stdout) = write(io, "\e[u")
-
-"""
-    clear(io::IO = stdout)
-Clear terminal from anything printed in the REPL.
-"""
-clear(io::IO=stdout) = write(io, "\e[2J")
-cleartoend(io::IO=stdout) = write(io, "\e[0J")
-
 """
 PERM(num_chains::Int)
 
@@ -69,11 +49,6 @@ function grow(
 
     # m = methylation_level(setup.ensemble.reactions, p.agg.u) + 1
     m = 1
-
-    # restorecursor()
-    # savecursor()
-    # cleartoend()
-    # print(UnicodePlots.heatmap(num_samples))
 
     num_samples[n, m] += 1
     eff_n = num_samples_eff[n, m] += n_ind / n

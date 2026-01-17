@@ -1,3 +1,10 @@
+"""
+    three_species.jl
+
+Tests for three-species cascade systems (S → V → X).
+Validates systems with multiple stochastic reactions, state dependencies,
+and mutual information computation for cascade information flow.
+"""
 
 import PathWeightSampling as PWS
 

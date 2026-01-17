@@ -1,3 +1,12 @@
+"""
+    HybridSystem.jl
+
+Tests for hybrid discrete-continuous stochastic systems.
+Validates systems combining SDEs (continuous evolution) with jump processes
+(discrete events). Tests state trajectories, variance properties, and mutual
+information computation via conditional and marginal density estimates.
+"""
+
 import PathWeightSampling as PWS
 using Test
 using StaticArrays
@@ -94,7 +103,6 @@ system = PWS.HybridJumpSystem(
 mi = PWS.mutual_information(system, PWS.SMCEstimate(128), num_samples=1000)
 
 using DataFrames, Statistics
-sem(x) = sqrt(var(x) / length(x))
 pws_result = combine(
     groupby(mi.result, :time), 
     :MutualInformation => mean => :MI,

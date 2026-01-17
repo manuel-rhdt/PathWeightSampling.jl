@@ -1,3 +1,11 @@
+"""
+    ContinuousSystem.jl
+
+Tests for hybrid continuous-discrete stochastic systems (HybridContinuousSystem).
+Validates systems with pure continuous SDE evolution and discrete jump events.
+Tests state trajectories, equilibrium properties, and mutual information computation.
+"""
+
 import PathWeightSampling as PWS
 import PathWeightSampling.SSA: AbstractJumpRateAggregator
 import PathWeightSampling.ContinuousSystem
@@ -97,7 +105,6 @@ system = PWS.HybridContinuousSystem(
 
 result_object = PWS.mutual_information(system, PWS.SMCEstimate(128), num_samples=1000)
 
-sem(x) = sqrt(var(x) / length(x))
 pws_result = combine(
     groupby(result_object.result, :time), 
     :MutualInformation => mean => :MI,

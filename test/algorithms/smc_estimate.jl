@@ -1,3 +1,12 @@
+"""
+    smc_estimate.jl
+
+Tests for Sequential Monte Carlo (SMC) and algorithm comparison.
+Compares SMC, Direct MC, and PERM algorithms on the same configurations.
+Validates that different algorithms produce statistically consistent estimates
+of conditional and marginal densities.
+"""
+
 import PathWeightSampling as PWS
 using Test
 using Statistics

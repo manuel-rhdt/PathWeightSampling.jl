@@ -1,12 +1,17 @@
+"""
+    chemotaxis.jl
+
+Tests for the chemotaxis signaling system.
+Validates comprehensive tests on realistic biological systems with complex
+reaction networks. Includes conditional tests for extended parallel computing.
+"""
+
 import PathWeightSampling as PWS
 using Test
 using Statistics
 import Distributed
-using Statistics
 
 import Random: Xoshiro
-
-# ChemotaxisJumps
 
 system = PWS.chemotaxis_system(
     n_clusters=800,
