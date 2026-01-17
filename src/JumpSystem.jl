@@ -51,7 +51,7 @@ end
 
 function Base.copy(js::MarkovJumpSystem)
     MarkovJumpSystem(
-        copy(js.agg),
+        copy(js.agg), # aggregator is the only mutable state, so we copy it
         js.reactions,
         js.u0,
         js.input_reactions,
