@@ -12,13 +12,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      JULIA_NUM_THREADS: auto
+      JULIA_NUM_THREADS: 1
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1.12'
-      - uses: julia-actions/julia-runtest@v1
+      - name: Run tests
+        uses: julia-actions/julia-runtest@v1
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Deploy docs
