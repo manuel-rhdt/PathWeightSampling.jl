@@ -17,7 +17,6 @@ Compute the marginal trajectory probability using flatPERM.
 """
 struct PERM <: AbstractSimulationAlgorithm
     num_chains::Int
-    alpha::Float64
 end
 
 name(x::PERM) = "PERM"
@@ -70,31 +69,25 @@ function perm(alg::PERM, setup; Particle, inspect=identity)
                 H[n] += 1
 
                 # --- Compute thresholds ---
-                if S < 100
-                    c_low = -Inf
-                    c_high = Inf
-                else
-                    logz_n = logZ[n] - log(S)
-                    c_low = logz_n + log(0.3)
-                    c_high = logz_n + log(3)
-                end
+                logW_target = logZ[n] - log(S)
+                r = exp(logW - logW_target)
 
                 n += 1 # we increased the size through propagation
 
                 # --- Enrichment ---
-                if logW > c_high
-                    k = 2
+                if r > 1.0
+                    k = floor(r + rand())
                     logW -= log(k) # W <- W/k
 
                     for i = 2:k
                         push!(stack, (clone(p, setup), logW, n))
                     end
                 # --- Pruning ---
-                elseif logW < c_low
-                    if rand() < 0.5
+                else
+                    if rand() > r
                         break # prune
                     else
-                        logW += log(2) # W <- 2*W
+                        logW = logW_target # boost survivor
                     end
                 end
             end
