@@ -3,12 +3,19 @@ using Documenter, PathWeightSampling
 makedocs(
     sitename="PathWeightSampling.jl",
     pages = [
-        "index.md",
-        "guide.md",
-        "systems.md",
-        "examples.md",
-        "marginalization.md",
-        "write_output.md"
+        "Home" => "index.md",
+        "Getting Started" => "guide.md",
+        "Tutorials" => [
+            "Three-Species Cascade" => "three_species_tutorial.md"
+        ],
+        "Theory" => [
+            "Marginalization Strategies" => "marginalization.md"
+        ],
+        "Reference" => [
+            "System Types" => "systems.md",
+            "Output & Saving" => "write_output.md",
+            "Examples" => "examples.md"
+        ]
     ]
 )
 
