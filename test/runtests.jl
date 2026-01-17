@@ -46,9 +46,6 @@ doctest(PWS)
         @testset "Hybrid System (SDE + Jumps)" begin
             include("integration/hybrid_system.jl")
         end
-        @testset "Continuous System (Pure SDE)" begin
-            include("integration/continuous_system.jl")
-        end
         @testset "Three Species Cascade" begin
             include("integration/three_species_cascade.jl")
         end

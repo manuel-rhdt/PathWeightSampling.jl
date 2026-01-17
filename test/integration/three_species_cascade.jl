@@ -124,7 +124,7 @@ conf = PWS.generate_configuration(system)
 cond_d = PWS.conditional_density(system, PWS.SMCEstimate(256), conf)
 marg_d = PWS.marginal_density(system, PWS.SMCEstimate(256), conf)
 
-mutual_information = PWS.mutual_information(system, PWS.SMCEstimate(128); num_samples=500, progress=false)
+@time "mutual_information (ThreeSpeciesCascade, 500 samples)" mutual_information = PWS.mutual_information(system, PWS.SMCEstimate(128); num_samples=500, threads=true, progress=false)
 
 using DataFrames
 mi = combine(groupby(mutual_information.result, :time), :MutualInformation => mean; renamecols=false)

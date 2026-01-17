@@ -156,7 +156,7 @@ static_conf = PWS.generate_configuration(system; rng=Random.Xoshiro(1))
 κ, λ, ρ, μ = rates
 
 
-result_object = PWS.mutual_information(system, PWS.SMCEstimate(256), threads=true, num_samples=1000, progress=false)
+@time "mutual_information (SSA, 1000 samples)" result_object = PWS.mutual_information(system, PWS.SMCEstimate(256), threads=true, num_samples=1000, progress=false)
 
 using DataFrames, Statistics
 @show median(result_object.metadata.CPUTime)
