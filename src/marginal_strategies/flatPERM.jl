@@ -17,140 +17,117 @@ Compute the marginal trajectory probability using flatPERM.
 """
 struct PERM <: AbstractSimulationAlgorithm
     num_chains::Int
+    alpha::Float64
+    conditional::Vector{Float64}
 end
 
 name(x::PERM) = "PERM"
 
-const MAX_COPIES = 25
-
-function grow(
-    p::AbstractParticle,
-    n::Int,
-    n_ind::Int,
-    n_chain::Int,
-    log_w::Float64,
-    log_marginal_estimate::Matrix{Float64},
-    num_samples::Matrix{Int},
-    num_samples_eff::Matrix{Float64},
-    setup;
-    inspect=identity
-)
-    dtimes = discrete_times(setup.ensemble)
-    if (n + 1) > length(dtimes)
-        return
-    end
-    tspan = (dtimes[n], dtimes[n+1])
-
-    propagate!(p, tspan, setup)
-    inspect(p)
-    n += 1 # we increased the size through propagation
-    n_ind += 1 # we made an "independent" step
-    log_w = log_w + weight(p) # we increased the weight through propagation
-
-    # m = methylation_level(setup.ensemble.reactions, p.agg.u) + 1
-    m = 1
-
-    num_samples[n, m] += 1
-    eff_n = num_samples_eff[n, m] += n_ind / n
-    cur_estimate = log_marginal_estimate[n, m]
-    new_estimate = logaddexp(cur_estimate, log_w - log(n_chain))
-    log_marginal_estimate[n, m] = new_estimate
-
-    log_ratio = log_w - new_estimate + log(n_chain) - log(eff_n)
-    if log_ratio >= 0
-        # enrich
-        num_copies = min(trunc(Int, exp(log_ratio)), MAX_COPIES)
-        adjusted_weight = log_w - log(num_copies)
-        for i in 2:num_copies
-            child = clone(p, setup)
-            grow(
-                child,
-                n,
-                0,
-                n_chain,
-                adjusted_weight,
-                log_marginal_estimate,
-                num_samples,
-                num_samples_eff,
-                setup;
-                inspect
-            )
-        end
-        grow(
-            p,
-            n,
-            0,
-            n_chain,
-            adjusted_weight,
-            log_marginal_estimate,
-            num_samples,
-            num_samples_eff,
-            setup;
-            inspect
-        )
-    else
-        # maybe prune
-        v = -randexp()
-        if v <= log_ratio
-            # this happens with probability r=exp(log_ratio)
-            # prune failed, continue growing
-            grow(
-                p,
-                n,
-                n_ind,
-                n_chain,
-                new_estimate,
-                log_marginal_estimate,
-                num_samples,
-                num_samples_eff,
-                setup;
-                inspect
-            )
-        else
-            # this happens with probability (1-r)
-            # prune
-            return
-        end
-    end
-end
 
 struct PERMResult <: SimulationResult
-    log_marginal_estimate::Matrix{Float64}
+    logZ::Matrix{Float64}
     num_samples::Matrix{Int}
     num_samples_eff::Matrix{Float64}
 end
 
-log_marginal(result::PERMResult) = vcat(0.0, logsumexp(result.log_marginal_estimate, dims=2)[2:end, 1])
+log_marginal(result::PERMResult) = logsumexp(result.logZ, dims=2)[:, 1]
 
 # This is the main routine to compute the marginal probability in flatPERM.
-function flatperm(convergence_criterion, setup; Particle, inspect=identity)
+function flatperm(alg::PERM, setup; Particle, inspect=identity)
 
     # this determines the time-interfaces at which we enrich or prune
     dtimes = discrete_times(setup.ensemble)
+    log_conditional = alg.conditional
 
-    # M = max_methylation_level(setup.ensemble.reactions, setup.ensemble.u0) + 1
-    M = 1
+    # Make energy bins
+    M = 50 # number of bins
+    ΔW = 1e-1
+    α = alg.alpha
+    calc_m(W, n) = clamp(round(Int, expm1(α * W / n) / α / ΔW) + M÷2, 1, M)
 
-    log_marginal_estimate = zeros(length(dtimes), M)
-    num_samples = zeros(Int, length(dtimes), M)
-    num_samples_eff = zeros(length(dtimes), M)
+    n_min_prune = 5  # skip pruning for first 3 steps
 
-    # savecursor()
-    N = 1
-    while mean(num_samples_eff[2:end, :]) < convergence_criterion
-        log_marginal_estimate .+= log((N - 1) / N)
-        n = 1
+    # ln Ẑ[n, m] estimated partition sum. This will be the log marginal probability ln P(x)
+    logZ = fill(-Inf, length(dtimes), M)
+
+    # H[n, m] number of visits
+    H = zeros(Int, length(dtimes), M)
+
+    stack = Tuple{Particle, Float64, Int}[]
+    for S = 1:alg.num_chains
+        n = 2
         p = spawn(Particle, setup)
-        grow(p, n, 0, N, 0.0, log_marginal_estimate, num_samples, num_samples_eff, setup; inspect)
-        N += 1
+        logW = 0.0
+        push!(stack, (p, logW, n))
+
+        while !isempty(stack)
+            p, logW, n = pop!(stack)
+            
+            while n <= length(dtimes)
+                tspan = (dtimes[n-1], dtimes[n])
+
+                propagate!(p, tspan, setup)
+                inspect(p)
+
+                # update the weight of the configuration
+                # note that weight(p) returns the log-likelihood increment
+                logW += weight(p) 
+                m = calc_m(logW - log_conditional[n], n)
+
+                # --- Update estimators ---
+                logZ[n, m] = logaddexp(logW, logZ[n, m])
+                H[n, m] += 1
+
+                if n < n_min_prune
+                    n += 1
+                    # grow without pruning
+                    continue
+                end
+
+                # --- Compute ratio ---
+                if logZ[n, m] == -Inf
+                    r = 1
+                else
+                    r = exp(logW - logZ[n, m] + log(S))
+                end
+
+                n += 1 # we increased the size through propagation
+
+                # --- Enrichment ---
+                if r > 1
+                    k = floor(r + rand())   # stochastic rounding
+                    logW -= log(k) # W <- W/k
+
+                    for i = 2:k
+                        push!(stack, (clone(p, setup), logW, n))
+                    end
+                # --- Pruning ---
+                else
+                    if rand() > r
+                        break                      # prune
+                    else
+                        logW = log(r)               # rescale weight
+                    end
+                end
+            end
+
+            # Finish tour if chain reached full length
+            if n > length(dtimes)
+                empty!(stack)
+                break
+            end
+        end
     end
 
-    PERMResult(log_marginal_estimate, num_samples, num_samples_eff)
+    logZ .-= log(alg.num_chains)
+    logZ[1, :] .= -log(M)
+
+    PERMResult(logZ, H, zeros(length(dtimes), M))
 end
 
 function simulate(algorithm::PERM, initial, system; rng=Random.default_rng(), kwargs...)
     setup = Setup(initial, system, rng)
-    flatperm(algorithm.num_chains, setup; kwargs...)
+    flatperm(algorithm, setup; kwargs...)
 end
 
 end # module
