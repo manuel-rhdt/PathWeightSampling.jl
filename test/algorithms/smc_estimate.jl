@@ -24,11 +24,14 @@ algs = [PWS.SMCEstimate(256), PWS.DirectMCEstimate(256), PWS.PERM(32)]
 result = Dict(map(algs) do alg
     num_samples = 24
     mi = Vector{Vector{Float64}}(undef, num_samples)
-    for i in eachindex(mi)
-        @time "Generate Sample $i/$num_samples with $(PWS.name(alg))" begin
-            cresult = PWS.conditional_density(system, alg, conf)
-            mresult = PWS.marginal_density(system, alg, conf)
-            mi[i] = cresult - mresult
+    @sync for i in eachindex(mi)
+        local_system = copy(system)
+        Threads.@spawn begin
+            @time "Generate Sample $i/$num_samples with $(PWS.name(alg))" begin
+                cresult = PWS.conditional_density(local_system, alg, conf)
+                mresult = PWS.marginal_density(local_system, alg, conf)
+                mi[i] = cresult - mresult
+            end
         end
     end
     PWS.name(alg) => reduce(hcat, mi)
