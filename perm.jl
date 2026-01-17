@@ -7,6 +7,8 @@ using Plots
 
 import LogExpFunctions: logaddexp, logsumexp
 
+softmax(x) = exp.(x) / sum(exp, x)
+
 rates = SA[50.0, 1.0, 1.0, 1.0]
 rstoich = SA[Pair{Int, Int}[], [1 => 1], [1 => 1], [2 => 1]]
 nstoich = SA[[1 => 1], [1 => -1], [2 => 1], [2 => -1]]
@@ -32,11 +34,19 @@ traced_reactions = system.output_reactions
 trace = PWS.filter_trace(trace, traced_reactions)
 
 
-algorithm = PWS.PERM(1000, 0.1, conditional)
+algorithm = PWS.PERM(10000, 1.0)
 marginalization_result = PWS.simulate(algorithm, trace, system; Particle=PWS.JumpSystem.MarkovParticle)
 
-heatmap(marginalization_result.logZ)
-heatmap(log.(marginalization_result.num_samples))
+plot(marginalization_result.logZ)
+ 
+log_weights = marginalization_result.tour_weights[10, :]
+log_weights .-= maximum(log_weights)
+weights = softmax(log_weights)
+histogram(log_weights, normalize=:pdf)
+mask = weights .!= 0
+histogram!(log_weights[mask], weights=weights[mask], normalize=:pdf)
+
+plot(marginalization_result.num_samples)
 
 begin
 log_marginal = PWS.log_marginal(marginalization_result)
