@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Three-Species Cascade · PathWeightSampling.jl</title><meta name="title" content="Three-Species Cascade · PathWeightSampling.jl"/><meta property="og:title" content="Three-Species Cascade · PathWeightSampling.jl"/><meta property="twitter:title" content="Three-Species Cascade · PathWeightSampling.jl"/><meta name="description" content="Documentation for PathWeightSampling.jl."/><meta property="og:description" content="Documentation for PathWeightSampling.jl."/><meta property="twitter:description" content="Documentation for PathWeightSampling.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">PathWeightSampling.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../guide/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Three-Species Cascade</a><ul class="internal"><li><a class="tocitem" href="#The-Cascade-Model"><span>The Cascade Model</span></a></li><li><a class="tocitem" href="#Setting-Up-the-System"><span>Setting Up the System</span></a></li><li><a class="tocitem" href="#Generating-and-Visualizing-Trajectories"><span>Generating and Visualizing Trajectories</span></a></li><li><a class="tocitem" href="#Computing-Mutual-Information"><span>Computing Mutual Information</span></a></li><li><a class="tocitem" href="#Comparing-Estimation-Algorithms"><span>Comparing Estimation Algorithms</span></a></li><li><a class="tocitem" href="#Analyzing-Information-Loss"><span>Analyzing Information Loss</span></a></li></ul></li><li><a class="tocitem" href="../hybrid_system_tutorial/">Hybrid Continuous-Discrete System</a></li></ul></li><li><span class="tocitem">Theory</span><ul><li><a class="tocitem" href="../marginalization/">Marginalization Strategies</a></li></ul></li><li><span class="tocitem">Reference</span><ul><li><a class="tocitem" href="../systems/">System Types</a></li><li><a class="tocitem" href="../write_output/">Output &amp; Saving</a></li><li><a class="tocitem" href="../examples/">Examples</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Three-Species Cascade</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Three-Species Cascade</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/manuel-rhdt/PathWeightSampling.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/manuel-rhdt/PathWeightSampling.jl/blob/master/docs/src/three_species_tutorial.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Three-Species-Cascade-Tutorial"><a class="docs-heading-anchor" href="#Three-Species-Cascade-Tutorial">Three-Species Cascade Tutorial</a><a id="Three-Species-Cascade-Tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#Three-Species-Cascade-Tutorial" title="Permalink"></a></h1><p>This tutorial demonstrates how to analyze information flow through a cascade of three molecular species: S → V → X. This example illustrates several important concepts:</p><ul><li>Working with multi-species reaction networks</li><li>Understanding cascade information transmission</li><li>Comparing different estimation algorithms</li><li>Interpreting mutual information results</li></ul><h2 id="The-Cascade-Model"><a class="docs-heading-anchor" href="#The-Cascade-Model">The Cascade Model</a><a id="The-Cascade-Model-1"></a><a class="docs-heading-anchor-permalink" href="#The-Cascade-Model" title="Permalink"></a></h2><p>We consider a simple cascade where:</p><ul><li><strong>S</strong> is the input signal (first species)</li><li><strong>V</strong> is an intermediate species</li><li><strong>X</strong> is the output signal (final species)</li></ul><p>Information flows from S to V to X through the following reactions:</p><pre><code class="nohighlight hljs">Reaction 1:  ∅  → S    (rate κ)       # S production
+Reaction 2:  S  → ∅    (rate λ·S)     # S degradation
+Reaction 3:  S  → S+V  (rate ρ·S)     # V production (catalyzed by S)
+Reaction 4:  V  → ∅    (rate μ·V)     # V degradation
+Reaction 5:  V  → V+X  (rate ρ₂·V)    # X production (catalyzed by V)
+Reaction 6:  X  → ∅    (rate μ₂·X)    # X degradation</code></pre><p>This represents a signaling cascade where:</p><ul><li>S molecules are produced at constant rate κ and degrade with rate proportional to their abundance</li><li>V production requires S (activation)</li><li>X production requires V (activation)</li></ul><h2 id="Setting-Up-the-System"><a class="docs-heading-anchor" href="#Setting-Up-the-System">Setting Up the System</a><a id="Setting-Up-the-System-1"></a><a class="docs-heading-anchor-permalink" href="#Setting-Up-the-System" title="Permalink"></a></h2><p>First, let&#39;s define the reaction network parameters:</p><pre><code class="language-julia hljs">import PathWeightSampling as PWS
+using StaticArrays
+using Plots
+using Statistics
+using DataFrames
+
+# Reaction rate parameters
+κ = 10.0   # S production rate
+λ = 1.0    # S degradation rate
+ρ = 1.0    # V production rate (per S molecule)
+μ = 1.0    # V degradation rate
+ρ₂ = 10.0  # X production rate (per V molecule)
+μ₂ = 10.0  # X degradation rate
+
+# Reactant stoichiometry for each reaction
+# (empty list means no reactants, [i =&gt; n] means n molecules of species i)
+rstoich = [
+    Pair{Int, Int}[],  # Reaction 1: ∅ → S (no reactants)
+    [1 =&gt; 1],          # Reaction 2: S → ∅ (1 molecule of species 1)
+    [1 =&gt; 1],          # Reaction 3: S → S+V (1 molecule of species 1)
+    [2 =&gt; 1],          # Reaction 4: V → ∅ (1 molecule of species 2)
+    [2 =&gt; 1],          # Reaction 5: V → V+X (1 molecule of species 2)
+    [3 =&gt; 1]           # Reaction 6: X → ∅ (1 molecule of species 3)
+]
+
+# Net stoichiometry changes for each reaction
+nstoich = [
+    [1 =&gt; 1],          # Reaction 1: +1 S
+    [1 =&gt; -1],         # Reaction 2: -1 S
+    [2 =&gt; 1],          # Reaction 3: +1 V (S unchanged)
+    [2 =&gt; -1],         # Reaction 4: -1 V
+    [3 =&gt; 1],          # Reaction 5: +1 X (V unchanged)
+    [3 =&gt; -1]          # Reaction 6: -1 X
+]
+
+species = [:S, :V, :X]</code></pre><h3 id="Defining-State-Dependent-Reaction-Rates"><a class="docs-heading-anchor" href="#Defining-State-Dependent-Reaction-Rates">Defining State-Dependent Reaction Rates</a><a id="Defining-State-Dependent-Reaction-Rates-1"></a><a class="docs-heading-anchor-permalink" href="#Defining-State-Dependent-Reaction-Rates" title="Permalink"></a></h3><p>Since our reaction rates depend on the state (e.g., λ·S for reaction 2), we need to define a callable object that computes rates:</p><pre><code class="language-julia hljs"># Define a struct to hold rate parameters
+struct CascadeRates
+    κ::Float64
+    λ::Float64
+    ρ::Float64
+    μ::Float64
+    ρ₂::Float64
+    μ₂::Float64
+end
+
+# Make it callable: given reaction index and state, return the rate
+function (rates::CascadeRates)(rxidx, u::AbstractVector)
+    if rxidx == 1
+        rates.κ              # Constant S production
+    elseif rxidx == 2
+        u[1] * rates.λ       # S degradation (proportional to S)
+    elseif rxidx == 3
+        u[1] * rates.ρ       # V production (proportional to S)
+    elseif rxidx == 4
+        u[2] * rates.μ       # V degradation (proportional to V)
+    elseif rxidx == 5
+        u[2] * rates.ρ₂      # X production (proportional to V)
+    elseif rxidx == 6
+        u[3] * rates.μ₂      # X degradation (proportional to X)
+    else
+        0.0
+    end
+end
+
+# Create the rate functor
+rate_functor = CascadeRates(κ, λ, ρ, μ, ρ₂, μ₂)</code></pre><h3 id="Creating-the-Markov-Jump-System"><a class="docs-heading-anchor" href="#Creating-the-Markov-Jump-System">Creating the Markov Jump System</a><a id="Creating-the-Markov-Jump-System-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-the-Markov-Jump-System" title="Permalink"></a></h3><p>Now we can assemble everything into a <code>MarkovJumpSystem</code>:</p><pre><code class="language-julia hljs"># Create the reaction set with state-dependent rates
+jumps = PWS.SSA.ConstantRateJumps(rate_functor, rstoich, nstoich, species)
+
+# Calculate equilibrium initial conditions
+# At equilibrium: production = degradation for each species
+u0 = SA{Int16}[
+    Int16(κ / λ),                      # E[S] = κ/λ
+    Int16(κ / λ * ρ / μ),              # E[V] = E[S]·ρ/μ
+    Int16(κ / λ * ρ / μ * ρ₂ / μ₂)     # E[X] = E[V]·ρ₂/μ₂
+]
+
+# Time span and observation times
+tspan = (0.0, 10.0)
+
+# Create the system
+# S is the input, X is the output
+system = PWS.MarkovJumpSystem(
+    PWS.GillespieDirect(),
+    jumps,
+    u0,
+    tspan,
+    :S,      # Input species
+    :X,      # Output species
+    0.1      # Time step for observations (dt)
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MarkovJumpSystem with 3 species and 6 reactions
+PathWeightSampling.SSA.ConstantRateJumps{Main.CascadeRates, Vector{Vector{Pair{Int64, Int64}}}, Vector{Vector{Pair{Int64, Int64}}}}(Main.CascadeRates(10.0, 1.0, 1.0, 1.0, 10.0, 10.0), [Pair{Int64, Int64}[], [1 =&gt; 1], [1 =&gt; 1], [2 =&gt; 1], [2 =&gt; 1], [3 =&gt; 1]], [[1 =&gt; 1], [1 =&gt; -1], [2 =&gt; 1], [2 =&gt; -1], [3 =&gt; 1], [3 =&gt; -1]], [:S, :V, :X])
+
+Initial condition:
+    S = 10
+    V = 10
+    X = 10</code></pre><h2 id="Generating-and-Visualizing-Trajectories"><a class="docs-heading-anchor" href="#Generating-and-Visualizing-Trajectories">Generating and Visualizing Trajectories</a><a id="Generating-and-Visualizing-Trajectories-1"></a><a class="docs-heading-anchor-permalink" href="#Generating-and-Visualizing-Trajectories" title="Permalink"></a></h2><p>Let&#39;s generate a sample trajectory to see how the cascade behaves:</p><pre><code class="language-julia hljs"># Generate a configuration (input and output trajectories)
+conf = PWS.generate_configuration(system)
+
+# Plot all three species
+times = conf.discrete_times
+p1 = plot(times, conf.traj[1, :], label=&quot;S (input)&quot;,
+         xlabel=&quot;time&quot;, ylabel=&quot;molecule count&quot;, title=&quot;Input Signal&quot;)
+p2 = plot(times, conf.traj[2, :], label=&quot;V (intermediate)&quot;,
+         xlabel=&quot;time&quot;, ylabel=&quot;molecule count&quot;, title=&quot;Intermediate&quot;)
+p3 = plot(times, conf.traj[3, :], label=&quot;X (output)&quot;,
+         xlabel=&quot;time&quot;, ylabel=&quot;molecule count&quot;, title=&quot;Output Signal&quot;)
+plot(p1, p2, p3, layout=(3, 1), size=(600, 600))</code></pre><p><img src="../cascade_trajectory.svg" alt/></p><p>Notice how:</p><ul><li>S (input) fluctuates around its equilibrium value κ/λ = 10</li><li>V (intermediate) responds to S with some delay</li><li>X (output) responds to V, showing the cascade effect</li></ul><h2 id="Computing-Mutual-Information"><a class="docs-heading-anchor" href="#Computing-Mutual-Information">Computing Mutual Information</a><a id="Computing-Mutual-Information-1"></a><a class="docs-heading-anchor-permalink" href="#Computing-Mutual-Information" title="Permalink"></a></h2><p>Now let&#39;s compute how much information flows from S to X through the cascade:</p><pre><code class="language-julia hljs"># Compute mutual information using SMC algorithm
+result = PWS.mutual_information(
+    system,
+    PWS.SMCEstimate(128),  # Use 128 particles
+    num_samples=500,       # Take 500 Monte Carlo samples
+    progress=false
+)
+
+# Aggregate results by time
+sem(x) = std(x) / sqrt(length(x))  # Standard error of mean
+df = combine(
+    groupby(result.result, :time),
+    :MutualInformation =&gt; mean =&gt; :MI,
+    :MutualInformation =&gt; sem =&gt; :SEM
+)
+
+# Plot mutual information vs trajectory duration
+plot(
+    df.time,
+    df.MI,
+    ribbon=df.SEM,
+    xlabel=&quot;Trajectory Duration (time units)&quot;,
+    ylabel=&quot;Mutual Information (nats)&quot;,
+    title=&quot;Information Flow: S → V → X Cascade&quot;,
+    legend=false,
+    linewidth=2
+)</code></pre><p><img src="../cascade_mi.svg" alt/></p><h3 id="Interpreting-the-Results"><a class="docs-heading-anchor" href="#Interpreting-the-Results">Interpreting the Results</a><a id="Interpreting-the-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Interpreting-the-Results" title="Permalink"></a></h3><p>The plot shows several important features:</p><ol><li><p><strong>Initial Growth</strong>: Mutual information increases as trajectory duration increases, indicating information accumulation over time</p></li><li><p><strong>Saturation</strong>: The MI approaches a limiting value, suggesting that longer trajectories don&#39;t provide proportionally more information (due to correlations)</p></li><li><p><strong>Information Transmission Rate</strong>: The slope of the MI curve gives the rate of information transmission through the cascade</p></li></ol><p>We can estimate the information transmission rate from the linear region:</p><pre><code class="language-julia hljs"># Estimate transmission rate from the slope between t=2 and t=8
+idx_start = findfirst(df.time .&gt;= 2.0)
+idx_end = findfirst(df.time .&gt;= 8.0)
+
+if !isnothing(idx_start) &amp;&amp; !isnothing(idx_end)
+    Δt = df.time[idx_end] - df.time[idx_start]
+    ΔMI = df.MI[idx_end] - df.MI[idx_start]
+    rate = ΔMI / Δt
+    println(&quot;Estimated information transmission rate: $(round(rate, digits=3)) nats/time&quot;)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Estimated information transmission rate: 0.164 nats/time</code></pre><h2 id="Comparing-Estimation-Algorithms"><a class="docs-heading-anchor" href="#Comparing-Estimation-Algorithms">Comparing Estimation Algorithms</a><a id="Comparing-Estimation-Algorithms-1"></a><a class="docs-heading-anchor-permalink" href="#Comparing-Estimation-Algorithms" title="Permalink"></a></h2><p>Different algorithms have different accuracy-speed tradeoffs. Let&#39;s compare:</p><pre><code class="language-julia hljs"># Define algorithms to test
+algorithms = [
+    PWS.DirectMCEstimate(128),
+    PWS.SMCEstimate(128),
+    PWS.PERM(16)
+]
+
+# Run each algorithm (using fewer samples for speed)
+results = Dict()
+for alg in algorithms
+    res = PWS.mutual_information(system, alg, num_samples=100, progress=false)
+    results[PWS.name(alg)] = res.result
+end
+
+# Plot comparison
+plot(legend=:bottomright)
+for (name, data) in results
+    df_alg = combine(groupby(data, :time), :MutualInformation =&gt; mean =&gt; :MI)
+    plot!(df_alg.time, df_alg.MI, label=name, linewidth=2)
+end
+xlabel!(&quot;Trajectory Duration (time units)&quot;)
+ylabel!(&quot;Mutual Information (nats)&quot;)
+title!(&quot;Algorithm Comparison&quot;)</code></pre><p><img src="../cascade_algorithms.svg" alt/></p><p>All algorithms should produce similar results if working correctly. Differences indicate:</p><ul><li>Statistical fluctuations (reduce with more samples)</li><li>Algorithm-specific biases (check parameters)</li></ul><h2 id="Analyzing-Information-Loss"><a class="docs-heading-anchor" href="#Analyzing-Information-Loss">Analyzing Information Loss</a><a id="Analyzing-Information-Loss-1"></a><a class="docs-heading-anchor-permalink" href="#Analyzing-Information-Loss" title="Permalink"></a></h2><p>A key question in cascade systems is: how much information is lost at each step?</p><p>We can compute the mutual information between different pairs:</p><pre><code class="language-julia hljs"># Create systems for each pair
+# S → V (intermediate step)
+system_SV = PWS.MarkovJumpSystem(
+    PWS.GillespieDirect(),
+    jumps,
+    u0,
+    tspan,
+    :S,  # Input
+    :V,  # Output (intermediate as output)
+    0.1
+)
+
+# V → X (final step)
+system_VX = PWS.MarkovJumpSystem(
+    PWS.GillespieDirect(),
+    jumps,
+    u0,
+    tspan,
+    :V,  # Input (intermediate as input)
+    :X,  # Output
+    0.1
+)
+
+# Compute MI for each pair
+result_SV = PWS.mutual_information(system_SV, PWS.SMCEstimate(128),
+                                   num_samples=200, progress=false)
+result_VX = PWS.mutual_information(system_VX, PWS.SMCEstimate(128),
+                                   num_samples=200, progress=false)
+result_SX = PWS.mutual_information(system, PWS.SMCEstimate(128),
+                                   num_samples=200, progress=false)
+
+# Aggregate and plot
+df_SV = combine(groupby(result_SV.result, :time), :MutualInformation =&gt; mean =&gt; :MI)
+df_VX = combine(groupby(result_VX.result, :time), :MutualInformation =&gt; mean =&gt; :MI)
+df_SX = combine(groupby(result_SX.result, :time), :MutualInformation =&gt; mean =&gt; :MI)
+
+plot(legend=:bottomright)
+plot!(df_SV.time, df_SV.MI, label=&quot;I(S;V)&quot;, linewidth=2)
+plot!(df_VX.time, df_VX.MI, label=&quot;I(V;X)&quot;, linewidth=2)
+plot!(df_SX.time, df_SX.MI, label=&quot;I(S;X)&quot;, linewidth=2, linestyle=:dash)
+xlabel!(&quot;Trajectory Duration (time units)&quot;)
+ylabel!(&quot;Mutual Information (nats)&quot;)
+title!(&quot;Information Flow Through Cascade&quot;)</code></pre><p><img src="../cascade_steps.svg" alt/></p><p>The data processing inequality states that I(S;X) ≤ min(I(S;V), I(V;X)), meaning information cannot increase through processing. The plot shows:</p><ul><li>Information from S to V (first step)</li><li>Information from V to X (second step)</li><li>Total information from S to X (cannot exceed either step)</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../guide/">« Getting Started</a><a class="docs-footer-nextpage" href="../hybrid_system_tutorial/">Hybrid Continuous-Discrete System »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Sunday 18 January 2026 17:39">Sunday 18 January 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
