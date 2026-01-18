@@ -1,6 +1,6 @@
 name = "PathWeightSampling"
 uuid = "e595aebf-dd45-48e4-a6c3-f40ecff26dc3"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Manuel Reinhardt <manuel.rhdt@gmail.com>"]
 
 [deps]
