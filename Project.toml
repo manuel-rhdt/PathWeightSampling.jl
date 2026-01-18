@@ -1,7 +1,7 @@
 name = "PathWeightSampling"
 uuid = "e595aebf-dd45-48e4-a6c3-f40ecff26dc3"
-authors = ["Manuel Reinhardt <manuel.rhdt@gmail.com>"]
 version = "0.2.0"
+authors = ["Manuel Reinhardt <manuel.rhdt@gmail.com>"]
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
@@ -37,7 +37,7 @@ Distributions = "0.24, 0.25"
 FastGaussQuadrature = "0.4.4, 1"
 GZip = "0.6"
 HDF5 = "0.15,0.16,0.17"
-JSON = "0.21"
+JSON = "0.21, 1"
 LogExpFunctions = "0.3"
 Parquet2 = "0.2"
 ProgressMeter = "1.7.1"
