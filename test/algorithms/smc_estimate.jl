@@ -47,6 +47,22 @@ for (name, mi) in result
     end
 end
 
+@testset "PERM branch completion" begin
+    genes = PWS.gene_expression_system(
+        mean_s=50,
+        corr_time_s=1.0,
+        corr_time_x=0.1,
+        u0=[50, 50],
+        dtimes=collect(0.0:0.1:10.0),
+    )
+    conf = PWS.generate_configuration(genes; rng=Xoshiro(2))
+    perm_marginal = PWS.marginal_density(genes, PWS.PERM(64), conf; rng=Xoshiro(3))
+    smc_marginal = PWS.marginal_density(genes, PWS.SMCEstimate(512), conf; rng=Xoshiro(4))
+
+    # Dropping enriched branches would make this fail by tens of nats.
+    @test maximum(abs.(perm_marginal .- smc_marginal)) < 2.0
+end
+
 
 # # Some plotting routines are commented out below to see what goes wrong.
 # # Use them to see what's wrong when the tests above fail.
