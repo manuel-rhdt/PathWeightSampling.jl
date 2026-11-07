@@ -1,20 +1,10 @@
 # Three-Species Cascade Tutorial
 
-This tutorial demonstrates how to analyze information flow through a cascade of three molecular species: S → V → X. This example illustrates several important concepts:
-
-- Working with multi-species reaction networks
-- Understanding cascade information transmission
-- Comparing different estimation algorithms
-- Interpreting mutual information results
+This tutorial analyzes information flow through a three-species cascade, S → V → X, and compares several estimators for the trajectory mutual information.
 
 ## The Cascade Model
 
-We consider a simple cascade where:
-- **S** is the input signal (first species)
-- **V** is an intermediate species
-- **X** is the output signal (final species)
-
-Information flows from S to V to X through the following reactions:
+In this cascade, **S** is the input, **V** is an intermediate species, and **X** is the output. The reactions are:
 
 ```
 Reaction 1:  ∅  → S    (rate κ)       # S production
@@ -25,14 +15,11 @@ Reaction 5:  V  → V+X  (rate ρ₂·V)    # X production (catalyzed by V)
 Reaction 6:  X  → ∅    (rate μ₂·X)    # X degradation
 ```
 
-This represents a signaling cascade where:
-- S molecules are produced at constant rate κ and degrade with rate proportional to their abundance
-- V production requires S (activation)
-- X production requires V (activation)
+S molecules are produced at a constant rate and degrade at a rate proportional to their abundance. Production of V depends on S, and production of X depends on V.
 
 ## Setting Up the System
 
-First, let's define the reaction network parameters:
+Define the reaction-rate parameters:
 
 ```@example 1
 import PathWeightSampling as PWS
@@ -76,7 +63,7 @@ nothing # hide
 
 ### Defining State-Dependent Reaction Rates
 
-Since our reaction rates depend on the state (e.g., λ·S for reaction 2), we need to define a callable object that computes rates:
+The reaction rates depend on the current state, so define a callable object that returns each rate:
 
 ```@example 1
 # Define a struct to hold rate parameters
@@ -115,7 +102,7 @@ nothing # hide
 
 ### Creating the Markov Jump System
 
-Now we can assemble everything into a `MarkovJumpSystem`:
+Combine the reactions, rates, and initial state in a `MarkovJumpSystem`:
 
 ```@example 1
 # Create the reaction set with state-dependent rates
@@ -147,7 +134,7 @@ system = PWS.MarkovJumpSystem(
 
 ## Generating and Visualizing Trajectories
 
-Let's generate a sample trajectory to see how the cascade behaves:
+Generate a configuration and plot all three species:
 
 ```@example 1
 # Generate a configuration (input and output trajectories)
@@ -168,14 +155,11 @@ savefig("cascade_trajectory.svg"); nothing # hide
 
 ![](cascade_trajectory.svg)
 
-Notice how:
-- S (input) fluctuates around its equilibrium value κ/λ = 10
-- V (intermediate) responds to S with some delay
-- X (output) responds to V, showing the cascade effect
+S fluctuates around its equilibrium value κ/λ = 10. V follows changes in S with some delay, and X in turn follows V.
 
 ## Computing Mutual Information
 
-Now let's compute how much information flows from S to X through the cascade:
+Estimate the mutual information between S and X:
 
 ```@example 1
 # Compute mutual information using SMC algorithm
@@ -212,15 +196,9 @@ savefig("cascade_mi.svg"); nothing # hide
 
 ### Interpreting the Results
 
-The plot shows several important features:
+After an initial transient, the curve should grow approximately linearly if the trajectory mutual information has a well-defined rate. The slope in that region estimates the information transmission rate. Correlations in the input and output affect the approach to this linear regime.
 
-1. **Initial Growth**: Mutual information increases as trajectory duration increases, indicating information accumulation over time
-
-2. **Saturation**: The MI approaches a limiting value, suggesting that longer trajectories don't provide proportionally more information (due to correlations)
-
-3. **Information Transmission Rate**: The slope of the MI curve gives the rate of information transmission through the cascade
-
-We can estimate the information transmission rate from the linear region:
+Estimate the slope between t = 2 and t = 8:
 
 ```@example 1
 # Estimate transmission rate from the slope between t=2 and t=8
@@ -238,7 +216,7 @@ nothing # hide
 
 ## Comparing Estimation Algorithms
 
-Different algorithms have different accuracy-speed tradeoffs. Let's compare:
+Compare three estimators:
 
 ```@example 1
 # Define algorithms to test
@@ -269,15 +247,11 @@ savefig("cascade_algorithms.svg"); nothing # hide
 
 ![](cascade_algorithms.svg)
 
-All algorithms should produce similar results if working correctly. Differences indicate:
-- Statistical fluctuations (reduce with more samples)
-- Algorithm-specific biases (check parameters)
+With consistent parameters, the estimators should agree within their statistical errors. Remaining discrepancies can come from Monte Carlo noise or algorithm-specific bias; increasing the sample size reduces the former.
 
 ## Analyzing Information Loss
 
-A key question in cascade systems is: how much information is lost at each step?
-
-We can compute the mutual information between different pairs:
+To see where information is lost, compute the mutual information for the two individual steps as well as the full cascade:
 
 ```@example 1
 # Create systems for each pair
@@ -328,7 +302,4 @@ savefig("cascade_steps.svg"); nothing # hide
 
 ![](cascade_steps.svg)
 
-The data processing inequality states that I(S;X) ≤ min(I(S;V), I(V;X)), meaning information cannot increase through processing. The plot shows:
-- Information from S to V (first step)
-- Information from V to X (second step)
-- Total information from S to X (cannot exceed either step)
+For the Markov cascade S → V → X, the data processing inequality gives I(S;X) ≤ min(I(S;V), I(V;X)). The plot compares the two individual steps with the end-to-end information.
