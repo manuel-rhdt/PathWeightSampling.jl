@@ -1,14 +1,10 @@
 # Hybrid Continuous-Discrete System Tutorial
 
-This tutorial demonstrates how to analyze information flow in a hybrid stochastic system that combines continuous dynamics (described by stochastic differential equations) with discrete jump events. This is particularly relevant for biological systems where some species evolve continuously while others change through discrete reactions.
+This tutorial analyzes a hybrid stochastic system in which some species change through discrete reactions while others follow stochastic differential equations (SDEs).
 
 ## The Hybrid Model
 
-We consider a two-species system where:
-- **S** (input signal) undergoes discrete birth-death reactions
-- **X** (output signal) evolves continuously via a stochastic differential equation (SDE)
-
-The system dynamics are:
+The input **S** undergoes discrete birth-death reactions, while the output **X** evolves continuously. The dynamics are:
 
 **Discrete reactions for S:**
 ```
@@ -21,16 +17,13 @@ Reaction 2:  S  → ∅    (rate λ·S)     # S degradation
 dX/dt = ρ·S - μ·X + noise
 ```
 
-where the noise term accounts for molecular fluctuations in X production.
+where the noise term represents molecular fluctuations in X.
 
-This represents a common motif in cellular signaling where:
-- S represents a discrete molecular species (e.g., transcription factors)
-- X represents a continuous observable (e.g., protein concentration)
-- Information flows from discrete S to continuous X
+This motif appears in cellular signaling: a discrete molecular species S, such as a transcription factor, drives a continuous observable X, such as a protein concentration.
 
 ## Setting Up the System
 
-First, let's define the continuous dynamics using SDE functions:
+Define the continuous dynamics with two SDE functions:
 
 ```@example hybrid
 import PathWeightSampling as PWS
@@ -80,7 +73,7 @@ nothing # hide
 
 ### Defining Discrete Reactions
 
-Now we specify the discrete jump reactions for S:
+Specify the discrete jump reactions for S:
 
 ```@example hybrid
 # Reaction rates
@@ -107,7 +100,7 @@ nothing # hide
 
 ### Creating the Hybrid System
 
-Now we combine the continuous and discrete dynamics:
+Combine the continuous and discrete dynamics:
 
 ```@example hybrid
 # Create hybrid continuous-discrete system
@@ -127,7 +120,7 @@ system = PWS.HybridContinuousSystem(
 
 ## Generating and Visualizing Trajectories
 
-Let's generate a sample trajectory:
+Generate and plot a sample configuration:
 
 ```@example hybrid
 # Generate a configuration
@@ -156,14 +149,11 @@ savefig("hybrid_trajectory.svg"); nothing # hide
 
 ![](hybrid_trajectory.svg)
 
-Notice how:
-- S (top) shows discrete jumps characteristic of birth-death processes
-- X (bottom) evolves continuously but responds to changes in S
-- The continuous noise in X creates smooth fluctuations
+S jumps between integer copy numbers, while X varies continuously and responds to changes in S. The SDE's diffusion term adds fluctuations to X.
 
 ## Equilibrium Statistics
 
-We can verify that the system reaches the expected equilibrium distribution:
+Compare statistics from a long trajectory with their equilibrium predictions:
 
 ```@example hybrid
 # Theoretical expectations at equilibrium
@@ -200,7 +190,7 @@ nothing # hide
 
 ## Computing Mutual Information
 
-Now let's compute how much information flows from the discrete S to continuous X:
+Estimate the mutual information from S to X using sequential Monte Carlo:
 
 ```@example hybrid
 # Compute mutual information using SMC algorithm
@@ -237,7 +227,7 @@ savefig("hybrid_mi.svg"); nothing # hide
 
 ### Information Transmission Rate
 
-For hybrid systems, we can estimate the information transmission rate and compare it to analytical predictions:
+Estimate the information transmission rate from the approximately linear region and compare it with the analytical prediction:
 
 ```@example hybrid
 # Estimate transmission rate from linear region
@@ -260,28 +250,26 @@ end
 nothing # hide
 ```
 
-The close agreement with analytical predictions validates the PWS method for hybrid systems.
+The comparison checks the numerical estimate against an independent analytical result.
 
-## Key Concepts for Hybrid Systems
+## Hybrid-System Parameters
 
-### 1. Coupling Between Discrete and Continuous
+### Coupling Between Discrete and Continuous Dynamics
 
-The `[1 => 1]` parameter in `HybridContinuousSystem` specifies that species 1 (S) couples to the continuous dynamics. This means:
-- Discrete jumps in S immediately affect the SDE drift term
-- The continuous state X depends on the current discrete state of S
+The `[1 => 1]` argument in `HybridContinuousSystem` couples species 1 (S) to the continuous dynamics. Discrete jumps in S therefore affect the SDE drift term, and X depends on the current discrete state of S.
 
-### 2. Time Step Selection
+### Time Step Selection
 
-Two time steps are specified:
-- **Observation dt (0.02)**: How often to record the system state
-- **SDE dt (0.01)**: Internal integration step for the SDE solver
+The constructor uses two time steps:
+- `0.02` is the observation interval: how often the system state is recorded.
+- `0.01` is the internal integration step for the SDE solver.
 
-The SDE dt should be smaller than observation dt for accuracy.
+The SDE step should be smaller than the observation interval to resolve the continuous dynamics between recorded states.
 
 
 ## Comparison with Pure Discrete Systems
 
-How does the hybrid system compare to a purely discrete version?
+For comparison, construct a purely discrete version of the same system:
 
 ```@example hybrid
 # Create pure discrete system for comparison
@@ -327,7 +315,7 @@ savefig("hybrid_vs_discrete.svg"); nothing # hide
 
 ### Analytical Predictions for Information Rates
 
-We can compare our computational results with analytical predictions from information theory. For linear gene expression systems, exact formulas exist for the steady-state information transmission rate (Tostevin & ten Wolde 2009; Reinhardt et al. 2025; Moor et al. 2025).
+For linear gene-expression systems, exact formulas exist for the steady-state information transmission rate (Tostevin & ten Wolde 2009; Reinhardt et al. 2025; Moor et al. 2025). The following code compares these predictions with the numerical results:
 
 ```@example hybrid
 # Compute information transmission rates from linear regions
@@ -388,55 +376,40 @@ end
 nothing # hide
 ```
 
-The excellent agreement between computed and analytical rates validates the PathWeightSampling method. Notice the key finding:
+The analytical rates are:
+- Gaussian (state-based): $R = \frac{\lambda}{2}\left(\sqrt{1 + \frac{\rho}{\lambda}} - 1\right)$
+- Discrete (reaction-based): $R = \frac{\lambda}{2}\left(\sqrt{1 + \frac{2\rho}{\lambda}} - 1\right)$
 
-**The discrete (reaction-based) system transmits significantly more information than the continuous (state-based) system**, even though both describe the same underlying chemical process. This is not a numerical artifact—it's a fundamental consequence of how information is encoded in trajectories.
+The reaction-based system has the higher rate. Its trajectories retain reaction-level detail that is lost when only the state is observed, which accounts for the factor of 2 inside the square root.
 
-The analytical formulas are:
-- **Gaussian (state-based)**: $R = \frac{\lambda}{2}\left(\sqrt{1 + \frac{\rho}{\lambda}} - 1\right)$
-- **Discrete (reaction-based)**: $R = \frac{\lambda}{2}\left(\sqrt{1 + \frac{2\rho}{\lambda}} - 1\right)$
+### Why Reaction-Based and State-Based Rates Differ
 
-The factor of 2 difference in the argument of the square root directly reflects the loss of reaction-level information in state-based observations.
+Both descriptions represent the same chemical process, but they do not retain the same information about it. Observing discrete reaction events is not equivalent to observing continuous concentration changes.
 
-### A Surprising and Subtle Result
+#### Reaction-Based and State-Based Trajectories
 
-At first glance, one might expect that the information transmission rate should be independent of whether we observe discrete reaction events or continuous concentration changes—after all, it's the same underlying physical process.
+The important distinction is which events the trajectory records, rather than whether its values are discrete or continuous:
 
-**However, this intuition is wrong.** The information rates differ fundamentally between these two observational paradigms, even when the microscopic dynamics are identical. This is a profound and non-trivial result in stochastic information theory.
+- A **reaction-based trajectory** records which reactions fire and when.
+- A **state-based trajectory** records only aggregate copy numbers or concentrations. Different reactions affecting the same species can produce indistinguishable changes.
 
-#### Reaction-Based vs. State-Based Trajectories
+Collapsing reaction events into species-level observations loses information. Moor et al. (2025) summarize this as "reaction-based information can never be smaller than the state-based one," consistent with the data processing inequality.
 
-The key distinction is not simply discrete vs. continuous observations, but rather:
+#### Information Lost in the Continuous Description
 
-- **Reaction-based trajectories** (discrete systems): Track *which specific reactions fire* and when. Each reaction event carries information about the process that generated it.
+In the purely discrete system, every S and X production and degradation event is recorded. In the hybrid system, S events remain discrete, but X is represented by a continuous concentration driven by diffusive noise. The continuous trajectory does not identify individual X production and degradation events, even if it reproduces the mean and variance of the copy number.
 
-- **State-based trajectories** (continuous systems): Observe only aggregate copy number or concentration changes. Multiple different reactions affecting the same species produce indistinguishable effects.
-
-When you collapse reaction-level information into species-level observations, information is necessarily lost. As shown by Moor et al. (2025), "reaction-based information can never be smaller than the state-based one"—this follows from the data processing inequality.
-
-#### Why This Matters
-
-Consider our hybrid system example:
-- In the **pure discrete system**, we observe each S production and degradation event individually, plus each X production and degradation event
-- In the **hybrid continuous system**, we observe discrete S events, but X appears as a continuous concentration with diffusive noise
-
-The continuous X dynamics aggregate multiple underlying stochastic processes (individual X production and degradation events) into a single diffusive trajectory. This aggregation **fundamentally discards information** about which reaction events occurred, even though the average copy number statistics remain accurate.
-
-Critically, this difference persists even for large systems where Gaussian approximations work well for predicting average behavior—the information content differs qualitatively, not just quantitatively.
+This loss remains when a Gaussian approximation describes the state fluctuations well. Matching the average behavior does not recover the missing reaction events.
 
 #### Connection to the Linear Noise Approximation
 
-The commonly used Linear Noise Approximation (LNA) with Gaussian channel theory can produce qualitatively different information capacity predictions compared to exact Markov jump process calculations. Moor et al. demonstrate that standard state-based LNA loses reaction-specific information because "the linear combination of two Gaussian processes is again a Gaussian process"—collapsing multiple reaction channels into aggregate noise erases information about which reactions fired.
+The standard state-based Linear Noise Approximation (LNA), combined with Gaussian channel theory, can therefore give different information-capacity predictions from exact Markov-jump calculations. Moor et al. attribute this difference to the loss of reaction identity: a linear combination of Gaussian processes is another Gaussian process, so combining reaction channels into aggregate noise removes information about which reactions fired.
 
-For a rigorous treatment of this phenomenon and its implications for biological information processing, see:
+For a derivation and discussion of the biological implications, see Moor, A.-L., Tjalma, A., Reinhardt, M., ten Wolde, P. R., & Zechner, C. (2025), [*State- versus Reaction-Based Information Processing in Biochemical Networks*](https://arxiv.org/abs/2505.13373).
 
-**Moor, A.-L., Tjalma, A., Reinhardt, M., ten Wolde, P. R., & Zechner, C. (2025).**
-*State- versus Reaction-Based Information Processing in Biochemical Networks*
-[arXiv:2505.13373](https://arxiv.org/abs/2505.13373)
+The paper also introduces a reaction-based LNA that retains channel identity. In this setting, the choice of trajectory description changes the computed information capacity; it is not just a matter of modeling convenience.
 
-This paper introduces a reaction-based LNA that preserves information about individual reaction channels, revealing that the choice between reaction-based and state-based descriptions is not merely a modeling convenience—it has real physical consequences for information transmission capacity.
-
-PathWeightSampling.jl's ability to handle both discrete (MarkovJumpSystem) and hybrid (HybridContinuousSystem) systems provides a computational tool to explore these subtle but fundamental distinctions in information processing.
+PathWeightSampling.jl supports both discrete (`MarkovJumpSystem`) and hybrid (`HybridContinuousSystem`) systems, so the two descriptions can be compared directly.
 
 
 ## References
