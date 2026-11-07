@@ -96,7 +96,7 @@ fontsize_theme = Theme(
 )
 
 fig = with_theme(fontsize_theme) do
-    f = Figure(resolution = (246, 1.4 * 146), figure_padding = 1.5)
+    f = Figure(size = (246, 1.4 * 146), figure_padding = 1.5)
 
     axs = (Axis(f[1,1], title="input S", ylabel="copy number"), Axis(f[1, 2], title="output X", yticklabelsvisible=false, yticksvisible=false))
     tightlimits!.(axs)
@@ -202,5 +202,6 @@ end
 
 save(projectdir("figure_gene_expr", "gene-expr-figure.svg"), fig, pt_per_unit = 1)
 save(projectdir("figure_gene_expr", "gene-expr-figure.pdf"), fig, pt_per_unit = 1)
+save(projectdir("figure_gene_expr", "gene-expr-figure.png"), fig, pt_per_unit = 1, px_per_unit = 2)
 
 fig

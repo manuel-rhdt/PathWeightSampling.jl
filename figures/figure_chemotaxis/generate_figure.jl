@@ -7,16 +7,16 @@ using CSVFiles
 using Dates
 using Interpolations
 
-sims = DataFrame(load(projectdir("figures", "figure_chemotaxis", "data", "simulation_2021-10-12.csv")))
-sims_wo_methylation = DataFrame(load(projectdir("figures", "figure_chemotaxis", "data", "simulation_2022-01-27.csv")))
-imi_data = DataFrame(load(projectdir("figures", "figure_chemotaxis", "data", "imi.csv")))
-imi_data_no_methylation = DataFrame(load(projectdir("figures", "figure_chemotaxis", "data", "imi_no_methylation.csv")))
-gaus_data = DataFrame(load(projectdir("figures", "figure_chemotaxis", "data", "gaussian_rate.csv")))
+sims = DataFrame(load(projectdir("figure_chemotaxis", "data", "simulation_2021-10-12.csv")))
+sims_wo_methylation = DataFrame(load(projectdir("figure_chemotaxis", "data", "simulation_2022-01-27.csv")))
+imi_data = DataFrame(load(projectdir("figure_chemotaxis", "data", "imi.csv")))
+imi_data_no_methylation = DataFrame(load(projectdir("figure_chemotaxis", "data", "imi_no_methylation.csv")))
+gaus_data = DataFrame(load(projectdir("figure_chemotaxis", "data", "gaussian_rate.csv")))
 
-normalfont = projectdir("figures", "fonts", "NotoSans-Condensed.ttf")
-italicfont = projectdir("figures", "fonts", "NotoSans-Italic.ttf")
-boldfont = projectdir("figures", "fonts", "NotoSans-CondensedSemiBold.ttf")
-subfigurelabelfont = projectdir("figures", "fonts", "NotoSans-Bold.ttf")
+normalfont = projectdir("fonts", "NotoSans-Condensed.ttf")
+italicfont = projectdir("fonts", "NotoSans-Italic.ttf")
+boldfont = projectdir("fonts", "NotoSans-CondensedSemiBold.ttf")
+subfigurelabelfont = projectdir("fonts", "NotoSans-Bold.ttf")
 
 plot_theme = Theme(
     font = normalfont,
@@ -60,7 +60,7 @@ plot_theme = Theme(
 )
 set_theme!(plot_theme)
 
-fig = Figure(resolution = (246, 240))
+fig = Figure(size = (246, 240))
 ax1 = Axis(fig[1, 1], xlabel = "traj. duration (s)", title = "mutual\ninformation (bits)")
 
 groups = filter(g -> g.TauL[1] ∈ [0.01, 0.1, 1.0, 10.0], groupby(sims, [:M, :TauL], sort = true))
@@ -119,7 +119,7 @@ xvals, yvals = get_info_rates(sims_wo_methylation)
 lines!(ax3, xvals, yvals, color = :black, linestyle = :dot, label = "push-pull")
 xlims!(ax3, 1e-2, 10)
 ylims!(ax3, 0, 25)
-text!(ax3, "information transmission rate R", position = Point(1.1e-2, 20), textsize = 8, align = (:left, :baseline), font = boldfont)
+text!(ax3, "information transmission rate R", position = Point(1.1e-2, 20), fontsize = 8, align = (:left, :baseline), font = boldfont)
 
 c4 = :black
 ax4 = Axis(
@@ -133,7 +133,7 @@ ax4 = Axis(
     ylabel = "bits",
     xlabel = L"input correlation time $\tau_L$ (s)",
     ylabelcolor = c4)
-text!(ax4, "instantaneous mutual information", position = Point(1.1e-2, 1.15), textsize = 8, align = (:left, :baseline), font = boldfont)
+text!(ax4, "instantaneous mutual information", position = Point(1.1e-2, 1.15), fontsize = 8, align = (:left, :baseline), font = boldfont)
 
 # ax4.xticks = [0.01, 0.1, 1.0, 10.0]
 # ax4.xtickformat = "{:.2f}"
@@ -152,7 +152,7 @@ Legend(fig[2, 3], ax4, "systems", valign=0.2, orientation = :vertical, tellwidth
 
 for (label, layout) in zip(["b", "c", "d"], [fig[1, 1], fig[1, 2], fig[2, 1:3]])
     Label(layout[1, 1, TopLeft()], label,
-        textsize = 14,
+        fontsize = 14,
         font = subfigurelabelfont,
         padding = (3, 5, 4, -10),
         halign = :left)
@@ -187,9 +187,9 @@ inset_ax = Axis(fig[2, 1:2],
     yminorticks = IntervalsBetween(4),
     topspinevisible = false,
     rightspinevisible = false,
-    yticks = [0, 20],
-    xticklabelspace = 0,
-    yticklabelspace = 0,
+    yticks = [0.0, 20.0],
+    xticklabelspace = 0.0,
+    yticklabelspace = 0.0,
     xlabelfont = italicfont,
     ylabelfont = italicfont
 )
@@ -206,8 +206,9 @@ translate!(inset_ax.elements[:ygridlines], 0, 0, 9)
 translate!(inset_ax.elements[:xminorgridlines], 0, 0, 9)
 translate!(inset_ax.elements[:yminorgridlines], 0, 0, 9)
 
-save(projectdir("figures", "figure_chemotaxis", "chemotaxis_mi.svg"), fig, pt_per_unit = 1)
-save(projectdir("figures", "figure_chemotaxis", "chemotaxis_mi.pdf"), fig, pt_per_unit = 1)
+save(projectdir("figure_chemotaxis", "chemotaxis_mi.svg"), fig, pt_per_unit = 1)
+save(projectdir("figure_chemotaxis", "chemotaxis_mi.pdf"), fig, pt_per_unit = 1)
+save(projectdir("figure_chemotaxis", "chemotaxis_mi.png"), fig, pt_per_unit = 1, px_per_unit = 2)
 
 fig
 
@@ -217,7 +218,7 @@ fig
 # lines!(ax1, 1 ./ imi_data_no_methylation.TauL, imi_data_no_methylation.IMI * 10, color = c4, linestyle = :dot)
 # xvals, yvals = get_info_rates(sims_wo_methylation)
 # lines!(ax1, 1 ./ xvals, yvals, color = :black)
-# save(projectdir("figures", "figure_chemotaxis", "chemotaxis_pres.pdf"), f, pt_per_unit = 1)
+# save(projectdir("figure_chemotaxis", "chemotaxis_pres.pdf"), f, pt_per_unit = 1)
 
 # f
 
@@ -238,5 +239,5 @@ fig
 # lines!(ax, xvals, yvals .* xvals, color = :black, linestyle = :dot, label = "push-pull")
 # lines!(ax, gaus_data.TauL, gaus_data.InfoRate .* gaus_data.TauL, color = "#2b8cbe", label = "Gaussian")
 
-# save(projectdir("figures", "figure_chemotaxis", "info_per_run.pdf"), fnew, pt_per_unit = 1)
+# save(projectdir("figure_chemotaxis", "info_per_run.pdf"), fnew, pt_per_unit = 1)
 # fnew

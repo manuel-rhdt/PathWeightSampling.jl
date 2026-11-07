@@ -102,7 +102,7 @@ colors = Dict(
     "Fit" => :blue
 )
 
-fig = Figure(resolution = (246, 320))
+fig = Figure(size = (246, 320))
 # fig = Figure(resolution = (1280, 800))
 
 
@@ -128,8 +128,8 @@ import CairoMakie: Gray, GrayA
 gauss(x, σ) = 0.06/(sqrt(2π)*σ) * exp(-(x-0.5)^2/σ^2)
 x = 0:1e-2:1
 b1 = band!(axb, x, 0, gauss.(x, Ref(0.06)), color = (:gray20, 0.7), label=L"\mathrm{P}(x; t=1)")
-b2 = band!(axb, x, 0, gauss.(x, Ref(0.15)), linestyle=:dot, color = (:gray40, 0.7), linewidth=1.5, label=L"\mathrm{P}(x; t=2)")
-b3 = band!(axb, x, 0, gauss.(x, Ref(0.3)), linestyle=:dot, color = (:gray70, 0.7), linewidth=1.5, label=L"\mathrm{P}(x; t=3)")
+b2 = band!(axb, x, 0, gauss.(x, Ref(0.15)), color = (:gray40, 0.7), label=L"\mathrm{P}(x; t=2)")
+b3 = band!(axb, x, 0, gauss.(x, Ref(0.3)), color = (:gray70, 0.7), label=L"\mathrm{P}(x; t=3)")
 translate!(b1, (0, 0, 2)) # move to the foreground
 translate!(b2, (0, 0, 1)) # move to the foreground
 
@@ -206,7 +206,7 @@ end
 ylims!(axe, nothing, 0.16)
 
 save(projectdir("figure_rates", "chemotaxis.pdf"), fig, pt_per_unit = 1)
-save(projectdir("figure_rates", "chemotaxis.png"), fig, pt_per_unit = 1)
+save(projectdir("figure_rates", "chemotaxis.png"), fig, pt_per_unit = 1, px_per_unit = 2)
 
 
 fig

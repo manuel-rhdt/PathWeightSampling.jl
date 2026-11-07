@@ -106,7 +106,7 @@ set_theme!(plot_theme)
 colors = [color_lit, color_fit, color_mattingly]
 labels = ["literature model", "fitted model", "experiments"]
 
-fig = Figure(resolution = (246, 220))
+fig = Figure(size = (246, 220))
 # fig = Figure(resolution = (1280, 800))
 
 axa = Axis(fig[1,1], title="response kernel", xlabel=L"$t$ (s)", ylabel=L"K(t)")
@@ -218,7 +218,7 @@ axislegend(
 rowsize!(fig.layout, 1, Auto(0.66))
 
 save(projectdir("figure_rates", "chemotaxis_comparison.pdf"), fig, pt_per_unit = 1)
-save(projectdir("figure_rates", "chemotaxis_comparison.png"), fig, pt_per_unit = 1)
+save(projectdir("figure_rates", "chemotaxis_comparison.png"), fig, pt_per_unit = 1, px_per_unit = 2)
 
 
 fig

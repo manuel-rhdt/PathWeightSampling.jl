@@ -86,7 +86,7 @@ set_theme!(plot_theme)
 
 begin
 
-fig = Figure(resolution = (510, 250))
+fig = Figure(size = (510, 250))
 
 function get_kernels(kern_data, cov_data)
     t = kern_data.t
@@ -176,7 +176,7 @@ axislegend(ax2, [kernel_group], [kernel_label], ["Kernel"])
 Legend(fig[1:2,3], [model_group], [model_label], [""])
 
 save(projectdir("figure_kernels", "fourier_comparison.pdf"), fig, pt_per_unit = 1)
-save(projectdir("figure_kernels", "fourier_comparison.png"), fig, pt_per_unit = 1)
+save(projectdir("figure_kernels", "fourier_comparison.png"), fig, pt_per_unit = 1, px_per_unit = 2)
 
 fig
 
