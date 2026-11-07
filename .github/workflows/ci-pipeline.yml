@@ -18,6 +18,7 @@ jobs:
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1.12'
+      - uses: julia-actions/cache@v2
       - name: Run tests
         uses: julia-actions/julia-runtest@v1
       - name: Install dependencies
