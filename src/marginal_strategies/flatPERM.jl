@@ -91,12 +91,6 @@ function perm(alg::PERM, setup; Particle, inspect=identity)
                     end
                 end
             end
-
-            # Finish tour if chain reached full length
-            if n > length(dtimes)
-                empty!(stack)
-                break
-            end
         end
     end
 
