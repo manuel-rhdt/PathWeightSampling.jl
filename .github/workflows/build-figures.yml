@@ -1,0 +1,62 @@
+name: Build figures
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "figures/**"
+      - ".github/workflows/build-figures.yml"
+  pull_request:
+    paths:
+      - "figures/**"
+      - ".github/workflows/build-figures.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-figures-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.13.3"
+
+      - uses: julia-actions/cache@v2
+
+      - name: Instantiate figures environment
+        working-directory: figures
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+
+      - name: Build figures
+        working-directory: figures
+        env:
+          GKSwstype: "100"
+          JULIA_NUM_THREADS: "2"
+        run: |
+          set -euo pipefail
+          julia --project=. figure_gene_expr/figure_gene_expr.jl
+          julia --project=. figure_kernels/figure_kernels.jl
+          julia --project=. figure_rates/figure_chemotaxis.jl
+          julia --project=. figure_rates/figure_comparison.jl
+          julia --project=. figure_chemotaxis/generate_figure.jl
+
+      - name: Create archive
+        working-directory: figures
+        run: python3 package_figures.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pathweightsampling-figures
+          path: artifacts/pathweightsampling-figures.zip
+          if-no-files-found: error
+          retention-days: 30
