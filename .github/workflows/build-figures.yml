@@ -48,7 +48,6 @@ jobs:
           julia --project=. figure_kernels/figure_kernels.jl
           julia --project=. figure_rates/figure_chemotaxis.jl
           julia --project=. figure_rates/figure_comparison.jl
-          julia --project=. figure_chemotaxis/generate_figure.jl
 
       - name: Create archive
         working-directory: figures
