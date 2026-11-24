@@ -26,6 +26,7 @@ ntimes = length(PWS.discrete_times(system))
     full = PWS.conditional_density(system, alg, conf; rng=Xoshiro(2), full_result=true)
     @test PWS.log_marginal(full) == cond
     @test size(PWS.to_dataframe(full), 1) == ntimes
+    @test "ESS" in names(PWS.to_dataframe(full))
     # mutual_information end to end
     mi = PWS.mutual_information(system, alg; num_samples=2, progress=false)
     @test size(mi.result, 1) == 2 * ntimes
@@ -73,6 +74,7 @@ end
 
 @testset "conditional SMC" begin
     C = PWS.ChemotaxisSMC
+    final(result) = last(PWS.log_marginal(result))
     short = PWS.chemotaxis_system(n=3, n_clusters=10, duration=1.0, dt=0.1)
     sconf = PWS.generate_configuration(short, rng=Xoshiro(1))
     M = C.build_model(short, sconf, 1.0)
@@ -80,18 +82,24 @@ end
     sig = C.signal_logL(M, sconf)
     @test R.logL == sig && length(R.v) == M.K
 
+    # the filters return the standard SMCResult, including the effective sample size
+    result = C.run_smc(M, 64, Xoshiro(1))
+    @test result isa PWS.SMC.SMCResult
+    @test length(result.effective_sample_sizes) == length(PWS.discrete_times(short))
+    @test all(1 .<= result.effective_sample_sizes .<= 64)
+
     # with a single particle the estimate is the reference's own likelihood
     for conditional in (true, false)
-        lnZ, refll = C.csmc_run(M, 1, Xoshiro(1), R; conditional)
-        @test lnZ ≈ refll rtol = 1e-12
+        res, refll = C.run_csmc(M, 1, Xoshiro(1), R; conditional)
+        @test final(res) ≈ refll rtol = 1e-12
     end
 
     # E[ln Ẑ_csmc] ≥ ln Z ≥ E[ln Ẑ_smc]; for few particles the difference is large
     nrep = 64
     se(x) = std(x) / sqrt(length(x))
     for conditional in (true, false)
-        smc = [C.smc_run(M, 32, Xoshiro(i); signal=conditional ? sig : nothing) for i in 1:nrep]
-        csmc = [C.csmc_run(M, 32, Xoshiro(1000 + i), R; conditional)[1] for i in 1:nrep]
+        smc = [final(C.run_smc(M, 32, Xoshiro(i); signal=conditional ? sig : nothing)) for i in 1:nrep]
+        csmc = [final(C.run_csmc(M, 32, Xoshiro(1000 + i), R; conditional)[1]) for i in 1:nrep]
         @test mean(csmc) > mean(smc) - 2 * hypot(se(smc), se(csmc))
     end
 end
