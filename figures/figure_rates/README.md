@@ -59,9 +59,10 @@ analytically; see `src/ChemotaxisSMC.jl`. It estimates the same quantity as the 
 `PWS.SMCEstimate` used for the manuscript but is much faster. To use the original algorithm, pass
 `--algorithm generic`. To see how much the manuscript's M = 256 matters, increase `--particles`.
 
-**Cost.** Measured on 36 cores: 360 trajectories at one gradient take 1.9 minutes with the aggregated
-filter, about 11 CPU seconds per trajectory and gradient (including the simulation of the trajectory itself).
-The full figure, 4 × 14400 trajectories, is therefore about 180 CPU hours, or 5 hours on 36 cores. The generic filter (`--algorithm generic`) is at least 8 times slower.
+**Cost.** Measured on 36 cores, 360 trajectories at one gradient take 131 s with the aggregated filter
+(including start-up) and 1372 s with the generic one (`--algorithm generic`), which is about 11 times slower. The
+aggregated filter needs about 12 CPU seconds per trajectory and gradient, including the simulation of the trajectory
+itself. The full figure, 4 × 14400 trajectories, is therefore about 190 CPU hours, or 5 hours on 36 cores.
 
 **Several jobs.** The trajectories can be split into slices that are computed independently,
 for example as the tasks of a job array. Every slice writes its own file to `data/reproduced/partial/`,
