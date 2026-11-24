@@ -24,15 +24,24 @@ struct Setup{Configuration,Ensemble,RNG}
 end
 
 # This is the main routine to compute the marginal probability in RR-PWS.
+#
+# Keyword arguments:
+#   inspect:             called with the particle vector after every propagation step
+#   resample_threshold:  resample when the effective sample size drops below this value
+#                        (`Inf` resamples at every step)
+#   resampler:           `resampler(rng, probabilities)` returns the parent index of each
+#                        particle, sorted ascending (default: `systematic_sample`)
 function sample(
     setup::Any,
     particles::Vector{<:AbstractParticle};
     inspect=Base.identity,
     resample_threshold=length(particles) / 2,
-    rng=Random.default_rng()
+    rng=Random.default_rng(),
+    resampler=systematic_sample
 )
     nparticles = length(particles)
     weights = zeros(nparticles)
+    probabilities = zeros(nparticles)  # reused at every step to avoid allocations
     dtimes = discrete_times(setup.ensemble)
 
     log_marginal_estimate = zeros(length(dtimes))
@@ -62,9 +71,10 @@ function sample(
         # UPDATE ESTIMATE
         log_marginal_estimate[i+1] += logmeanexp(weights)
 
-        prob_weights = StatsBase.weights(exp.(weights .- maximum(weights)))
+        probabilities .= exp.(weights .- maximum(weights))
+        prob_weights = StatsBase.weights(probabilities)
         # We only resample if the effective sample size becomes smaller than the threshold
-        effective_sample_size = 1 / sum(p -> (p / sum(prob_weights))^2, prob_weights)
+        effective_sample_size = sum(prob_weights)^2 / sum(abs2, probabilities)
         effective_sample_sizes[i+1] = effective_sample_size
 
         if (i + 1) >= lastindex(dtimes)
@@ -78,7 +88,7 @@ function sample(
                 @debug "Small effective sample size" i tspan effective_sample_size
             end
             # sample parent indices
-            parent_indices = sort!(systematic_sample(rng, prob_weights))
+            parent_indices = sort!(resampler(rng, prob_weights))
 
             overwritten = BitSet()
             for (child_index, parent_index) in zip(eachindex(particles), parent_indices)
@@ -121,12 +131,40 @@ function systematic_sample(rng, weights; N=length(weights))
     y = weights[j] / sum(weights)
     result = zeros(Int, N)
     for i = 1:N
-        while y < x
+        while y < x && j < length(weights)  # the bound guards against floating-point round-off
             j += 1
             y += weights[j] / sum(weights)
         end
         result[i] = j
         x += inc
+    end
+    result
+end
+
+"""
+    multinomial_sample_keep_first(rng, weights)::Vector{Int}
+
+Multinomial resampling that keeps particle 1 in place: `result[1] == 1`, and the other
+`N-1` parents are drawn i.i.d. from all `N` particles according to `weights`. The result is
+sorted. Used for conditional SMC, where particle 1 follows a fixed reference path.
+"""
+function multinomial_sample_keep_first(rng, weights)
+    N = length(weights)
+    W = sum(weights)
+    result = ones(Int, N)
+    spacings = Random.randexp(rng, N)
+    total = sum(spacings)  # sorted uniforms from exponential spacings
+    u = 0.0
+    j = 1
+    cum = weights[1]
+    for i in 2:N
+        u += spacings[i-1]
+        target = u / total * W
+        while cum < target && j < N
+            j += 1
+            cum += weights[j]
+        end
+        result[i] = j
     end
     result
 end

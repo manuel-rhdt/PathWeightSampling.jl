@@ -58,3 +58,40 @@ end
         @test b.lower - 1.0 < b.smc < b.upper + 1.0
     end
 end
+
+@testset "multinomial resampler keeps the reference" begin
+    rng = Xoshiro(5)
+    w = [1.0; fill(1e-6, 8); 5.0]
+    for _ in 1:20
+        idx = PWS.SMC.multinomial_sample_keep_first(rng, w)
+        @test length(idx) == 10 && idx[1] == 1 && issorted(idx) && all(1 .<= idx .<= 10)
+    end
+    # the heavy particle 10 receives about 5/6 of the draws
+    draws = reduce(vcat, [PWS.SMC.multinomial_sample_keep_first(rng, w)[2:end] for _ in 1:2000])
+    @test isapprox(count(==(10), draws) / length(draws), 5 / 6, atol=0.02)
+end
+
+@testset "conditional SMC" begin
+    C = PWS.ChemotaxisSMC
+    short = PWS.chemotaxis_system(n=3, n_clusters=10, duration=1.0, dt=0.1)
+    sconf = PWS.generate_configuration(short, rng=Xoshiro(1))
+    M = C.build_model(short, sconf, 1.0)
+    R = C.true_path(M, short, sconf, Xoshiro(7))
+    sig = C.signal_logL(M, sconf)
+    @test R.logL == sig && length(R.v) == M.K
+
+    # with a single particle the estimate is the reference's own likelihood
+    for conditional in (true, false)
+        lnZ, refll = C.csmc_run(M, 1, Xoshiro(1), R; conditional)
+        @test lnZ ≈ refll rtol = 1e-12
+    end
+
+    # E[ln Ẑ_csmc] ≥ ln Z ≥ E[ln Ẑ_smc]; for few particles the difference is large
+    nrep = 64
+    se(x) = std(x) / sqrt(length(x))
+    for conditional in (true, false)
+        smc = [C.smc_run(M, 32, Xoshiro(i); signal=conditional ? sig : nothing) for i in 1:nrep]
+        csmc = [C.csmc_run(M, 32, Xoshiro(1000 + i), R; conditional)[1] for i in 1:nrep]
+        @test mean(csmc) > mean(smc) - 2 * hypot(se(smc), se(csmc))
+    end
+end

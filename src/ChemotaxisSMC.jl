@@ -32,12 +32,12 @@ module ChemotaxisSMC
 export AggregatedSMCEstimate, information_bounds
 
 import ..PathWeightSampling as PWS
+import ..SMC
 import ..PathWeightSampling: AbstractSimulationAlgorithm, SimulationResult, discrete_times,
     log_marginal, to_dataframe, name
 using ..JumpSystem: HybridJumpSystem, TraceAndTrajectory
 using Random
 using DataFrames
-import LogExpFunctions: logsumexp
 
 # ----------------------------------------------------------------------------------------
 # Model and data
@@ -238,13 +238,101 @@ function step_interval!(m::AbstractVector{Int}, a::Vector{Float64}, logL, k, M::
     end
 end
 
+
+# The filter itself is the generic `SMC.sample`; only the particle needs to be defined here.
+
+"""
+Setup data for the filters: the model, the fixed input signal (conditional case) or
+`nothing` (marginal case: every particle carries its own signal), an optional reference
+path (conditional SMC) and a scratch vector for the cluster activities. `scratch` is shared
+by all particles, so one configuration must not be used from several threads at once.
+"""
+struct FilterConfig{S,R}
+    M::Model
+    signal::S
+    ref::R
+    scratch::Vector{Float64}
+    steps_per_level::Int
+end
+
+function FilterConfig(M::Model, signal, ref)
+    spl = round(Int, M.dt / M.Δ)
+    @assert spl * M.Δ ≈ M.dt
+    FilterConfig(M, signal, ref, zeros(length(M.init)), spl)
+end
+
+PWS.discrete_times(M::Model) = range(0.0, M.T, step=M.dt)
+
+"""
+    Particle
+
+A particle of the aggregated filter: the methylation state `m` of every cluster and, for
+the marginal filter, the input signal state `(v, ll)` (velocity and log ligand). `lw` is the
+log-weight increment of the last propagation. A particle with `follow == true` does not
+sample but follows the reference path of a conditional SMC.
+"""
+mutable struct Particle <: SMC.AbstractParticle
+    m::Vector{Int}
+    v::Float64
+    ll::Float64
+    lw::Float64
+    follow::Bool
+    ptr::Int  # next reference jump (only used if `follow`)
+end
+
+SMC.weight(p::Particle) = p.lw
+
+function SMC.spawn(::Type{Particle}, setup::SMC.Setup{<:FilterConfig})
+    M = setup.configuration.M
+    Particle(copy(M.init), 0.0, M.logc0, 0.0, false, 1)
+end
+
+# `follow` and `ptr` belong to the slot, not to the lineage, and are deliberately not copied.
+function SMC.clone_from!(child::Particle, parent::Particle, ::SMC.Setup{<:FilterConfig})
+    child.m .= parent.m
+    child.v = parent.v
+    child.ll = parent.ll
+    child
+end
+
+function SMC.propagate!(p::Particle, tspan::Tuple{T,T}, setup::SMC.Setup{<:FilterConfig}) where {T<:Real}
+    c = setup.configuration
+    M, a, rng = c.M, c.scratch, setup.rng
+    level = round(Int, tspan[1] / M.dt)
+    ks = level*c.steps_per_level+1:(level+1)*c.steps_per_level
+    lw = 0.0
+    if p.follow
+        R = c.ref
+        for k in ks
+            l, p.ptr = ref_interval!(p.m, a, R.logL[k], k, M, R, p.ptr)
+            lw += l
+        end
+        # the signal state must be the reference's, as other particles may be cloned from here
+        if last(ks) < M.K
+            p.v, p.ll = R.v[last(ks)+1], R.logL[last(ks)+1]
+        end
+    else
+        for k in ks
+            if c.signal === nothing
+                lw += step_interval!(p.m, a, p.ll, k, M, rng)
+                p.ll += log1p(M.gΔ * p.v)
+                p.v = M.ρ * p.v + M.c * randn(rng)
+            else
+                lw += step_interval!(p.m, a, c.signal[k], k, M, rng)
+            end
+        end
+    end
+    p.lw = lw
+    p
+end
+
 """
     smc_run(M, N, rng; signal=nothing, out=nothing) -> ln P̂(x_{0:T})
 
-Bootstrap particle filter with N particles; weights are accumulated per output level
-(one level = `M.dt`, i.e. dt/Δ SDE steps) and the population is resampled (systematic) when
-the ESS falls below N/2, exactly as in PWS' `SMC.sample`. Returns the full ln P̂ incl.
-`M.Econst`.
+Particle filter with `N` particles on the aggregated likelihood; this is `SMC.sample` with
+[`Particle`](@ref), i.e. weights are accumulated per output level (`M.dt`) and the
+population is resampled (systematic) when the ESS falls below N/2. Returns the full ln P̂
+incl. `M.Econst`.
 
   * `signal === nothing`: marginal ln P(x); the particles carry (v, L, methylation).
   * `signal::Vector{Float64}` (from `signal_logL`): conditional ln P(x | s); the input is
@@ -253,83 +341,27 @@ the ESS falls below N/2, exactly as in PWS' `SMC.sample`. Returns the full ln P�
     ln P̂(x_{0:t}) at t = 0, dt, …, T (out[1] = 0).
 """
 function smc_run(M::Model, N::Int, rng; signal=nothing, out=nothing)
-    spl = round(Int, M.dt / M.Δ)
-    @assert spl * M.Δ ≈ M.dt
-    out === nothing || @assert length(out) == length(M.Egrid)
-    _smc_run(M, N, rng, spl, signal, out)
+    setup = SMC.Setup(FilterConfig(M, signal, nothing), M, rng)
+    particles = [SMC.spawn(Particle, setup) for _ in 1:N]
+    log_marginal, _ = SMC.sample(setup, particles; rng=rng)
+    log_marginal .+= M.Egrid
+    out === nothing || (out .= log_marginal)
+    log_marginal[end]
 end
 
-function _smc_run(M::Model, N::Int, rng, steps_per_level::Int,
-        signal::Union{Nothing,Vector{Float64}}, out::Union{Nothing,Vector{Float64}})
-    nc = length(M.init)
-    V = zeros(N)
-    LL = fill(M.logc0, N)
-    Ms = repeat(M.init, 1, N)
-    V2, LL2, Ms2 = similar(V), similar(LL), similar(Ms)
-    logw = zeros(N)
-    w = zeros(N)  # preallocated: the level loop must not allocate (GC pauses stall all threads)
-    a = zeros(nc)
-    nlev = M.K ÷ steps_per_level
-    @assert nlev * steps_per_level == M.K
-    out === nothing || (out[1] = 0.0)
-    acc = 0.0
-    for lev in 1:nlev
-        for p in 1:N
-            v, ll = V[p], LL[p]
-            m = @view Ms[:, p]
-            lw = 0.0
-            for k in (lev-1)*steps_per_level+1:lev*steps_per_level
-                if signal === nothing
-                    lw += step_interval!(m, a, ll, k, M, rng)
-                    ll += log1p(M.gΔ * v)
-                    v = M.ρ * v + M.c * randn(rng)
-                else
-                    lw += step_interval!(m, a, signal[k], k, M, rng)
-                end
-            end
-            V[p], LL[p] = v, ll
-            logw[p] += lw
-        end
-        mx = maximum(logw)
-        @. w = exp(logw - mx)
-        out === nothing || (out[lev+1] = acc + mx + log(sum(w) / N) + M.Egrid[lev+1])
-        lev == nlev && break
-        ess = sum(w)^2 / sum(abs2, w)
-        if ess < N / 2
-            acc += mx + log(sum(w) / N)
-            # systematic resampling
-            W = sum(w)
-            u = rand(rng) * W / N
-            j = 1
-            cum = w[1]
-            for i in 1:N
-                while cum < u && j < N  # guard: float roundoff in u
-                    j += 1
-                    cum += w[j]
-                end
-                V2[i], LL2[i] = V[j], LL[j]
-                @views Ms2[:, i] .= Ms[:, j]
-                u += W / N
-            end
-            V, V2 = V2, V
-            LL, LL2 = LL2, LL
-            Ms, Ms2 = Ms2, Ms
-            logw .= 0
-        end
-    end
-    acc + logsumexp(logw) - log(N) + M.Econst
-end
 
 # ----------------------------------------------------------------------------------------
 # Conditional SMC with a fixed reference path (upper bound on ln P, bidirectional MC).
 # If the reference is an exact posterior sample (the latent path that generated the data),
 # E[1/Ẑ] = 1/Z, hence E[ln Ẑ] ≥ ln Z: ln Ẑ_csmc is a stochastic upper bound.
 
-"""Methylation jumps of the generating path, with cluster labels: time, cluster, new state."""
+"""Methylation jumps of the generating path (time, cluster, new state) and its signal."""
 struct RefPath
     jt::Vector{Float64}
     jc::Vector{Int}
     jm::Vector{Int}
+    v::Vector{Float64}      # velocity on the SDE grid
+    logL::Vector{Float64}   # log ligand on the SDE intervals (`signal_logL`)
 end
 
 """
@@ -355,7 +387,9 @@ function true_path(M::Model, system, conf, rng)
         m[c] = ty == 0 ? mold + 1 : mold - 1
         push!(jt, τ); push!(jc, c); push!(jm, m[c])
     end
-    RefPath(jt, jc, jm)
+    sig = signal_logL(M, conf)
+    v = [0.0; [conf.trace.u[k][1] for k in 1:M.K-1]]
+    RefPath(jt, jc, jm, v, sig)
 end
 
 # likelihood increment of SDE interval k along the reference jumps; returns (lw, next jump index)
@@ -387,81 +421,27 @@ function ref_interval!(m::AbstractVector{Int}, a::Vector{Float64}, logL, k, M::M
 end
 
 """
-    csmc_run(M, N, rng, R, refsig; signal=nothing) -> (ln Ẑ, ref log-likelihood)
+    csmc_run(M, N, rng, R; conditional=false) -> (ln Ẑ, ref log-likelihood)
 
-Conditional bootstrap SMC: particle 1 follows the reference (methylation jumps `R`, signal
-`refsig`); the other N-1 are resampled multinomially from all N at every output level.
-With `signal` (the true signal, = refsig) the signal is fixed for all particles (conditional
-density); without it the other particles sample the signal from the prior (marginal).
-Returns the estimate of ln P(x_{0:T}) (an upper bound in expectation) and, as a check, the
-reference's own log-likelihood ln P(x_{0:T} | reference path) (both include Econst).
+Conditional particle filter: particle 1 follows the reference `R` (the generating
+methylation jumps and signal); the other N-1 are resampled multinomially from all N at
+every output level (`SMC.sample` with `resample_threshold=Inf` and
+`SMC.multinomial_sample_keep_first`). With `conditional=true` the signal is fixed to the
+reference signal (conditional density ln P(x|s)); otherwise the other particles sample the
+signal from the prior (marginal ln P(x)).
+Returns the estimate of the log density (an upper bound in expectation, because the
+reference is an exact posterior sample) and, as a check, the reference's own
+log-likelihood ln P(x_{0:T} | reference path). Both include `M.Econst`.
 """
-function csmc_run(M::Model, N::Int, rng, R::RefPath, refsig::Vector{Float64}; signal=nothing)
-    spl = round(Int, M.dt / M.Δ)
-    nc = length(M.init)
-    V = zeros(N); LL = fill(M.logc0, N); Ms = repeat(M.init, 1, N)
-    V2, LL2, Ms2 = similar(V), similar(LL), similar(Ms)
-    logw = zeros(N); w = zeros(N); a = zeros(nc)
-    nlev = M.K ÷ spl
-    @assert nlev * spl == M.K
-    acc = 0.0
+function csmc_run(M::Model, N::Int, rng, R::RefPath; conditional=false)
+    setup = SMC.Setup(FilterConfig(M, conditional ? R.logL : nothing, R), M, rng)
+    particles = [SMC.spawn(Particle, setup) for _ in 1:N]
+    particles[1].follow = true
     refll = 0.0
-    ptr = 1
-    for lev in 1:nlev
-        ks = (lev-1)*spl+1:lev*spl
-        # reference particle
-        lw = 0.0
-        m1 = @view Ms[:, 1]
-        for k in ks
-            l, ptr = ref_interval!(m1, a, refsig[k], k, M, R, ptr)
-            lw += l
-        end
-        logw[1] = lw
-        refll += lw
-        for p in 2:N
-            v, ll = V[p], LL[p]
-            m = @view Ms[:, p]
-            lw = 0.0
-            for k in ks
-                if signal === nothing
-                    lw += step_interval!(m, a, ll, k, M, rng)
-                    ll += log1p(M.gΔ * v)
-                    v = M.ρ * v + M.c * randn(rng)
-                else
-                    lw += step_interval!(m, a, signal[k], k, M, rng)
-                end
-            end
-            V[p], LL[p] = v, ll
-            logw[p] = lw
-        end
-        mx = maximum(logw)
-        @. w = exp(logw - mx)
-        W = sum(w)
-        acc += mx + log(W / N)
-        lev == nlev && break
-        # multinomial resampling of slots 2..N from all N (sorted uniforms by spacings)
-        E = randexp(rng, N)
-        tot = sum(E)
-        cum = 0.0
-        u = 0.0
-        j = 1
-        cw = w[1]
-        for i in 2:N
-            u += E[i-1]
-            target = u / tot * W
-            while cw < target && j < N
-                j += 1
-                cw += w[j]
-            end
-            V2[i], LL2[i] = V[j], LL[j]
-            @views Ms2[:, i] .= Ms[:, j]
-        end
-        V2[1], LL2[1] = V[1], LL[1]
-        @views Ms2[:, 1] .= Ms[:, 1]
-        V, V2 = V2, V; LL, LL2 = LL2, LL; Ms, Ms2 = Ms2, Ms
-    end
-    @assert ptr == length(R.jt) + 1 "reference jumps not all consumed"
-    acc + M.Econst, refll + M.Econst
+    log_marginal, _ = SMC.sample(setup, particles; rng=rng, resample_threshold=Inf,
+        resampler=SMC.multinomial_sample_keep_first, inspect=ps -> (refll += ps[1].lw))
+    @assert particles[1].ptr == length(R.jt) + 1 "reference jumps not all consumed"
+    log_marginal[end] + M.Egrid[end], refll + M.Econst
 end
 
 # ----------------------------------------------------------------------------------------
@@ -534,9 +514,9 @@ function information_bounds(system::ChemotaxisSystem, conf::TraceAndTrajectory, 
     R = true_path(M, system, conf, rng)
     N = num_particles
     cond_smc = smc_run(M, N, rng; signal=sig)
-    cond_csmc = csmc_run(M, N, rng, R, sig; signal=sig)[1]
+    cond_csmc = csmc_run(M, N, rng, R; conditional=true)[1]
     marg_smc = smc_run(M, N, rng)
-    marg_csmc = csmc_run(M, N, rng, R, sig)[1]
+    marg_csmc = csmc_run(M, N, rng, R)[1]
     (lower=cond_smc - marg_csmc, smc=cond_smc - marg_smc, upper=cond_csmc - marg_smc,
         cond_smc=cond_smc, cond_csmc=cond_csmc, marg_smc=marg_smc, marg_csmc=marg_csmc)
 end
