@@ -26,7 +26,8 @@
 #              trajectories so that the work can be spread over many jobs.
 #   assemble   merge all chunks into <out>/mi_trajectories.csv
 #   input      simulate input signals and write <out>/input_traj_summary.csv
-#   check      compare <out>/mi_trajectories.csv with the published data
+#   check      compare <out>/mi_trajectories.csv with the published data (see PROVENANCE.md for how
+#              the published uncertainty is defined)
 #
 # Options (`--name value` or `--name=value`); the defaults are the parameters of the paper
 #   --clusters 400          number of receptor clusters
@@ -266,6 +267,11 @@ function read_table(file)
     [Dict(zip(header, strip.(split(l, ','), '"'))) for l in lines[2:end]]
 end
 
+# The `Var` column of the published file is the average over the data files of the variance of the
+# mean of one file, and every file holds 1440 trajectories (see PROVENANCE.md). The variance of the
+# mean of all N trajectories is therefore smaller by a factor of N / 1440.
+const PUBLISHED_TRAJECTORIES_PER_FILE = 1440
+
 function check(o::Options)
     mine = read_table(joinpath(o.out, "mi_trajectories.csv"))
     published = read_table(joinpath(HERE, "data", "2023-02-17_mi_trajectories.csv"))
@@ -274,8 +280,11 @@ function check(o::Options)
     println(rpad("g (1/mm)", 10), rpad("T (s)", 8), rpad("published", 18), rpad("reproduced", 18), "difference / s.e.")
     for g in o.gradients
         pub, rep = final(published, g), final(mine, g)
-        f(r) = (parse(Float64, r["Mean"]) / log(2), sqrt(parse(Float64, r["Var"])) / log(2))
-        (pm, ps), (rm, rs) = f(pub), f(rep)
+        mean_bits(r) = parse(Float64, r["Mean"]) / log(2)
+        # s.e. of the mean of all trajectories; `files` = number of independent blocks the column averages over
+        se_bits(r, files) = sqrt(parse(Float64, r["Var"]) / files) / log(2)
+        pm, ps = mean_bits(pub), se_bits(pub, parse(Int, pub["N"]) / PUBLISHED_TRAJECTORIES_PER_FILE)
+        rm, rs = mean_bits(rep), se_bits(rep, 1)
         z = (rm - pm) / hypot(ps, rs)
         println(rpad(round(g * 1e3, digits=3), 10), rpad(parse(Float64, rep["DiscreteTimes"]), 8),
             rpad(@sprintf("%.4f ± %.4f", pm, ps), 18), rpad(@sprintf("%.4f ± %.4f", rm, rs), 18), @sprintf("%+.1f", z))

@@ -19,7 +19,8 @@ uses the defaults of `chemotaxis_system`.
 The figure script only plots; it reads CSV files from `data/`. The files that were used for the
 manuscript are committed, so the published figure can be redrawn at any time (see
 [Redraw the published figure](#redraw-the-published-figure)). This document explains how to
-**recompute these data files** with the code in this repository.
+**recompute these data files** with the code in this repository. How the published data files were
+originally produced (run settings, scripts, aggregation) is documented in [`PROVENANCE.md`](PROVENANCE.md).
 
 | data file | content | produced by |
 |---|---|---|
@@ -50,8 +51,10 @@ for N = 14400 independent trajectories of 20 s, the trajectory mutual informatio
 on the output time grid (`dt = 0.1 s`) with PWS (`PWS.information_density`). The marginal and the
 conditional probability are computed with a particle filter with M = 256 particles, as in the
 manuscript. The estimates are averaged over the trajectories. `assemble` writes the average and the
-variance of the average to `data/reproduced/mi_trajectories.csv`, in the same format as the
-published file (`Mean` in nats, `Var` = sample variance / N).
+variance of the average to `data/reproduced/mi_trajectories.csv`, in the same columns as the
+published file (`Mean` in nats). `Var` here is the variance of the mean of all N trajectories (sample
+variance / N). The published `Var` column is defined differently, it is 10 times larger, see
+[`PROVENANCE.md`](PROVENANCE.md).
 
 The default algorithm is `PWS.AggregatedSMCEstimate`, a particle filter specialised to the
 chemotaxis system that aggregates the likelihood of the CheY-P (de)phosphorylation events
@@ -94,7 +97,8 @@ julia --project=. figures/figure_rates/reproduce_chemotaxis.jl check
 ```
 
 prints the mutual information at `T = 20 s` of the published and the recomputed data in bits, with
-standard errors and the difference in units of the combined standard error. A finite particle number
+standard errors and the difference in units of the combined standard error. The published standard
+error is corrected for how the published `Var` column is defined, see [`PROVENANCE.md`](PROVENANCE.md). A finite particle number
 biases the particle-filter estimate of ln P(y) low, so the estimated mutual information is biased
 high. This bias decreases with `--particles`, so differences from the published M = 256 data
 should be expected to shrink as the particle number is increased.

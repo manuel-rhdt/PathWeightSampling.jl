@@ -126,9 +126,9 @@ Recomputing the data is a much larger job. What is available for each figure:
 | figure | script | recomputing the data |
 |---|---|---|
 | gene expression | `figures/figure_gene_expr/figure_gene_expr.jl` | `generate_data.jl` in the same folder runs the PWS simulations (hours to days on many cores) and writes raw HDF5 output. The plot reads processed CSV files; the step that produces them from the raw output is not in this repository. |
-| chemotaxis: mutual information and information rate | `figures/figure_rates/figure_chemotaxis.jl` | Yes, see [`figures/figure_rates/README.md`](figures/figure_rates/README.md): about 190 CPU hours for the full figure, with a check against the published data. |
-| chemotaxis: response kernels in frequency space | `figures/figure_kernels/figure_kernels.jl` | Not included, the figure is drawn from the committed data. |
-| chemotaxis: comparison with Gaussian theory | `figures/figure_rates/figure_comparison.jl` | Not included, the figure is drawn from the committed data. |
+| chemotaxis: mutual information and information rate | `figures/figure_rates/figure_chemotaxis.jl` | Yes, see [`figures/figure_rates/README.md`](figures/figure_rates/README.md): about 190 CPU hours for the full figure, with a check against the published data. How the published data was made: [`PROVENANCE.md`](figures/figure_rates/PROVENANCE.md). |
+| chemotaxis: response kernels in frequency space | `figures/figure_kernels/figure_kernels.jl` | Not included in this repository, the figure is drawn from the committed data. The origin of the data is described in [`figures/figure_rates/PROVENANCE.md`](figures/figure_rates/PROVENANCE.md). |
+| chemotaxis: comparison with Gaussian theory | `figures/figure_rates/figure_comparison.jl` | Not included in this repository, the figure is drawn from the committed data. The origin of the data (PWS runs, extrapolation, Gaussian rates) is described in [`figures/figure_rates/PROVENANCE.md`](figures/figure_rates/PROVENANCE.md). |
 
 The committed PWS data for the chemotaxis figure was computed with the generic `SMCEstimate` (256 particles) and an
 earlier version of this package. The aggregated particle filter for the chemotaxis system
