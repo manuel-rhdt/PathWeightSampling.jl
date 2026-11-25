@@ -113,7 +113,7 @@ files were found; it lists 37 files for `2023-02-17` although 40 jobs were submi
 | `2023-01-15_pws_info_rates.csv` | runs `2023-01-15` (30–200 clusters) and `2023-01-11` (400 clusters, Lmax 3–15): the combinations of cluster number and Lmax in the file are exactly the union of these two runs *(inferred)*. |
 | `2023-01-15_pws_extrapolation.csv` | the extrapolation (`α`, `β`, `extrapolation` per `g` and `Lmax`) of the rates above to small cluster numbers. **The code for this step was not found.** |
 | `input_traj_summary.csv` | `new_chemotaxis.ipynb`, cell "input trajectories": the 5/25/75/95 % quantiles and 20 sample trajectories of the ligand concentration. The copy `_research/data/input_traj_summary.csv` (21 Feb 2023) has the same size as the committed file. |
-| `cov_data_lit.csv`, `cov_data_fit.csv` | `new_chemotaxis.ipynb`: noise autocovariance (the "noise autocorrelation" of the comparison figure) from 10 000 simulated trajectories of 1000 s (`dtimes = 0:0.01:1000`) for the literature parameters and for the fitted parameters (`make_params(9, 15)`, i.e. 9 clusters with 15 methylation levels). |
+| `cov_data_lit.csv`, `cov_data_fit.csv` | `new_chemotaxis.ipynb`: noise autocovariance of the kinase activity from 10 000 simulated trajectories of 1000 s (`dtimes = 0:0.01:1000`) **at constant ligand concentration** (100 µM), for the literature parameters and for the fitted parameters (`make_params(9, 15)`, i.e. 9 clusters with 15 methylation levels). Recomputing the data with a fluctuating input signal as well gives a 14–23 % larger autocovariance for the literature parameters and does not reproduce the committed file; at constant ligand it does (see [`../figure_kernels/README.md`](../figure_kernels/README.md)). |
 | `kern_data_lit.csv`, `kern_data_fit.csv` | `new_chemotaxis.ipynb`: response kernel from the step response (ligand 100 → 110 at `t = 50`) of 100 000 simulated trajectories (`dtimes = 0:0.01:250`). |
 | `gaussian_rates.csv` | `new_chemotaxis.ipynb`: the coefficient `β` of the Gaussian information rate `R = β g²` for Mattingly, literature and fit, computed from the Fourier-transformed kernels and noise (`info_rate_coef`). `_research/data/gaussian_rate_beta.csv` (17 Feb 2023) has the same size as the committed file. |
 
@@ -124,12 +124,27 @@ notebook (helper functions `get_system`, `simulate_trajectory`, `make_params`, `
 ## Not found
 
 * The extrapolation code (see above), and which cluster numbers and `Lmax` entered the fit.
-* The version of the aggregation notebook that produced the `Lmax` column of `2023-01-15_pws_info_rates.csv`.
+* The version of the aggregation notebook that produced the `Lmax` column of `2023-01-15_pws_info_rates.csv`. In the thesis, the fit coefficients of the extrapolation (`R(N_c) = a N_c − b N_c²`) are given in a table (`tbl-fit_coefficients`) that was not found.
 * The data processing of the gene expression figure.
 * Whether the share contains all files of the runs above (see the note on `2023-02-17`).
 
-## To check
+## Thesis, notebook and data: where they differ
 
-* In the notebook cell that computes `kern_data_lit.csv`, the system is built from the literature parameters
-  but the kernel is extracted with `get_kernel(full_traj, params_fitted)`. This may be a copy-paste slip; whether
-  it matters depends on what `get_kernel` uses from its parameters, which was not inspected.
+The method is described in the thesis (chapter 4, "Estimating the kernels from simulations",
+<https://manuel-rhdt.github.io/webthesis/chapters/04-chemotaxis.html>). Comparing it with the notebook and the committed data:
+
+| | thesis | notebook / committed data |
+|---|---|---|
+| noise: ligand | constant, 100 µM | constant (a stochastic input does not reproduce the data) |
+| noise: trajectory length | "1 × 10⁴ s" | 1000 s. The relative spread of the single-trajectory autocovariance estimates in `cov_data_*.csv` is about 15 % at short lags, as expected for 1000 s and a correlation time of about 12 s (a 10⁴ s trajectory would give about 5 %) *(estimated)* |
+| noise: trajectories | 10⁵ | 10 000 (`Nobs` in `cov_data_*.csv`) |
+| kernel: trajectories | 10⁵ | 100 000 (`Nobs` in `kern_data_*.csv`) |
+| kernel: protocol | adapt for 50 s at 100 µM, step to 110 µM, record 200 s at 0.01 s | the same (trajectories of 250 s, step at 50 s) |
+| kernel: estimator | printed as `K(t) = ln(c_s/c_0) ⟨a(t−t₀) − a(t₀)⟩` | `−⟨a(t) − a(0)⟩ / ln(110/100)`. The committed values (0.66 for the literature and 1.5 for the fitted parameters at `t = 0.5 s`) follow the notebook; the printed formula, which multiplies by `ln(c_s/c_0)`, looks like a typo |
+| Fourier transform window | Hanning | the committed β values in `gaussian_rates.csv` are reproduced exactly with a **Lanczos** window and differ by 0.15–0.18 % with a Hanning window; `figure_kernels.jl` plots with Hanning |
+| parameters | table of the thesis | the same as the defaults of `PWS.chemotaxis_system` (`φ_Y = 1/6`; the table prints 0.17, the text 0.16) |
+
+In the notebook cell that computes `kern_data_lit.csv`, the system is built from the literature parameters but the
+kernel is extracted with `get_kernel(full_traj, params_fitted)`. This is harmless: `get_kernel` only uses
+`k_Z / (k_A n_clusters)`, and `k_A n_clusters` is the same for both parameter sets (6.0) because `k_A` is chosen
+proportional to `1/n_clusters`.

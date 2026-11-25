@@ -87,8 +87,8 @@ result does not depend on the number of threads or slices.
 julia --project=. figures/figure_rates/reproduce_chemotaxis.jl input
 ```
 
-This integrates the SDE of the input signal for 1000 trajectories of 100 s and writes
-`data/reproduced/input_traj_summary.csv` (takes a minute).
+This integrates the SDE of the input signal for 10 000 trajectories of 100 s and writes
+`data/reproduced/input_traj_summary.csv`.
 
 ### 3. Compare with the published data
 
@@ -118,7 +118,7 @@ All options of `reproduce_chemotaxis.jl` have the parameters of the manuscript a
 | `--particles` | 256 | SMC particles per marginalization |
 | `--algorithm` | `aggregated` | `aggregated` or `generic` |
 | `--chunk` | `1/1` | `i/n`: compute only the i-th of n slices of the trajectories |
-| `--input-trajectories` | 1000 | trajectories for the input signal summary |
+| `--input-trajectories` | 10000 | trajectories for the input signal summary |
 | `--out` | `data/reproduced` | output directory |
 
 For a quick test of the pipeline use, for example, `--ntraj 72 --out /tmp/chemotaxis-test`.

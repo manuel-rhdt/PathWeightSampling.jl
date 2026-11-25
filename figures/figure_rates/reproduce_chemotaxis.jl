@@ -39,7 +39,7 @@
 #   --particles 256         SMC particles per marginalization
 #   --algorithm aggregated  `aggregated` (AggregatedSMCEstimate) or `generic` (SMCEstimate)
 #   --chunk 1/1             slice of the trajectories to compute
-#   --input-trajectories 1000   trajectories for the input-signal summary
+#   --input-trajectories 10000  trajectories for the input-signal summary
 #   --out figures/figure_rates/data/reproduced
 #
 # The seed of every trajectory is a function of (gradient, trajectory index) only, so the result
@@ -63,7 +63,7 @@ Base.@kwdef struct Options
     particles::Int = 256
     algorithm::String = "aggregated"
     chunk::Tuple{Int,Int} = (1, 1)
-    input_trajectories::Int = 1000
+    input_trajectories::Int = 10_000
     out::String = joinpath(HERE, "data", "reproduced")
 end
 
