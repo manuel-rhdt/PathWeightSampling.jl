@@ -1,9 +1,8 @@
 # How the chemotaxis data of the paper was produced
 
 This document records how the data files in `data/` were made, as far as it could be reconstructed
-from the author's cluster account (scripts, notebooks, per-job parameter files and a manifest of the
-raw output). The scripts and notebooks mentioned here are **not part of this repository**; their
-location is given so that they can be found or copied in later. Statements are marked
+from the original scripts, notebooks and per-job parameter files. These, together with the raw output, are
+archived (see below) and are **not part of this repository**. Statements are marked
 *(inferred)* where they follow from matching parameters and not from a record.
 
 `reproduce_chemotaxis.jl` recomputes the two data files of the main chemotaxis figure
@@ -22,26 +21,21 @@ julia figures/figure_rates/download_data.jl            # all runs, written to da
 julia figures/figure_rates/download_data.jl 2023-02-17 # one run
 ```
 
-The locations below describe where the files were found when this document was written.
+`scripts.tar.gz` in the archive contains:
 
-## Where things are
-
-| what | where |
+| file | content |
 |---|---|
-| run submission, run scripts | cluster home `~/pws-cluster-scripts/` (`submit_jobs.jl`, `simple_chemotaxis.jl`) |
-| parameters of every submitted job | `~/pws-cluster-scripts/_research/tmp/*.json` (4212 files, Sep 2022 – Mar 2023) |
-| raw output, one HDF5 file per job | SMB share `\\sun.amolf.nl\tenwolde`, rclone remote `sun:tenwolde/home-folder/reinhardt/pws-cluster-scripts/data/simple_chemotaxis/<run_name>/` |
-| list of the files on the share (3384 files) | `~/compress_files/hdf5_list.txt` |
-| aggregation of the HDF5 files | `~/compress_files/analysis.ipynb` (version of 7 Jan 2023) |
-| kernel, covariance, input-signal and Gaussian data | `~/pws-cluster-scripts/_research/new_chemotaxis.ipynb` |
-
-The raw HDF5 files were re-compressed in place on the share in September 2025 (`compress_hdf5.py`).
+| `submit_jobs.jl`, `simple_chemotaxis.jl` | run submission and the script that runs one job |
+| `job_configs/<run>/*.json` | parameters of every job of the three runs |
+| `analysis_*.ipynb` | aggregation of the HDF5 files (version of 7 Jan 2023) |
+| `new_chemotaxis.ipynb` | kernel, covariance, input-signal and Gaussian data |
+| `Project.toml`, `Manifest.toml` | package versions of the original runs |
 
 ## Pipeline for the PWS data
 
 1. **Submit.** `submit_jobs.jl` expands a dictionary of settings (`run_name`, `cluster_size` = Lmax,
    `n_clusters`, `gradient_steepness`, `smc_samples`, `num_samples`, `duration`, `jobnum`, …) into one JSON file
-   per job in `_research/tmp/` and submits each as a 36-CPU job running `simple_chemotaxis.jl`. For example the
+   per job (`job_configs/`) and submits each as a 36-CPU job running `simple_chemotaxis.jl`. For example the
    file of one job of run `2023-01-15`:
 
    ```json
@@ -62,7 +56,7 @@ The raw HDF5 files were re-compressed in place on the share in September 2025 (`
 3. **Output.** One HDF5 file per job, named
    `Alg=smc_Clusters=<n>_Duration=20_Job=<j>_M=<M>_Methylation=true_N=<Lmax>_TauL=1.16_g=<g>.hdf5`, with the
    mutual information of every sample in `Samples/MutualInformation` (time points × samples),
-   `DiscreteTimes` and `Parameters`. The files were copied to the share listed above.
+   `DiscreteTimes` and `Parameters`.
 
 4. **Aggregate.** `analysis.ipynb` reads the files of a run and, per file, computes the mean
    over the samples and the variance of that mean, `var(mi, dims=2) ./ size(mi, 2)`. Files with the same
@@ -113,9 +107,8 @@ All runs use the generic `SMCEstimate` (except `2023-01-06`, which uses PERM), `
 | `2023-02-17` | 256 | 400 | 6 | 20 | 1440 | 40 |
 | `2023-03-27` | 256 | `150 / Lmax` | 1, 2, 3, 5 | 20 | 720, 1440, 2880 | 800 |
 
-The manifest on the share lists additional files from runs `2022-09-15` to `2022-09-22` for which no job
-files were found; it lists 37 files for `2023-02-17` although 40 jobs were submitted (the published
-`N = 14400` corresponds to 10 files per gradient steepness).
+Of run `2023-02-17`, 37 of the 40 job files were recovered (the published `N = 14400` corresponds to 10 files per
+gradient steepness).
 
 ## Which data file comes from which run
 
@@ -126,10 +119,10 @@ files were found; it lists 37 files for `2023-02-17` although 40 jobs were submi
 | `2022-10-03_2_pws_info_rates_lit.csv` | run `2022-10-03_2` (800 clusters, Lmax 6, `M = 128`) *(inferred from the name and parameters)*. |
 | `2023-01-15_pws_info_rates.csv` | runs `2023-01-15` (30–200 clusters) and `2023-01-11` (400 clusters, Lmax 3–15): the combinations of cluster number and Lmax in the file are exactly the union of these two runs *(inferred)*. |
 | `2023-01-15_pws_extrapolation.csv` | the extrapolation (`α`, `β`, `extrapolation` per `g` and `Lmax`) of the rates above to small cluster numbers. **The code for this step was not found.** |
-| `input_traj_summary.csv` | `new_chemotaxis.ipynb`, cell "input trajectories": the 5/25/75/95 % quantiles and 20 sample trajectories of the ligand concentration. The copy `_research/data/input_traj_summary.csv` (21 Feb 2023) has the same size as the committed file. |
+| `input_traj_summary.csv` | `new_chemotaxis.ipynb`, cell "input trajectories": the 5/25/75/95 % quantiles and 20 sample trajectories of the ligand concentration. |
 | `cov_data_lit.csv`, `cov_data_fit.csv` | `new_chemotaxis.ipynb`: noise autocovariance of the kinase activity from 10 000 simulated trajectories of 1000 s (`dtimes = 0:0.01:1000`) **at constant ligand concentration** (100 µM), for the literature parameters and for the fitted parameters (`make_params(9, 15)`, i.e. 9 clusters with 15 methylation levels). Recomputing the data with a fluctuating input signal as well gives a 14–23 % larger autocovariance for the literature parameters and does not reproduce the committed file; at constant ligand it does (see [`../figure_kernels/README.md`](../figure_kernels/README.md)). |
 | `kern_data_lit.csv`, `kern_data_fit.csv` | `new_chemotaxis.ipynb`: response kernel from the step response (ligand 100 → 110 at `t = 50`) of 100 000 simulated trajectories (`dtimes = 0:0.01:250`). |
-| `gaussian_rates.csv` | `new_chemotaxis.ipynb`: the coefficient `β` of the Gaussian information rate `R = β g²` for Mattingly, literature and fit, computed from the Fourier-transformed kernels and noise (`info_rate_coef`). `_research/data/gaussian_rate_beta.csv` (17 Feb 2023) has the same size as the committed file. |
+| `gaussian_rates.csv` | `new_chemotaxis.ipynb`: the coefficient `β` of the Gaussian information rate `R = β g²` for Mattingly, literature and fit, computed from the Fourier-transformed kernels and noise (`info_rate_coef`). |
 
 The kernel, covariance and Gaussian data come from a custom simulation of the chemotaxis model inside the
 notebook (helper functions `get_system`, `simulate_trajectory`, `make_params`, `merge_cov`,
@@ -140,25 +133,4 @@ notebook (helper functions `get_system`, `simulate_trajectory`, `make_params`, `
 * The extrapolation code (see above), and which cluster numbers and `Lmax` entered the fit.
 * The version of the aggregation notebook that produced the `Lmax` column of `2023-01-15_pws_info_rates.csv`. In the thesis, the fit coefficients of the extrapolation (`R(N_c) = a N_c − b N_c²`) are given in a table (`tbl-fit_coefficients`) that was not found.
 * The data processing of the gene expression figure.
-* Whether the share contains all files of the runs above (see the note on `2023-02-17`).
-
-## Thesis, notebook and data: where they differ
-
-The method is described in the thesis (chapter 4, "Estimating the kernels from simulations",
-<https://manuel-rhdt.github.io/webthesis/chapters/04-chemotaxis.html>). Comparing it with the notebook and the committed data:
-
-| | thesis | notebook / committed data |
-|---|---|---|
-| noise: ligand | constant, 100 µM | constant (a stochastic input does not reproduce the data) |
-| noise: trajectory length | "1 × 10⁴ s" | 1000 s. The relative spread of the single-trajectory autocovariance estimates in `cov_data_*.csv` is about 15 % at short lags, as expected for 1000 s and a correlation time of about 12 s (a 10⁴ s trajectory would give about 5 %) *(estimated)* |
-| noise: trajectories | 10⁵ | 10 000 (`Nobs` in `cov_data_*.csv`) |
-| kernel: trajectories | 10⁵ | 100 000 (`Nobs` in `kern_data_*.csv`) |
-| kernel: protocol | adapt for 50 s at 100 µM, step to 110 µM, record 200 s at 0.01 s | the same (trajectories of 250 s, step at 50 s) |
-| kernel: estimator | printed as `K(t) = ln(c_s/c_0) ⟨a(t−t₀) − a(t₀)⟩` | `−⟨a(t) − a(0)⟩ / ln(110/100)`. The committed values (0.66 for the literature and 1.5 for the fitted parameters at `t = 0.5 s`) follow the notebook; the printed formula, which multiplies by `ln(c_s/c_0)`, looks like a typo |
-| Fourier transform window | Hanning | the committed β values in `gaussian_rates.csv` are reproduced exactly with a **Lanczos** window and differ by 0.15–0.18 % with a Hanning window; `figure_kernels.jl` plots with Hanning |
-| parameters | table of the thesis | the same as the defaults of `PWS.chemotaxis_system` (`φ_Y = 1/6`; the table prints 0.17, the text 0.16) |
-
-In the notebook cell that computes `kern_data_lit.csv`, the system is built from the literature parameters but the
-kernel is extracted with `get_kernel(full_traj, params_fitted)`. This is harmless: `get_kernel` only uses
-`k_Z / (k_A n_clusters)`, and `k_A n_clusters` is the same for both parameter sets (6.0) because `k_A` is chosen
-proportional to `1/n_clusters`.
+* The missing job files of the runs above (see the note on `2023-02-17`).
