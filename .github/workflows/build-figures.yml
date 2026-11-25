@@ -37,6 +37,9 @@ jobs:
         working-directory: figures
         run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 
+      - name: Gaussian rates must equal the committed values
+        run: make smoke-rates
+
       - name: Build figures
         working-directory: figures
         env:

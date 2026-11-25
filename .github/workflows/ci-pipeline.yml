@@ -10,28 +10,56 @@ on:
 
 jobs:
   build:
+    name: Julia ${{ matrix.julia-version }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # the oldest supported release line and the current one
+        julia-version: ['lts', '1.12']
     env:
       JULIA_NUM_THREADS: 1
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.12'
+          version: ${{ matrix.julia-version }}
       - uses: julia-actions/cache@v2
       - name: Run tests
         uses: julia-actions/julia-runtest@v1
+      # documentation and coverage only once
       - name: Install dependencies
+        if: matrix.julia-version == '1.12'
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Deploy docs
+        if: matrix.julia-version == '1.12'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: julia --project=docs/ docs/make.jl
-        
+
       - uses: julia-actions/julia-processcoverage@v1
+        if: matrix.julia-version == '1.12'
       - name: Upload coverage reports to Codecov with GitHub Action
+        if: matrix.julia-version == '1.12'
         uses: codecov/codecov-action@v4.2.0
         with:
           files: lcov.info
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # The scripts that reproduce the figures run end to end with tiny settings (see the Makefile).
+  # The numbers are not meaningful; this catches changes that break the scripts.
+  scripts:
+    name: Reproduction scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      THREADS: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+      - uses: julia-actions/cache@v2
+      - name: Smoke tests of the reproduction scripts
+        run: make smoke-reproduce smoke-kernels

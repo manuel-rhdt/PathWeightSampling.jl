@@ -19,6 +19,8 @@
 # Options
 #   --data   directory with cov_data_{lit,fit}.csv and kern_data_{lit,fit}.csv (default: the committed data)
 #   --out    directory for the result `gaussian_rates.csv` (default: next to the data in `reproduced/`)
+#   --tolerance  exit with an error if a β differs from the committed value by more than this relative amount
+#                (for tests: with the committed data and the default window the difference is zero)
 #   --window lanczos | hanning: window applied to the time series before the Fourier transform
 #            (default lanczos, which reproduces the committed gaussian_rates.csv; figure_kernels.jl uses
 #            hanning for the plotted spectra, which changes β by about 0.2 %)
@@ -86,7 +88,7 @@ function info_rate_coef(kernels)
 end
 
 function parse_options(args)
-    opts = Dict("data" => joinpath(HERE, "data"), "out" => nothing, "window" => "lanczos")
+    opts = Dict("data" => joinpath(HERE, "data"), "out" => nothing, "window" => "lanczos", "tolerance" => nothing)
     i = 1
     while i <= length(args)
         arg = args[i]
@@ -132,9 +134,15 @@ function main(args)
     published = DataFrame(load(joinpath(HERE, "..", "figure_rates", "data", "gaussian_rates.csv")))
     println("\nβ (bits/s per (mm⁻¹)²), window = ", o["window"])
     println(rpad("model", 12), rpad("new", 24), rpad("committed", 24), "relative difference")
+    worst = 0.0
     for (l, β) in zip(labels, betas)
         pub = published.β[findfirst(==(l), published.label)]
+        worst = max(worst, abs((β - pub) / pub))
         println(rpad(l, 12), rpad(@sprintf("%.10f", β), 24), rpad(@sprintf("%.10f", pub), 24), @sprintf("%+.2e", (β - pub) / pub))
+    end
+    if o["tolerance"] !== nothing && worst > parse(Float64, o["tolerance"])
+        println(stderr, "β differs from the committed values by ", worst, " (tolerance ", o["tolerance"], ")")
+        exit(1)
     end
 end
 

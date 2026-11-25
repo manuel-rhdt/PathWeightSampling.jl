@@ -136,6 +136,20 @@ earlier version of this package. The aggregated particle filter for the chemotax
 agree with the published data within the statistical error, but not bit for bit; the `check` command
 of `figures/figure_rates/reproduce_chemotaxis.jl` compares the two.
 
+### Make targets
+
+A [`Makefile`](Makefile) collects the common commands (`make help` lists them):
+
+| command | what it does |
+|---|---|
+| `make test` | the test suite |
+| `make docs` | build the documentation |
+| `make figures` | draw all figures from the committed data |
+| `make smoke` | run the reproduction scripts with tiny settings (a few minutes), to check that they still work; the numbers they produce are not meaningful. This also runs in CI. |
+
+Set `JULIA=/path/to/julia` to use a specific Julia. The full-size reproductions are not make targets because they
+take CPU hours; see the READMEs of `figures/figure_rates/` and `figures/figure_kernels/`.
+
 ## Acknowledgments
 
 This work was performed at the research institute [AMOLF](https://amolf.nl).

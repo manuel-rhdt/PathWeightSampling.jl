@@ -39,6 +39,9 @@
 #   --models lit,fit    parameter sets
 #   --ntraj             trajectories per model: 10000 for `noise`, 100000 for `kernel`
 #   --chunk 1/1         slice of the trajectories to compute
+#   --duration          trajectory duration in s (default 1000 for `noise`, 250 for `kernel`); shorter values
+#                       are for quick tests of the script only, the result is then not the published quantity
+#   --maxlag            number of lags of the autocovariance for `noise` (default 20000; at most duration / 0.01)
 #   --out figures/figure_kernels/data/reproduced
 
 import PathWeightSampling as PWS
@@ -64,6 +67,8 @@ Base.@kwdef struct Options
     models::Vector{String} = ["lit", "fit"]
     ntraj::Union{Nothing,Int} = nothing
     chunk::Tuple{Int,Int} = (1, 1)
+    duration::Union{Nothing,Float64} = nothing
+    maxlag::Union{Nothing,Int} = nothing
     out::String = joinpath(HERE, "data", "reproduced")
 end
 
@@ -90,6 +95,10 @@ function parse_options(args)
                 kw[:chunk] = (k, n)
             elseif name == "ntraj"
                 kw[:ntraj] = parse(Int, value)
+            elseif name == "duration"
+                kw[:duration] = parse(Float64, value)
+            elseif name == "maxlag"
+                kw[:maxlag] = parse(Int, value)
             elseif name == "out"
                 kw[:out] = String(value)
             else
@@ -108,9 +117,17 @@ end
 # ---------------------------------------------------------------------------------------------
 # Simulation
 
-system_for(model, kind) = PWS.chemotaxis_system(
+# effective settings of a command; `--duration` and `--maxlag` shorten the simulation for quick tests
+function settings(o::Options, kind)
+    s = SETTINGS[kind]
+    duration = something(o.duration, s.duration)
+    kind == "kernel" && duration <= STEP.time && error("--duration must exceed the step time $(STEP.time) s")
+    (; s..., duration, maxlag=s.maxlag > 0 ? something(o.maxlag, s.maxlag) : 0)
+end
+
+system_for(o::Options, model, kind) = PWS.chemotaxis_system(
     n_clusters=MODELS[model].clusters, n=MODELS[model].lmax,
-    duration=SETTINGS[kind].duration, dt=SETTINGS[kind].dt, sde_dt=SETTINGS[kind].dt)
+    duration=settings(o, kind).duration, dt=SETTINGS[kind].dt, sde_dt=SETTINGS[kind].dt)
 
 trajectory_seed(kind, model, i) = ((kind == "noise" ? 1 : 2) * 10 + (model == "lit" ? 1 : 2)) * 1_000_000_000 + i
 
@@ -206,8 +223,9 @@ function run_statistic(o::Options, kind)
             @info "skipping finished piece" file
             continue
         end
-        base = system_for(model, kind)
-        len = SETTINGS[kind].maxlag > 0 ? SETTINGS[kind].maxlag + 1 : round(Int, (SETTINGS[kind].duration - STEP.time) / SETTINGS[kind].dt) + 1
+        cfg = settings(o, kind)
+        base = system_for(o, model, kind)
+        len = cfg.maxlag > 0 ? cfg.maxlag + 1 : round(Int, (cfg.duration - STEP.time) / cfg.dt) + 1
         accs = [Accumulator(len) for _ in 1:Threads.nthreads()]
         next = Threads.Atomic{Int}(first(range))
         finished = Threads.Atomic{Int}(0)
@@ -220,7 +238,7 @@ function run_statistic(o::Options, kind)
                     i = Threads.atomic_add!(next, 1)
                     i > last(range) && break
                     rng = Xoshiro(trajectory_seed(kind, model, i))
-                    x = kind == "noise" ? noise_statistic(system, rng, SETTINGS[kind].maxlag) : kernel_statistic(system, rng)
+                    x = kind == "noise" ? noise_statistic(system, rng, cfg.maxlag) : kernel_statistic(system, rng)
                     add!(accs[t], x)
                     done = Threads.atomic_add!(finished, 1) + 1
                     done % report_every == 0 &&
@@ -229,7 +247,7 @@ function run_statistic(o::Options, kind)
             end
         end
         acc = reduce(merge, accs)
-        time_axis = (0:(len-1)) .* SETTINGS[kind].dt
+        time_axis = (0:(len-1)) .* cfg.dt
         tmp = file * ".tmp"
         open(tmp, "w") do io
             println(io, "t,N,Mean,SumSqDev")
