@@ -10,6 +10,20 @@ location is given so that they can be found or copied in later. Statements are m
 (`2023-02-17_mi_trajectories.csv` and `input_traj_summary.csv`) and is documented in
 [`README.md`](README.md). The other data files were produced as described below.
 
+## Raw data archive
+
+The raw HDF5 files of the three runs behind the figures (`2023-02-17`, `2023-01-15`, `2023-01-11`), the
+submission and run scripts, the job configurations and the aggregation notebooks are archived at
+[doi:10.5281/zenodo.24530700](https://doi.org/10.5281/zenodo.24530700). The archive holds the files that were
+recovered (37 of 40, 254 of 288 and 46 of 56 jobs). Download and verify it with
+
+```bash
+julia figures/figure_rates/download_data.jl            # all runs, written to data/raw/
+julia figures/figure_rates/download_data.jl 2023-02-17 # one run
+```
+
+The locations below describe where the files were found when this document was written.
+
 ## Where things are
 
 | what | where |

@@ -20,7 +20,7 @@ The figure script only plots; it reads CSV files from `data/`. The files that we
 manuscript are committed, so the published figure can be redrawn at any time (see
 [Redraw the published figure](#redraw-the-published-figure)). This document explains how to
 **recompute these data files** with the code in this repository. How the published data files were
-originally produced (run settings, scripts, aggregation) is documented in [`PROVENANCE.md`](PROVENANCE.md).
+originally produced (run settings, scripts, aggregation) is documented in [`PROVENANCE.md`](PROVENANCE.md). The raw HDF5 output of the published runs is archived at [doi:10.5281/zenodo.24530700](https://doi.org/10.5281/zenodo.24530700); `julia figures/figure_rates/download_data.jl` downloads and verifies it.
 
 | data file | content | produced by |
 |---|---|---|
