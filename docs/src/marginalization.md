@@ -84,6 +84,15 @@ However, instead of generating ``\bm{s}`` trajectories in an uncorrelated fashio
 SMCEstimate
 ```
 
+### Aggregated SMC for the chemotaxis system
+
+For `PWS.chemotaxis_system` the output (CheY phosphorylation events, ~10⁴ per second) does not have to be simulated: given the receptor-cluster methylation states and the input signal, the phosphorylation events are a Poisson process whose intensity is piecewise constant, so their likelihood can be aggregated analytically. `AggregatedSMCEstimate` is a particle filter that only simulates the methylation of the receptor clusters (and the input signal for the marginal probability) and weights particles with the aggregated likelihood. It estimates the same quantities as `SMCEstimate` but is much faster, which makes particle numbers of 10⁵–10⁶ practical. `information_bounds` additionally returns stochastic lower and upper bounds on the information density, obtained from a conditional particle filter that keeps the true latent path as reference; when the bounds agree, the particle number is sufficient.
+
+```@docs
+PathWeightSampling.ChemotaxisSMC.AggregatedSMCEstimate
+PathWeightSampling.ChemotaxisSMC.information_bounds
+```
+
 ## TI-PWS
 
 The third marginalization scheme is based on the analogy of marginalization integrals with reversible work computations.

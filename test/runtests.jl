@@ -61,6 +61,9 @@ doctest(PWS)
         @testset "SMC Estimation" begin
             include("algorithms/smc_estimate.jl")
         end
+        @testset "Aggregated SMC (chemotaxis)" begin
+            include("algorithms/chemotaxis_smc.jl")
+        end
     end
 
 end

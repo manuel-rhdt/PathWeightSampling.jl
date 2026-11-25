@@ -5,6 +5,21 @@ using CairoMakie
 using LaTeXStrings
 using CSVFiles
 
+# By default the figure is drawn from the published data in `data/`. To draw it from data that was
+# recomputed with `reproduce_chemotaxis.jl`, set CHEMOTAXIS_DATA_DIR to the directory that holds the
+# recomputed `mi_trajectories.csv` (and optionally `input_traj_summary.csv`) and, to keep the
+# published figure files, CHEMOTAXIS_OUT_DIR to the output directory. See README.md.
+published_dir = projectdir("figure_rates", "data")
+data_dir = get(ENV, "CHEMOTAXIS_DATA_DIR", published_dir)
+out_dir = get(ENV, "CHEMOTAXIS_OUT_DIR", projectdir("figure_rates"))
+mkpath(out_dir)
+mi_file = data_dir == published_dir ? "2023-02-17_mi_trajectories.csv" : "mi_trajectories.csv"
+input_file = joinpath(data_dir, "input_traj_summary.csv")
+if !isfile(input_file)
+    @info "no recomputed input signal summary found, using the published one" input_file
+    input_file = joinpath(published_dir, "input_traj_summary.csv")
+end
+
 normalfont = projectdir("fonts", "NotoSans-Condensed.ttf")
 italicfont = projectdir("fonts", "NotoSans-Italic.ttf")
 boldfont = projectdir("fonts", "NotoSans-CondensedSemiBold.ttf")
@@ -145,7 +160,7 @@ axislegend(axb, position=(0, 1), margin=(2,2,1,1))
 
 axc = Axis(fig[2,2], title="input signal", ylabel=L"c(t)", xlabel=L"t")
 
-input_data = DataFrame(load(projectdir("figure_rates", "data", "input_traj_summary.csv")))
+input_data = DataFrame(load(input_file))
 
 band!(axc, input_data.t, input_data.q05, input_data.q95, color=:gray70)
 band!(axc, input_data.t, input_data.q25, input_data.q75, color=:gray50)
@@ -162,7 +177,7 @@ axd = Axis(
     title = "mutual\ninformation (bits)"
 )
 
-sims = DataFrame(load(projectdir("figure_rates", "data", "2023-02-17_mi_trajectories.csv")))
+sims = DataFrame(load(joinpath(data_dir, mi_file)))
 
 groups = groupby(sims, [:g], sort = true)
 cmap = cgrad(:OrRd_9, rev=true)
@@ -205,8 +220,8 @@ end
 # end
 ylims!(axe, nothing, 0.16)
 
-save(projectdir("figure_rates", "chemotaxis.pdf"), fig, pt_per_unit = 1)
-save(projectdir("figure_rates", "chemotaxis.png"), fig, pt_per_unit = 1, px_per_unit = 2)
+save(joinpath(out_dir, "chemotaxis.pdf"), fig, pt_per_unit = 1)
+save(joinpath(out_dir, "chemotaxis.png"), fig, pt_per_unit = 1, px_per_unit = 2)
 
 
 fig

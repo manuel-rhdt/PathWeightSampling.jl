@@ -10,6 +10,7 @@ This figure can be recreated by running the script `figure_gene_expr/figure_gene
 
 ## Chemotaxis Results
 
-![Chemotaxis Results](./figure_chemotaxis/chemotaxis_mi.svg)
+![Chemotaxis Results](./figure_rates/chemotaxis.png)
 
-This figure can be recreated by running the script `figure_chemotaxis/generate_figure.jl`
+This figure is drawn by `figure_rates/figure_chemotaxis.jl`. The data it is drawn from can be recomputed
+with this package, see [figure_rates/README.md](./figure_rates/README.md).

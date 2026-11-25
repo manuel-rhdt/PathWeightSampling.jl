@@ -14,9 +14,6 @@ FIGURES = [
     "figure_rates/chemotaxis.pdf",
     "figure_rates/chemotaxis_comparison.png",
     "figure_rates/chemotaxis_comparison.pdf",
-    "figure_chemotaxis/chemotaxis_mi.png",
-    "figure_chemotaxis/chemotaxis_mi.svg",
-    "figure_chemotaxis/chemotaxis_mi.pdf",
 ]
 
 figures_dir = Path(__file__).resolve().parent

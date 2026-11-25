@@ -111,6 +111,45 @@ Here we plot `mean(result.MutualInformation)`, i.e. we compute the average of ou
 
 More examples and a guide can be found in the [documentation](https://manuel-rhdt.github.io/PathWeightSampling.jl/)
 
+## Reproducing the figures of the paper
+
+The code for the figures of the paper is in [`figures/`](figures/). The data behind every
+figure is committed, so each figure can be redrawn from it with the `figures/` environment:
+
+```bash
+julia --project=figures -e 'using Pkg; Pkg.instantiate()'
+julia --project=figures figures/figure_gene_expr/figure_gene_expr.jl   # or any script in the table below
+```
+
+Recomputing the data is a much larger job. What is available for each figure:
+
+| figure | script | recomputing the data |
+|---|---|---|
+| gene expression | `figures/figure_gene_expr/figure_gene_expr.jl` | `generate_data.jl` in the same folder runs the PWS simulations (hours to days on many cores) and writes raw HDF5 output. The plot reads processed CSV files; the step that produces them from the raw output is not in this repository. |
+| chemotaxis: mutual information and information rate | `figures/figure_rates/figure_chemotaxis.jl` | Yes, see [`figures/figure_rates/README.md`](figures/figure_rates/README.md): about 190 CPU hours for the full figure, with a check against the published data. How the published data was made: [`PROVENANCE.md`](figures/figure_rates/PROVENANCE.md). The raw simulation output is archived at [doi:10.5281/zenodo.24530700](https://doi.org/10.5281/zenodo.24530700) (`figures/figure_rates/download_data.jl`). |
+| chemotaxis: response kernels in frequency space | `figures/figure_kernels/figure_kernels.jl` | Yes, see [`figures/figure_kernels/README.md`](figures/figure_kernels/README.md): simulations of the noise and the response kernel (about 650 CPU hours with the original numbers of trajectories, about 13 with a small test run) and the Gaussian information rates, with a check against the committed data. |
+| chemotaxis: comparison with Gaussian theory | `figures/figure_rates/figure_comparison.jl` | The kernels, noise and Gaussian rates in this figure can be recomputed as above. The PWS rates and their extrapolation to small cluster numbers cannot; their origin is described in [`figures/figure_rates/PROVENANCE.md`](figures/figure_rates/PROVENANCE.md). |
+
+The committed PWS data for the chemotaxis figure was computed with the generic `SMCEstimate` (256 particles) and an
+earlier version of this package. The aggregated particle filter for the chemotaxis system
+(`AggregatedSMCEstimate`) estimates the same quantity much faster. Recomputed data is expected to
+agree with the published data within the statistical error, but not bit for bit; the `check` command
+of `figures/figure_rates/reproduce_chemotaxis.jl` compares the two.
+
+### Make targets
+
+A [`Makefile`](Makefile) collects the common commands (`make help` lists them):
+
+| command | what it does |
+|---|---|
+| `make test` | the test suite |
+| `make docs` | build the documentation |
+| `make figures` | draw all figures from the committed data |
+| `make smoke` | run the reproduction scripts with tiny settings (a few minutes), to check that they still work; the numbers they produce are not meaningful. This also runs in CI. |
+
+Set `JULIA=/path/to/julia` to use a specific Julia. The full-size reproductions are not make targets because they
+take CPU hours; see the READMEs of `figures/figure_rates/` and `figures/figure_kernels/`.
+
 ## Acknowledgments
 
 This work was performed at the research institute [AMOLF](https://amolf.nl).
